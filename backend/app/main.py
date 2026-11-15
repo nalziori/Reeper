@@ -76,17 +76,41 @@ def create_case(req: OpenRequest) -> StepResponse:
 
 @app.post("/api/cases/step")
 def step(req: StepRequest) -> StepResponse:
-    event, fallback = req.event, False
+    event, fallback, reply = req.event, False, ""
+
     try:
         if event.type == "reply_received" and event.reply_type is None:
-            # 현재 단계에서 답장을 받을 수 있을 때만 LLM을 호출한다.
+            # A: 현재 상태에서 답장을 받을 수 있는지 검증
             validate_transition(req.case, event, req.today)
-            reply_type, amount, fallback = agent.read_reply(event.text)
-            event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
+
+            # B: AI 분석에 사용할 답장 원문 보관
+            reply = event.text
+
+            # B: 답장 유형과 제시 금액 분석
+            reply_type, amount, fallback = agent.read_reply(reply)
+
+            event = event.model_copy(
+                update={
+                    "reply_type": reply_type,
+                    "amount": (
+                        event.amount
+                        if event.amount is not None
+                        else amount
+                    ),
+                }
+            )
+
+        # A: 상태 전이 및 예외 조건 검사
         case = apply(req.case, event, req.today)
+
     except InvalidTransition as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return respond(case, req.today, fallback)
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc)
+        ) from exc
+
+    # B: 답장 원문 전달 및 추가 분석 결과 반환
+    return respond(case, req.today, fallback, reply)
 
 
 # 빌드된 화면이 있으면 같은 서버에서 내보낸다(배포용). 개발 중에는 Vite가 /api를 프록시한다.

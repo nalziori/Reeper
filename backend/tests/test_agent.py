@@ -35,12 +35,40 @@ def real(monkeypatch):
 
 
 def reply(text):
+    # 최초 사건은 ready 상태로 생성
     case = open_case(CONTRACT, D).model_dump(mode="json")
-    sent = api.post("/api/cases/step", json={"case": case, "today": str(D),
-                                             "event": {"type": "notice_sent", "channel": "sms"}}).json()
-    return api.post("/api/cases/step", json={"case": sent["case"], "today": str(D),
-                                             "event": {"type": "reply_received", "text": text}}).json()
 
+    # 환불 요청 발송 후 waiting 상태로 변경
+    sent_response = api.post(
+        "/api/cases/step",
+        json={
+            "case": case,
+            "today": str(D),
+            "event": {
+                "type": "notice_sent",
+                "channel": "sms"
+            }
+        }
+    )
+
+    assert sent_response.status_code == 200, sent_response.json()
+    sent = sent_response.json()
+
+    # waiting 상태에서 업체 답장 수신
+    reply_response = api.post(
+        "/api/cases/step",
+        json={
+            "case": sent["case"],
+            "today": str(D),
+            "event": {
+                "type": "reply_received",
+                "text": text
+            }
+        }
+    )
+
+    assert reply_response.status_code == 200, reply_response.json()
+    return reply_response.json()
 
 def test_llm_cannot_accept_a_low_offer_by_itself(real):
     real({"reply_type": "accept", "amount": 200_000})  # LLM이 수용이라고 해도
@@ -172,10 +200,31 @@ def test_step_carries_the_analysis_only_for_pasted_replies(real):
     assert res["analysis"] == {"claims": [claim()], "note": ""} and not res["llm_fallback"]
     assert res["action"]["warn"] and "counter_low_offer" in res["drafts"]  # 단계와 문안은 그대로다
 
-    case = open_case(CONTRACT, D).model_dump(mode="json")
-    button = api.post("/api/cases/step", json={"case": case, "today": str(D), "event": {
-        "type": "reply_received", "reply_type": "refuse"}}).json()
-    assert button["analysis"] is None  # 버튼으로 고른 답은 LLM을 거치지 않는다
+    
+    # 먼저 환불 요청을 발송해 waiting 상태로 만든다.
+    case = apply(
+        open_case(CONTRACT, D),
+        Event(type="notice_sent", channel="sms"),
+        D,
+    ).model_dump(mode="json")
+
+    # 버튼으로 업체 답변을 선택
+    response = api.post(
+        "/api/cases/step",
+        json={
+            "case": case,
+            "today": str(D),
+            "event": {
+                "type": "reply_received",
+                "reply_type": "refuse",
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.json()
+    button = response.json()
+    assert button["analysis"] is None
+
 
     real(httpx.ConnectError("down"))
     res = reply(REPLY)
