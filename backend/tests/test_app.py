@@ -187,6 +187,18 @@ def test_failed_first_call_keeps_case_ready():
     assert case["timeline"][-1]["type"] == "call_attempted"
 
 
+def test_restored_waiting_case_uses_existing_certified_mail_record():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    f.step(days=4, type="notice_sent", channel="sms")
+    f.step(days=4, type="escalation_sent")
+    # 이전 버전에서 내용증명 이후 재연락 약속을 기록하면 waiting으로 저장될 수 있었다.
+    f.res["case"]["stage"] = "waiting"
+    assert f.step(days=4, type="time_passed") == "go_1372"
+    f.step(type="handoff_done")
+    assert f.stage == "handed_off"
+
+
 def test_refreshing_action_does_not_add_a_timeline_entry():
     f = Flow()
     f.step(type="notice_sent", channel="sms")

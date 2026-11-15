@@ -38,6 +38,13 @@ export type Case = {
   timeline: { on: string; type: string; text: string }[]
 }
 export type Action = { type: string; reason: string; warn: boolean }
+export type CaseEvent = {
+  type: 'notice_sent' | 'call_attempted' | 'reply_received' | 'counter_sent' | 'time_passed' |
+    'agreement_recorded' | 'deposit_confirmed' | 'escalation_sent' | 'handoff_done'
+  channel?: 'sms' | 'call'
+  text?: string
+  amount?: number | null
+}
 // 붙여넣은 답장에서 짚은 주장. 표시용이다. rule_id가 null이면 "확인 필요"로 보여 준다.
 export type Claim = { quote: string; claim: string; rule_id: string | null; advice: string }
 export type Analysis = { claims: Claim[]; note: string }
@@ -69,6 +76,6 @@ export const api = {
   samples: () => call<Sample[]>('/api/samples'),
   rules: () => call<Rules>('/api/rules'),
   open: (contract: Contract, today: string) => call<Step>('/api/cases', { contract, today }),
-  step: (c: Case, event: Record<string, unknown>, today: string) =>
+  step: (c: Case, event: CaseEvent, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }
