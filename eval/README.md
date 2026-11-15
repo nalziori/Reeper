@@ -64,3 +64,16 @@ cd backend && .venv/Scripts/python ../eval/run.py --live   # 실제 모델, 답�
 - 제시액 정답률은 정답이 `low_offer`인 건만 센다.
 - 가짜 LLM 수치는 키워드 판단의 기준선이다. 실제 모델 성능이 아니다.
 - 계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 `contracts.jsonl`은 글이다.
+
+### 전략 근거 평가 (`--plans`)
+
+```bash
+cd backend && .venv/Scripts/python ../eval/run.py --plans
+```
+
+`situations_b.jsonl`의 10건을 앱과 같은 `open_case`로 만들고 `agent.plan`을 호출한다.
+모델명, 건수, 필수 근거 재현율(총 적중 / 총 필수), 금지 근거 적중 수, 표 밖 근거 수,
+빈 전략 또는 fallback 건수와 상황별 반환 `rule_id`를 출력한다. 필수 근거가 빈 s08은 재현율에서 제외한다.
+빈 전략은 모든 내용 필드가 빈 경우이며 fallback과 겹쳐도 한 건으로 센다.
+기본 FakeLLM은 빈 전략을 반환하므로 성능 수치가 아니다. `--plans --live`는 실제 모델로
+상황마다 한 번 호출한다(유료, 팀에 먼저 말한다). `--plans`가 없으면 기존 답장 평가를 실행한다.
