@@ -72,7 +72,8 @@ def step(req: StepRequest) -> StepResponse:
     if event.type == "reply_received" and event.reply_type is None:
         # 붙여넣은 답장은 LLM이 읽는다. 버튼으로 고른 경우는 읽지 않는다.
         reply_type, amount, fallback = agent.read_reply(event.text)
-        event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
+        event = event.model_copy(update={"reply_type": reply_type,
+                                         "amount": amount if event.amount is None else event.amount})
     return respond(apply(req.case, event, req.today), req.today, fallback)
 
 
