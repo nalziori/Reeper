@@ -172,8 +172,8 @@ def test_step_carries_the_analysis_only_for_pasted_replies(real):
     assert res["analysis"] == {"claims": [claim()], "note": ""} and not res["llm_fallback"]
     assert res["action"]["warn"] and "counter_low_offer" in res["drafts"]  # 단계와 문안은 그대로다
 
-    case = open_case(CONTRACT, D).model_dump(mode="json")
-    button = api.post("/api/cases/step", json={"case": case, "today": str(D), "event": {
+    sent = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D).model_dump(mode="json")
+    button = api.post("/api/cases/step", json={"case": sent, "today": str(D), "event": {
         "type": "reply_received", "reply_type": "refuse"}}).json()
     assert button["analysis"] is None  # 버튼으로 고른 답은 LLM을 거치지 않는다
 
