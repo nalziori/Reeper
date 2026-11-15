@@ -170,10 +170,13 @@ def test_analysis_drops_what_is_not_in_the_material(real):
         claim(advice="350,000원까지는 받을 수 있다고 하세요."),  # 지어낸 금액
         claim(advice="민법 제750조를 들어 다시 요청하세요."),  # 법령 이름과 조문
         claim(advice="소비자기본법에 따라 요청하세요."),
+        claim(advice="계속거래 위약금 산정기준에 따라 요청하세요."),
         claim(advice="정상가 차감은 무효라고 답하세요."),  # 단정
         claim(advice="12월 25일까지 입금하라고 하세요."),  # 사건에 없는 날짜
     ], "응하지 않으면 소송하겠다고 하세요.")
     assert out == {"claims": [], "note": "", "fallback": False}
+    ordinary = claim(advice="계약할 때 가액과 산정기준을 안내받았는지 확인하세요.")  # 법령 이름이 아닌 보통 말
+    assert analyze(real, [ordinary])["claims"] == [ordinary]
 
 
 def test_step_carries_the_analysis_only_for_pasted_replies(real):
