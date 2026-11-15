@@ -186,3 +186,50 @@ def test_analysis_is_empty_without_a_real_llm_and_flags_failure(real, monkeypatc
     assert analyze(real, RuntimeError("down")) == {"claims": [], "note": "", "fallback": True}
     monkeypatch.setattr(agent, "llm", agent.FAKE)
     assert analyze(real, [claim()]) == {"claims": [], "note": "", "fallback": False}
+
+
+SITUATION = "다음 달에 이사 가서 더 못 다녀요. 위약금 없이 60만원 전액 받고 싶어요."
+TERMS = "이벤트 상품은 환불이 불가합니다."
+NO_PLAN = {"summary": "", "grounds": [], "contract_points": [], "objections": [], "cautions": [], "questions": [],
+           "fallback": False}
+
+
+def strategy(real, out):
+    """환불 불가 특약이 있는 계약과 전액을 바라는 상황 설명에 LLM 전략을 끼워 plan을 부른다."""
+    case = open_case(CONTRACT.model_copy(update={"special_terms": TERMS}), D)
+    real(out)
+    return agent.plan(case, SITUATION, D)
+
+
+def good_plan(**over):
+    return {"summary": "473,334원 환불을 요청하세요. 결제금액 600,000원에서 이용분 66,666원과 위약금 60,000원을 뺀 금액이에요.",
+            "grounds": [{"rule_id": "R31", "why": "환불 불가 특약이 있어도 기간 중 해지를 요청할 수 있어요."}],
+            "contract_points": [{"quote": "이벤트 상품은 환불이 불가합니다.", "how_to_handle": "특약만으로 요청을 접지 마세요."}],
+            "objections": [{"objection": "이벤트 상품이라 환불이 안 됩니다",
+                            "response": "기간 중 해지를 요청할 수 있다는 점을 들어 다시 요청하세요."}],
+            "cautions": ["이사 사정만으로 위약금 60,000원이 없어지지는 않아요. 600,000원 전액은 요청하기 어려워요.",
+                         "하루 늦게 알리면 6,667원씩 줄어요."],
+            "questions": ["사은품이나 운동복을 받은 것이 있나요?"], **over}
+
+
+def test_plan_keeps_grounded_strategy(real):
+    assert strategy(real, good_plan()) == {**good_plan(), "fallback": False}
+
+
+def test_plan_drops_what_is_not_in_the_material(real):
+    out = strategy(real, good_plan(
+        summary="환불 불가 특약은 무효이니 500,000원을 요청하세요.",  # 단정, 지어낸 금액
+        grounds=[{"rule_id": "X99", "why": "표에 없는 근거"},
+                 {"rule_id": "R31", "why": "민법 제750조에 따라 요청하세요."}],  # 법령 이름과 조문
+        contract_points=[{"quote": "환불은 30일 이내만 가능합니다.", "how_to_handle": "확인하세요."}],  # 특약에 없는 인용
+        objections=[{"objection": "환불 불가", "response": "소송하겠다고 하세요."}],
+        cautions=["350,000원까지는 받을 수 있어요.", ""],
+        questions=["12월 25일에 결제하셨나요?", 3]))  # 사건에 없는 날짜, 글이 아닌 값
+    assert out == NO_PLAN
+
+
+def test_plan_is_empty_without_a_real_llm_and_survives_bad_output(real, monkeypatch):
+    assert strategy(real, {"reply_type": "refuse"}) == NO_PLAN  # 형식이 어긋난 응답
+    assert strategy(real, RuntimeError("down")) == {**NO_PLAN, "fallback": True}
+    monkeypatch.setattr(agent, "llm", agent.FAKE)
+    assert strategy(real, good_plan()) == NO_PLAN
