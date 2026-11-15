@@ -2,6 +2,8 @@
 
 실행: python eval/make_contracts.py eval/contracts.jsonl
 used_count는 계약서에 없는 사용자 입력이라 contract가 아니라 usage에 둔다.
+basis: kca_case(한국소비자원 조정 사례와 대조) / decision_table(docs/환불_규칙.md 팀 결정표)
+       / unverified_month(월 단위 해석, 팀 미확인). 정확도 평가에서는 unverified_month를 뺀다.
 """
 import json, sys
 from datetime import date
@@ -62,7 +64,8 @@ for (i,gym,prod,unit,tot,usedc,paid,listp,s,e,n,addon,dep,sp,memo) in C:
     if tot: contract["total_count"]=tot
     if av: contract["addon_value"]=av
     if dep: contract["security_deposit"]=dep
-    out.append({"id":i,"note":memo,"text":"\n".join(lines),"contract":contract,"notified_on":n,"usage":({"used_count":usedc} if unit=="count" else {}),
+    basis="unverified_month" if unit=="month" else "kca_case" if i=="k03" else "decision_table"
+    out.append({"id":i,"basis":basis,"note":memo,"text":"\n".join(lines),"contract":contract,"notified_on":n,"usage":({"used_count":usedc} if unit=="count" else {}),
                 "expected":{"used_days":U,"total_days":T,"used_amount":used,"penalty":pen,"refund":refund,"per_day_loss":refund-refund2}})
 open(sys.argv[1],"w",encoding="utf-8",newline="").write("".join(json.dumps(o,ensure_ascii=False)+"\n" for o in out))
 print(len(out))
