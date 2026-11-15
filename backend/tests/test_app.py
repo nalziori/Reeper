@@ -1,13 +1,15 @@
 """가짜 LLM으로 키 없이 돈다. 실행: backend 폴더에서 `pytest`."""
 from datetime import date, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app import agent
 from app.agent import TEMPLATES, render, validate
 from app.engine import open_case
 from app.main import app
 from app.models import Contract
-from app.rules import calculate
+from app.rules import POLICY, calculate
 
 api = TestClient(app)
 CONTRACT = Contract(gym_name="가상피트니스", total_paid=600_000,
@@ -66,7 +68,8 @@ def test_happy_path_to_deposit():
     assert f.step(type="notice_sent", channel="sms") == "wait"
     f.step(type="reply_received", text="네 알겠습니다 환불해 드릴게요")
     assert f.stage == "agreed" and f.res["case"]["agreed_amount"] == 473_334
-    assert f.step(days=5, type="time_passed") == "remind_deposit"  # 입금이 늦으면 독촉
+    assert f.step(days=POLICY["deposit_days"], type="time_passed") == "wait"
+    assert f.step(days=1, type="time_passed") == "remind_deposit"  # 입금이 늦으면 독촉
     assert f.step(type="deposit_confirmed") == "close" and f.stage == "closed"
 
 
@@ -94,14 +97,50 @@ def test_objections_get_a_counter():
 def test_silence_escalates_to_1372():
     f = Flow()
     f.step(type="notice_sent", channel="sms")
-    assert f.step(days=4, type="time_passed") == "follow_up"
+    assert f.step(days=POLICY["wait_days"], type="time_passed") == "wait"
+    assert f.step(days=1, type="time_passed") == "follow_up"
     assert f.step(type="notice_sent", channel="sms") == "wait"
     assert f.step(days=4, type="time_passed") == "certified_mail"
     assert f.step(type="escalation_sent") == "wait"
+    assert f.step(type="reply_received", reply_type="callback") == "wait"
+    assert f.stage == "escalated"
     assert f.step(days=4, type="time_passed") == "go_1372"
     f.step(type="handoff_done")
     assert f.stage == "handed_off"
     assert f.res["case"]["notified_on"] == str(D)  # 도달일은 첫 통지일로 고정
+    assert f.res["case"]["refund"]["refund"] == calculate(CONTRACT, D).refund
+
+
+@pytest.mark.parametrize("events, invalid", [
+    ([], {"type": "deposit_confirmed"}),
+    ([], {"type": "reply_received", "text": "환불해 드릴게요"}),
+    ([{"type": "notice_sent", "channel": "sms"}], {"type": "notice_sent", "channel": "sms"}),
+    ([{"type": "notice_sent", "channel": "sms"}], {"type": "escalation_sent"}),
+    ([{"type": "notice_sent", "channel": "sms"}], {"type": "handoff_done"}),
+    ([{"type": "notice_sent", "channel": "sms"}], {"type": "agreement_recorded", "amount": 200000}),
+    ([{"type": "notice_sent", "channel": "sms"}, {"type": "reply_received", "reply_type": "accept"},
+      {"type": "deposit_confirmed"}], {"type": "notice_sent", "channel": "sms"}),
+])
+def test_rejects_invalid_transition_before_processing_reply(monkeypatch, events, invalid):
+    def unexpected_llm_call(_text):
+        pytest.fail("허용되지 않는 답장에는 LLM을 호출하지 않는다")
+
+    monkeypatch.setattr(agent, "read_reply", unexpected_llm_call)
+    f = Flow()
+    for event in events:
+        f.step(**event)
+    response = api.post("/api/cases/step", json={"case": f.res["case"], "event": invalid, "today": str(D)})
+    assert response.status_code == 409
+    assert "case" not in response.json()
+
+
+def test_rejects_event_dated_before_latest_record():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    response = api.post("/api/cases/step", json={
+        "case": f.res["case"], "event": {"type": "time_passed"}, "today": str(D - timedelta(days=1)),
+    })
+    assert response.status_code == 409
 
 
 def test_samples_and_health():

@@ -5,6 +5,38 @@ from .models import Action, Case, Contract, Event, Record
 from .rules import POLICY, calculate
 
 
+class InvalidTransition(ValueError):
+    """현재 사건에서 처리할 수 없는 이벤트."""
+
+
+def validate_transition(case: Case, event: Event, today: date) -> None:
+    stage = case.stage
+    if case.timeline and today < case.timeline[-1].on:
+        raise InvalidTransition("마지막 기록보다 이른 날짜에는 처리할 수 없습니다.")
+
+    if (stage in ("waiting", "negotiating", "escalated") and case.deadline_on is None
+            or stage == "agreed" and case.deposit_due_on is None):
+        raise InvalidTransition("사건에 필요한 기한 기록이 없습니다.")
+
+    if event.type == "notice_sent":
+        allowed = stage == "ready" or (stage == "waiting" and next_action(case, today).type == "follow_up")
+    elif event.type == "reply_received":
+        allowed = stage in ("waiting", "negotiating", "escalated")
+    elif event.type == "agreement_recorded":
+        allowed = stage == "negotiating"
+    elif event.type == "deposit_confirmed":
+        allowed = stage == "agreed"
+    elif event.type == "escalation_sent":
+        allowed = stage == "waiting" and next_action(case, today).type == "certified_mail"
+    elif event.type == "handoff_done":
+        allowed = stage == "escalated" and next_action(case, today).type == "go_1372"
+    else:
+        allowed = event.type == "time_passed"
+
+    if not allowed:
+        raise InvalidTransition("현재 사건 단계에서는 이 작업을 기록할 수 없습니다.")
+
+
 def open_case(contract: Contract, today: date, target: int | None = None, floor: int | None = None) -> Case:
     refund = calculate(contract, today)
     return Case(
@@ -16,6 +48,7 @@ def open_case(contract: Contract, today: date, target: int | None = None, floor:
 
 
 def apply(case: Case, event: Event, today: date) -> Case:
+    validate_transition(case, event, today)
     c = case.model_copy(deep=True)
 
     def log(text: str = "") -> None:
@@ -34,7 +67,8 @@ def apply(case: Case, event: Event, today: date) -> Case:
         c.last_reply, c.offered = event.reply_type, event.amount
         log(event.text or event.reply_type or "")
         if event.reply_type in ("no_answer", "callback"):
-            c.stage = "waiting"
+            if c.stage != "escalated":
+                c.stage = "waiting"
         elif event.reply_type == "accept":
             _agree(c, event.amount or c.refund.refund, today)
         else:

@@ -40,6 +40,10 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  if (res.status === 409) {
+    const error = await res.json().catch(() => null)
+    if (typeof error?.detail === 'string') throw new Error(error.detail)
+  }
   if (!res.ok) throw new Error(`요청에 실패했습니다 (${res.status})`)
   return res.json()
 }
