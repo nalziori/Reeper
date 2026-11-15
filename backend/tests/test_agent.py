@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import agent
-from app.engine import open_case
+from app.engine import apply, next_action, open_case
 from app.main import app
-from app.models import Contract
+from app.models import Contract, Event
 
 api = TestClient(app)
 CONTRACT = Contract(gym_name="가상피트니스", total_paid=600_000,
@@ -123,3 +123,43 @@ def test_extract_is_off_by_default_and_never_invents_values(real, monkeypatch):
     real(RuntimeError("down"))
     f, failed = agent.extract_contract(IMAGE)
     assert failed and all(v.value is None for v in f.values())
+
+
+REPLY = "정상가 기준으로 빼면 20만원 정도 나와요. 그걸로 처리해 드릴게요."
+
+
+def analyze(real, claims, note=""):
+    """20만 원을 제시받은 사건에 LLM 분석을 끼워 analyze_reply를 부른다."""
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    case = apply(case, Event(type="reply_received", text=REPLY, reply_type="low_offer", amount=200_000), D)
+    real({"claims": claims, "note": note} if not isinstance(claims, Exception) else claims)
+    return agent.analyze_reply(case, REPLY, next_action(case, D), D)
+
+
+def claim(**over):
+    return {"quote": "정상가 기준으로 빼면 20만원", "claim": "정상가로 공제해 20만 원을 주겠다", "rule_id": None,
+            "advice": "제시액 200,000원은 계산한 473,334원과 차이가 있으니 계산 내역을 다시 요청하세요.", **over}
+
+
+def test_analysis_keeps_grounded_claims(real):
+    out = analyze(real, [claim()], "최저 수용선보다 적은 금액이니 바로 받아들이지 마세요.")
+    assert out == {"claims": [claim()], "note": "최저 수용선보다 적은 금액이니 바로 받아들이지 마세요.",
+                   "fallback": False}
+
+
+def test_analysis_drops_what_is_not_in_the_material(real):
+    out = analyze(real, [
+        claim(quote="환불은 절대 안 됩니다"),  # 답장에 없는 인용
+        claim(advice="350,000원까지는 받을 수 있다고 하세요."),  # 지어낸 금액
+        claim(advice="민법 제750조를 들어 다시 요청하세요."),  # 법령 이름과 조문
+        claim(advice="소비자기본법에 따라 요청하세요."),
+        claim(advice="정상가 차감은 무효라고 답하세요."),  # 단정
+        claim(advice="12월 25일까지 입금하라고 하세요."),  # 사건에 없는 날짜
+    ], "응하지 않으면 소송하겠다고 하세요.")
+    assert out == {"claims": [], "note": "", "fallback": False}
+
+
+def test_analysis_is_empty_without_a_real_llm_and_flags_failure(real, monkeypatch):
+    assert analyze(real, RuntimeError("down")) == {"claims": [], "note": "", "fallback": True}
+    monkeypatch.setattr(agent, "llm", agent.FAKE)
+    assert analyze(real, [claim()]) == {"claims": [], "note": "", "fallback": False}
