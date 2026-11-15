@@ -31,7 +31,7 @@ const STAGE: Record<string, string> = {
 const DRAFT: Record<string, string> = {
   notice_sms: '문자로 보낼 문안', call_card: '전화로 말할 때: 통화 준비 카드', after_call_sms: '통화 직후 보낼 확인 문자',
   follow_up: '재요청 문안', counter_refuse: '다음에 보낼 문장', counter_list_price: '다음에 보낼 문장',
-  counter_visit: '다음에 보낼 문장', counter_low_offer: '다음에 보낼 문장', counter_unknown: '다음에 보낼 문장',
+  counter_visit: '다음에 보낼 문장', counter_low_offer: '다음에 보낼 문장', counter_unknown: '다음에 보낼 문장', counter_penalty: '다음에 보낼 문장',
   accept_offer: '수락 문안', confirm_agreement: '합의 확인 문안', remind_deposit: '입금 요청 문안',
   certified_mail: '내용증명 초안', go_1372: '1372 상담 신청 내용',
 }
