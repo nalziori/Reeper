@@ -7,7 +7,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .agent import drafts_for, llm
+from . import agent
+from .agent import drafts_for
 from .engine import apply, next_action, open_case
 from .models import Action, Case, Contract, Event
 from .rules import DATA, RULES
@@ -33,16 +34,17 @@ class StepResponse(BaseModel):
     case: Case
     action: Action
     drafts: dict[str, str]
+    llm_fallback: bool = False  # 실제 LLM이 실패해 키워드 판단으로 대체했다. 화면은 버튼 입력을 권한다
 
 
-def respond(case: Case, today: date) -> StepResponse:
+def respond(case: Case, today: date, llm_fallback: bool = False) -> StepResponse:
     action = next_action(case, today)
-    return StepResponse(case=case, action=action, drafts=drafts_for(case, action))
+    return StepResponse(case=case, action=action, drafts=drafts_for(case, action), llm_fallback=llm_fallback)
 
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "llm": type(llm).__name__}
+    return {"ok": True, **agent.status()}
 
 
 @app.get("/api/samples")
@@ -66,12 +68,12 @@ def create_case(req: OpenRequest) -> StepResponse:
 
 @app.post("/api/cases/step")
 def step(req: StepRequest) -> StepResponse:
-    event = req.event
+    event, fallback = req.event, False
     if event.type == "reply_received" and event.reply_type is None:
         # 붙여넣은 답장은 LLM이 읽는다. 버튼으로 고른 경우는 읽지 않는다.
-        reply_type, amount = llm.read_reply(event.text[:500])
+        reply_type, amount, fallback = agent.read_reply(event.text)
         event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
-    return respond(apply(req.case, event, req.today), req.today)
+    return respond(apply(req.case, event, req.today), req.today, fallback)
 
 
 # 빌드된 화면이 있으면 같은 서버에서 내보낸다(배포용). 개발 중에는 Vite가 /api를 프록시한다.

@@ -72,3 +72,11 @@ class Action(BaseModel):
     type: ActionType
     reason: str
     warn: bool = False  # 제시액이 최저 수용선보다 적음
+
+
+class Extracted(BaseModel):
+    """계약서 사진에서 읽은 값 하나. 화면은 check가 참인 값을 사람에게 확인받는다."""
+    value: str | int | None
+    confidence: float  # 0~1. LLM이 스스로 매긴 값이라 참고용이다
+    quote: str = ""  # 값을 읽은 자리의 원문
+    check: bool = True

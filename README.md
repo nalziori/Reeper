@@ -10,7 +10,7 @@ Refund-keeper. 전화와 불편한 말을 어려워하는 청년을 위해, 헬�
 
 걷는 뼈대가 동작한다. 가짜 LLM으로 접수 → 환불액 → 문자 문안·통화 준비 카드 → 기록 → 업체 반응 대응 → 합의 → 입금 확인까지 간다.
 
-- 실제 LLM(OpenAI) 연결, 계약서 사진 읽기, 배포는 아직 없다.
+- 실제 LLM(OpenAI) 구현은 서버에 있다. 키를 넣은 실제 호출 확인, 화면 연결, 배포는 아직 없다.
 - **환불 계산식은 임시다.** 고시 원문 확인 전이며 화면에도 그렇게 표시한다. [환불 규칙](docs/환불_규칙.md) 참고.
 
 ## 실행
@@ -22,13 +22,24 @@ Python 3.13 이상과 Node 22 이상이 필요하다.
 cd backend
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt   # macOS·Linux는 .venv/bin/python
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000 --env-file .env   # .env가 없으면 --env-file을 뺀다
 
 # 화면 (다른 터미널)
 cd frontend
 npm install
 npm run dev        # http://localhost:5173, /api는 8000번으로 넘어간다
 ```
+
+실제 LLM은 `backend/.env.example`을 `backend/.env`로 복사해 키를 넣으면 켜진다. 없으면 가짜 LLM으로 돈다. `.env`는 저장소에 올라가지 않는다.
+
+| 환경변수 | 기본값 | 뜻 |
+|---|---|---|
+| `OPENAI_API_KEY` | 없음 | 있으면 실제 LLM을 쓴다 |
+| `OPENAI_MODEL` | `gpt-6-luna` | 모델명 |
+| `LLM_DAILY_LIMIT` | 300 | 하루 전체 호출 상한. 넘으면 고정 양식과 키워드 판단으로 계속 간다 |
+| `ALLOW_UPLOAD` | 꺼짐 | `1`이면 계약서 사진 읽기를 켠다 |
+
+`GET /api/health`에서 쓰는 구현, 남은 호출 수, 오늘 쓴 토큰을 본다.
 
 테스트는 키 없이 돈다.
 
