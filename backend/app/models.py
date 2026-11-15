@@ -82,6 +82,20 @@ class Action(BaseModel):
     warn: bool = False  # 제시액이 최저 수용선보다 적음
 
 
+class Claim(BaseModel):
+    """업체 답장 속 주장 하나. 사용자에게만 보여 준다."""
+    quote: str  # 답장 원문 그대로
+    claim: str  # 무슨 주장인지
+    rule_id: str | None = None  # data/rules.json의 id. 없으면 화면이 "확인 필요"로 보여 준다
+    advice: str  # 어떻게 답하면 되는지
+
+
+class Analysis(BaseModel):
+    """붙여넣은 답장을 LLM이 짚은 결과. 표시용이며 단계 전이와 금액은 이 값을 보지 않는다."""
+    claims: list[Claim] = []
+    note: str = ""  # 지금 조심할 점
+
+
 class Extracted(BaseModel):
     """계약서 사진에서 읽은 값 하나. 화면은 check가 참인 값을 사람에게 확인받는다."""
     value: str | int | None

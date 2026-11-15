@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from . import agent
 from .agent import drafts_for
 from .engine import apply, next_action, open_case
-from .models import Action, Case, Contract, Event
+from .models import Action, Analysis, Case, Contract, Event
 from .rules import DATA, RULES
 
 app = FastAPI(title="Reeper")
@@ -35,11 +35,19 @@ class StepResponse(BaseModel):
     action: Action
     drafts: dict[str, str]
     llm_fallback: bool = False  # 실제 LLM이 실패해 키워드 판단으로 대체했다. 화면은 버튼 입력을 권한다
+    analysis: Analysis | None = None  # 붙여넣은 답장에서 짚은 주장. 짚은 것이 없으면 null
 
 
-def respond(case: Case, today: date, llm_fallback: bool = False) -> StepResponse:
+def respond(case: Case, today: date, llm_fallback: bool = False, reply: str = "") -> StepResponse:
     action = next_action(case, today)
-    return StepResponse(case=case, action=action, drafts=drafts_for(case, action), llm_fallback=llm_fallback)
+    analysis = None
+    if reply:  # 답장 분류가 이미 대체됐으면 LLM을 다시 부르지 않는다
+        found = agent.analyze_reply(case, reply, action, today) if not llm_fallback else {}
+        llm_fallback = llm_fallback or found.get("fallback", False)
+        if found.get("claims") or found.get("note"):
+            analysis = Analysis(claims=found["claims"], note=found["note"])
+    return StepResponse(case=case, action=action, drafts=drafts_for(case, action), llm_fallback=llm_fallback,
+                        analysis=analysis)
 
 
 @app.get("/api/health")
@@ -68,12 +76,13 @@ def create_case(req: OpenRequest) -> StepResponse:
 
 @app.post("/api/cases/step")
 def step(req: StepRequest) -> StepResponse:
-    event, fallback = req.event, False
+    event, fallback, reply = req.event, False, ""
     if event.type == "reply_received" and event.reply_type is None:
         # 붙여넣은 답장은 LLM이 읽는다. 버튼으로 고른 경우는 읽지 않는다.
-        reply_type, amount, fallback = agent.read_reply(event.text)
+        reply = event.text
+        reply_type, amount, fallback = agent.read_reply(reply)
         event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
-    return respond(apply(req.case, event, req.today), req.today, fallback)
+    return respond(apply(req.case, event, req.today), req.today, fallback, reply)
 
 
 # 빌드된 화면이 있으면 같은 서버에서 내보낸다(배포용). 개발 중에는 Vite가 /api를 프록시한다.
