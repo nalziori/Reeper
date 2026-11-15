@@ -21,19 +21,27 @@ ActionType = Literal[
 
 class Contract(BaseModel):
     gym_name: str = ""
-    total_paid: int = Field(gt=0)  # 실제 결제금액(원)
+    total_paid: int = Field(gt=0)  # 실제 결제금액(원). 보증금은 빼고 security_deposit에 따로
     start_date: date
     end_date: date
     special_terms: str = ""
+    unit: Literal["day", "month", "count"] = "day"  # 계약서의 공급 단위(고시 제2조 제3호). 없으면 일
+    total_count: int | None = Field(default=None, gt=0)  # 월·회 단위의 총 개월 수 또는 총 횟수
+    used_count: int | None = Field(default=None, ge=0)  # 회 단위에서 이미 쓴 횟수
+    addon_value: int = Field(default=0, ge=0)  # 계약서에 가액이 적힌 부가상품만(고시 제6조 제2항)
+    security_deposit: int = Field(default=0, ge=0)  # 보증금. 전액 돌려받는다(고시 제5조 제2항)
 
 
 class Refund(BaseModel):
-    total_days: int
-    used_days: int
+    total_days: int  # 총 단위 수(unit이 일이 아니면 개월 수·횟수)
+    used_days: int  # 이용한 단위 수
     used_amount: int
     penalty: int
     refund: int
-    per_day_loss: int
+    per_day_loss: int  # 한 단위 늦을 때마다 줄어드는 금액
+    addon: int = 0  # 공제한 부가상품 가액
+    unit_label: str = "일"  # total_days·used_days의 단위: 일·개월·회
+    security_deposit: int = 0  # 환불액에 더한 보증금
     refs: list[str]  # data/rules.json의 id
     provisional: bool = True  # 고시 원문 확인 전
 

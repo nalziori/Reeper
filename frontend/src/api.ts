@@ -5,6 +5,11 @@ export type Contract = {
   start_date: string
   end_date: string
   special_terms?: string
+  unit?: 'day' | 'month' | 'count'
+  total_count?: number | null
+  used_count?: number | null
+  addon_value?: number
+  security_deposit?: number
 }
 export type Refund = {
   total_days: number
@@ -13,6 +18,9 @@ export type Refund = {
   penalty: number
   refund: number
   per_day_loss: number
+  addon: number
+  unit_label: string
+  security_deposit: number
   refs: string[]
   provisional: boolean
 }

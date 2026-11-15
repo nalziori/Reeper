@@ -1,6 +1,6 @@
 """환불 계산과 근거 표. 금액은 여기서만 만든다. LLM은 숫자를 만들지 않는다."""
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from .models import Contract, Refund
@@ -10,24 +10,54 @@ RULES: dict[str, dict] = json.loads((DATA / "rules.json").read_text(encoding="ut
 POLICY: dict[str, int] = json.loads((DATA / "policy.json").read_text(encoding="utf-8"))
 
 
-def calculate(contract: Contract, notified_on: date) -> Refund:
-    """기간제 회원권의 중도해지 환불액.
+def _used_months(start: date, on: date) -> int:
+    """도달일이 속한 달까지 이용한 것으로 센다(개시일 기준 한 달 단위)."""
+    months = (on.year - start.year) * 12 + (on.month - start.month)
+    return months + 1 if on.day >= start.day else months
 
-    임시 계산식이다(docs/환불_규칙.md). 일할 계산 방식과 개시 전 해지는 고시 별표 확인 후 확정한다.
+
+UNIT_LABEL = {"day": "일", "month": "개월", "count": "회"}
+
+
+def calculate(contract: Contract, notified_on: date) -> Refund:
+    """중도해지 환불액. 기준은 docs/환불_규칙.md 결정표.
+
+    환불액 = max(총계약대금 - 이용분 - 부가상품 가액 - 위약금, 0) + 보증금
+    per_day_loss는 하루 늦게 도달했을 때 줄어드는 실제 금액이다.
     """
-    total_days = (contract.end_date - contract.start_date).days + 1
-    if total_days <= 0:
-        raise ValueError("종료일이 개시일보다 빠르다")
-    # 도달일까지 지난 날은 가지 않았어도 이용한 것으로 본다(고시 제5조 제1항).
-    used_days = min(max((notified_on - contract.start_date).days + 1, 0), total_days)
-    used_amount = contract.total_paid * used_days // total_days
+    r = _calculate(contract, notified_on)
+    r.per_day_loss = r.refund - _calculate(contract, notified_on + timedelta(days=1)).refund
+    return r
+
+
+def _calculate(contract: Contract, notified_on: date) -> Refund:
+    if contract.unit == "day":
+        total = (contract.end_date - contract.start_date).days + 1
+        if total <= 0:
+            raise ValueError("종료일이 개시일보다 빠르다")
+        # 도달일까지 지난 날은 가지 않았어도 이용한 것으로 본다(고시 제5조 제1항).
+        used = (notified_on - contract.start_date).days + 1
+    elif contract.total_count is None:
+        raise ValueError("월·회 단위는 총 개월 수나 총 횟수가 필요하다")
+    elif contract.unit == "month":
+        total, used = contract.total_count, _used_months(contract.start_date, notified_on)
+    else:
+        if contract.used_count is None:
+            raise ValueError("회 단위는 이용 횟수가 필요하다")
+        total, used = contract.total_count, contract.used_count
+    used = min(max(used, 0), total)
+    used_amount = contract.total_paid * used // total
     penalty = contract.total_paid * POLICY["penalty_percent"] // 100
+    left = max(contract.total_paid - used_amount - contract.addon_value - penalty, 0)
     return Refund(
-        total_days=total_days,
-        used_days=used_days,
+        total_days=total,
+        used_days=used,
         used_amount=used_amount,
         penalty=penalty,
-        refund=max(contract.total_paid - used_amount - penalty, 0),
-        per_day_loss=contract.total_paid // total_days,
+        refund=left + contract.security_deposit,
+        per_day_loss=0,
+        unit_label=UNIT_LABEL[contract.unit],
+        addon=contract.addon_value,
+        security_deposit=contract.security_deposit,
         refs=["G5", "G10", "R31", "R32"],
     )

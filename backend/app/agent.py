@@ -222,7 +222,12 @@ def facts(case: Case) -> dict[str, str]:
     return {
         "gym": c.gym_name or "센터",
         "total": f"{c.total_paid:,}", "used": f"{r.used_amount:,}", "penalty": f"{r.penalty:,}",
-        "refund": f"{r.refund:,}", "used_days": str(r.used_days), "total_days": str(r.total_days),
+        "refund": f"{r.refund:,}", "used_days": str(r.used_days), "total_days": str(r.total_days), "unit": r.unit_label,
+        # 부가상품·보증금이 없으면 빈칸이라 기존 문장 그대로다
+        "addon": f"{r.addon:,}" if r.addon else "", "deposit": f"{r.security_deposit:,}" if r.security_deposit else "",
+        "addon_part": f", 부가상품 {r.addon:,}원" if r.addon else "",
+        "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
+        "deposit_note": f", 보증금 {r.security_deposit:,}원 포함" if r.security_deposit else "",
         "start": f"{c.start_date:%Y년 %m월 %d일}",
         "notified": f"{case.notified_on:%Y년 %m월 %d일}" if case.notified_on else "오늘",
         "offered": f"{case.offered:,}" if case.offered is not None else "",
