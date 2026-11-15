@@ -1,6 +1,6 @@
 """실제 LLM 구현을 키 없이 검사한다. OpenAI 응답은 가짜로 끼운다."""
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 import pytest
@@ -63,6 +63,16 @@ def test_zero_won_offer_is_an_offer(real):
     res = reply("계산해 보니 환불 가능 금액은 0원입니다.")
     assert res["case"]["offered"] == 0 and res["action"]["warn"]
     assert "말씀하신 0원" in res["drafts"]["counter_low_offer"]
+
+
+def test_penalty_rate_claim_gets_the_penalty_draft(real):
+    real({"reply_type": "unknown", "amount": None})  # 금액 없이 위약금 비율만 주장한 답은 맞는 유형이 없다
+    res = reply("환불해 드리긴 하는데 위약금은 저희 규정상 20%입니다.")
+    assert list(res["drafts"]) == ["counter_penalty"] and "위약금은 60,000원" in res["drafts"]["counter_penalty"]
+    res = api.post("/api/cases/step", json={"case": res["case"], "today": str(D + timedelta(days=1)),
+                                            "event": {"type": "time_passed"}}).json()
+    assert list(res["drafts"]) == ["counter_penalty"]  # 날짜가 지나도 같은 문안이다
+    assert list(reply("본사 규정상 어렵네요")["drafts"]) == ["counter_unknown"]  # 다른 unknown은 그대로다
 
 
 def test_failure_falls_back_to_keywords(real):
