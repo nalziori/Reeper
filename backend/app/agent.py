@@ -158,7 +158,7 @@ def read_reply(text: str) -> tuple[ReplyType, int | None, bool]:
     except Exception as e:
         _fallback(e)
         return *FAKE.read_reply(text), True
-    if kind not in ("accept", "low_offer") or (amount is not None and amount <= 0):
+    if kind not in ("accept", "low_offer") or (amount is not None and amount < 0):
         amount = None  # 거절·정상가 주장 속의 금액(월 정상가 등)은 제시액이 아니다
     if amount is not None:
         kind = "low_offer"  # 금액이 있으면 수용 여부는 LLM이 아니라 서버가 목표·수용선과 비교해 정한다
