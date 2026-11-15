@@ -58,6 +58,13 @@ def test_llm_reads_what_keywords_miss(real):
     assert res["case"]["offered"] is None and "counter_list_price" in res["drafts"]
 
 
+def test_zero_won_offer_is_an_offer(real):
+    real({"reply_type": "low_offer", "amount": 0})  # 0원 제시는 금액 없음과 다르다
+    res = reply("계산해 보니 환불 가능 금액은 0원입니다.")
+    assert res["case"]["offered"] == 0 and res["action"]["warn"]
+    assert "말씀하신 0원" in res["drafts"]["counter_low_offer"]
+
+
 def test_failure_falls_back_to_keywords(real):
     real(httpx.ConnectError("down"))
     res = reply("20만원만 드릴게요")
