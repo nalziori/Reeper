@@ -18,3 +18,10 @@ input[type='date'] {
   font: inherit;
   padding: 8px;
 }
+
+.amount-input {
+  display: block;
+  max-width: 100%;
+  font: inherit;
+  padding: 8px;
+}
