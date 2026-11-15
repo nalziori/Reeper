@@ -12,4 +12,5 @@ Reeper는 근거를 찾아 두고, 그대로 보내거나 말할 문장을 만�
 - 테스트는 가짜 LLM으로 키 없이 통과해야 한다. 유료 API를 쓰는 실행은 사람에게 먼저 묻는다.
 - `backend/app/models.py`를 바꾸면 `frontend/src/api.ts`와 `docs/계약.md`를 같이 고친다.
 - Astryx 컴포넌트는 쓰기 전에 `npx astryx component <이름>`으로 문서를 확인한다.
+- 브랜치와 PR은 `docs/브랜치_규칙.md`를 따른다. 담당 밖 파일을 바꾸면 PR 본문 맨 위에 이유를 적는다.
 - 바꾼 뒤에는 `backend`에서 `pytest -q`, `frontend`에서 `npm run build`를 돌리고 결과를 PR에 적는다.
