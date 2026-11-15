@@ -26,6 +26,8 @@ FIELDS = {"gym_name": "string", "total_paid": "integer", "start_date": "string",
 TEMPLATES = {p.stem: p.read_text(encoding="utf-8").strip() for p in (DATA / "templates").glob("*.txt")}
 COUNTER_KIND = {"refuse": "counter_refuse", "list_price": "counter_list_price",
                 "visit": "counter_visit", "low_offer": "counter_low_offer"}
+# ponytail: 위약금 비율 주장을 키워드로 알아본다. 놓치는 표현이 나오면 평가셋(eval/)으로 보강한다.
+PENALTY_RATE = re.compile(r"위약금.*?\d+\s*(?:%|퍼센트|프로)|\d+\s*(?:%|퍼센트|프로).*?위약금")
 
 
 class FakeLLM:
@@ -249,12 +251,22 @@ def validate(text: str, case: Case) -> bool:
     return all(a in allowed for a in amounts) and articles <= known
 
 
+def _counter_kind(case: Case) -> str:
+    """반박 문안을 고른다. 맞는 유형이 없는 답이라도 위약금 비율을 주장했으면 그 양식을 쓴다.
+
+    답장 유형은 늘리지 않는다(eval/README.md의 판정 기준). 금액 없이 "위약금은 20%"라고만 한 답은 unknown이다.
+    """
+    kind = COUNTER_KIND.get(case.last_reply or "", "counter_unknown")
+    said = next((r.text for r in reversed(case.timeline) if r.type == "reply_received"), "")
+    return "counter_penalty" if kind == "counter_unknown" and PENALTY_RATE.search(said) else kind
+
+
 def drafts_for(case: Case, action: Action) -> dict[str, str]:
     """지금 행동에 필요한 문안. 키는 양식 이름이다."""
     kinds = {
         "send_notice": ["notice_sms", "call_card", "after_call_sms"],
         "follow_up": ["follow_up"],
-        "counter": [COUNTER_KIND.get(case.last_reply or "", "counter_unknown")],
+        "counter": [_counter_kind(case)],
         "confirm_agreement": ["accept_offer"],
         "certified_mail": ["certified_mail"],
         "go_1372": ["go_1372"],
