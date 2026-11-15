@@ -126,7 +126,7 @@ class OpenAILLM:
 
 
 FAKE = FakeLLM()
-llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6-luna"))
+llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6.1-terra"))
        if os.environ.get("OPENAI_API_KEY") else FAKE)
 
 

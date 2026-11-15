@@ -35,7 +35,7 @@ npm run dev        # http://localhost:5173, /api는 8000번으로 넘어간다
 | 환경변수 | 기본값 | 뜻 |
 |---|---|---|
 | `OPENAI_API_KEY` | 없음 | 있으면 실제 LLM을 쓴다 |
-| `OPENAI_MODEL` | `gpt-6-luna` | 모델명 |
+| `OPENAI_MODEL` | `gpt-6.1-terra` | 모델명 |
 | `LLM_DAILY_LIMIT` | 300 | 하루 전체 호출 상한. 넘으면 고정 양식과 키워드 판단으로 계속 간다 |
 | `ALLOW_UPLOAD` | 꺼짐 | `1`이면 계약서 사진 읽기를 켠다 |
 
