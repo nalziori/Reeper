@@ -102,8 +102,10 @@ export default function App() {
     try {
       setError('')
       keep({ offset: 0, ...saved, ...patch, step: await p })
+      return true
     } catch (e) {
       setError(String((e as Error).message))
+      return false
     }
   }
   const send = (event: Record<string, unknown>, patch: Partial<Saved> = {}) =>
@@ -176,7 +178,11 @@ export default function App() {
             <>
               <TextArea label="업체 답장이나 통화 내용" description="받은 문자를 붙여넣거나, 통화에서 들은 말을 적어 주세요."
                 value={reply} onChange={setReply} maxLength={500} />
-              <Button label="답장 읽기" isDisabled={!reply.trim()} onClick={() => { send({ type: 'reply_received', text: reply }); setReply('') }} />
+              <Button label="답장 읽기" isDisabled={!reply.trim()} onClick={async () => {
+                if (await send({ type: 'reply_received', text: reply })) {
+                  setReply((current) => current === reply ? '' : current)
+                }
+              }} />
             </>
           )}
           {c.stage === 'closed' && <Text>환불금을 받았습니다. 수고하셨습니다.</Text>}
