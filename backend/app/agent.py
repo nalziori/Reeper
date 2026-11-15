@@ -16,6 +16,7 @@ from .rules import DATA, RULES
 
 log = logging.getLogger("reeper.agent")  # 계약 내용과 답장 원문은 로그에 남기지 않는다
 MAX_REPLY = 500  # 답장·통화 메모 입력 길이
+MAX_IMAGE = 5_500_000  # data URL 글자 수. 약 4MB
 CHECK_BELOW = 0.8  # 확신도가 이보다 낮으면 사람이 확인한다
 DAILY_LIMIT = int(os.environ.get("LLM_DAILY_LIMIT", "300"))
 TONES = {"polite": "정중하고 부드럽게", "firm": "단호하고 간결하게"}
@@ -97,7 +98,7 @@ class OpenAILLM:
             "accept: 요청한 대로 환불하겠다 / low_offer: 업체가 환불해 주겠다는 금액을 말했다 / "
             "refuse: 환불 불가 / list_price: 정상가·정가 기준으로 차감하겠다 / visit: 방문해야 처리된다 / "
             "no_answer: 전화를 받지 않았다 / callback: 나중에 연락 주겠다 / unknown: 그 밖.\n"
-            "amount는 업체가 환불해 주겠다고 제시한 금액(원)이다. 결제금액이나 차감액은 제시액이 아니다. 없으면 null.",
+            "amount는 업체가 환불해 주겠다고 제시한 금액(원)이다. 결제금액, 차감액, 월 정상가 같은 기준 단가는 제시액이 아니다. 없으면 null.",
             text,
             {"reply_type": {"type": "string", "enum": ["accept", "low_offer", "refuse", "list_price",
                                                        "visit", "no_answer", "callback", "unknown"]},
@@ -127,6 +128,20 @@ llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "g
        if os.environ.get("OPENAI_API_KEY") else FAKE)
 
 
+def upload_enabled() -> bool:
+    """계약서 사진 읽기. 운영사무국 답을 받기 전까지 꺼 둔다. 켜려면 ALLOW_UPLOAD=1."""
+    return os.environ.get("ALLOW_UPLOAD") == "1" and llm is not FAKE
+
+
+def status() -> dict:
+    """/api/health에 실을 값. 쓰는 구현, 사진 읽기 켜짐 여부, 오늘 남은 호출 수와 쓴 토큰."""
+    u = OpenAILLM.usage
+    today = u["day"] == date.today()
+    return {"llm": type(llm).__name__, "upload": upload_enabled(),
+            "calls_left": max(DAILY_LIMIT - (u["calls"] if today else 0), 0),
+            "tokens_today": u["tokens"] if today else 0}
+
+
 def _fallback(e: Exception) -> None:
     log.warning("LLM 호출 실패, 고정 규칙으로 대체: %s", type(e).__name__)
 
@@ -141,9 +156,9 @@ def read_reply(text: str) -> tuple[ReplyType, int | None, bool]:
     except Exception as e:
         _fallback(e)
         return *FAKE.read_reply(text), True
-    if amount is not None and amount <= 0:
-        amount = None
-    if amount is not None and kind not in ("no_answer", "callback"):
+    if kind not in ("accept", "low_offer") or (amount is not None and amount <= 0):
+        amount = None  # 거절·정상가 주장 속의 금액(월 정상가 등)은 제시액이 아니다
+    if amount is not None:
         kind = "low_offer"  # 금액이 있으면 수용 여부는 LLM이 아니라 서버가 목표·수용선과 비교해 정한다
     return kind, amount, False
 
@@ -154,7 +169,7 @@ def _numbers(text: str) -> list[str]:
 
 def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     """고정 양식을 말투만 다듬는다. 숫자가 하나라도 달라지거나 검사를 못 넘으면 원래 양식을 돌려준다."""
-    base = render(kind, case)
+    base = render(kind, case)  # 없는 양식이면 KeyError
     if llm is FAKE:
         return base, False
     try:
@@ -167,7 +182,15 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
 
 
 def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
-    """계약서 사진을 읽는다. 못 읽은 값은 만들지 않고 비워 두어 사람이 넣게 한다."""
+    """계약서 사진을 읽는다. 못 읽은 값은 만들지 않고 비워 두어 사람이 넣게 한다.
+
+    image는 data:image/png·jpeg·webp;base64 주소이고 약 4MB까지다. 꺼져 있으면 PermissionError,
+    형식이나 크기가 틀리면 ValueError를 낸다. 사진은 저장하지 않는다.
+    """
+    if not upload_enabled():
+        raise PermissionError("계약서 사진 읽기는 꺼져 있다")
+    if len(image) > MAX_IMAGE or not re.match(r"data:image/(png|jpeg|webp);base64,", image):
+        raise ValueError("사진 형식이나 크기가 맞지 않는다")
     try:
         raw, failed = llm.extract_contract(image), False
     except Exception as e:

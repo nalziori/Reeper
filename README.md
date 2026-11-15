@@ -22,7 +22,7 @@ Python 3.13 이상과 Node 22 이상이 필요하다.
 cd backend
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt   # macOS·Linux는 .venv/bin/python
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000 --env-file .env   # .env가 없으면 --env-file을 뺀다
 
 # 화면 (다른 터미널)
 cd frontend
@@ -30,7 +30,7 @@ npm install
 npm run dev        # http://localhost:5173, /api는 8000번으로 넘어간다
 ```
 
-실제 LLM은 서버를 띄우는 터미널에 환경변수를 넣으면 켜진다. 없으면 가짜 LLM으로 돈다. 키는 파일에 적지 않는다.
+실제 LLM은 `backend/.env.example`을 `backend/.env`로 복사해 키를 넣으면 켜진다. 없으면 가짜 LLM으로 돈다. `.env`는 저장소에 올라가지 않는다.
 
 | 환경변수 | 기본값 | 뜻 |
 |---|---|---|
