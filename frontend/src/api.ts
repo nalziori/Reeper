@@ -30,7 +30,10 @@ export type Case = {
   timeline: { on: string; type: string; text: string }[]
 }
 export type Action = { type: string; reason: string; warn: boolean }
-export type Step = { case: Case; action: Action; drafts: Record<string, string> }
+export type Step = { case: Case; action: Action; drafts: Record<string, string>; llm_fallback: boolean }
+export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
+export type Extracted = { value: string | number | null; confidence: number; quote: string; check: boolean }
+export type Extraction = { fields: Record<keyof Contract, Extracted>; llm_fallback: boolean }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
 
@@ -50,4 +53,8 @@ export const api = {
   open: (contract: Contract, today: string) => call<Step>('/api/cases', { contract, today }),
   step: (c: Case, event: Record<string, unknown>, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
+  health: () => call<Health>('/api/health'),
+  polish: (c: Case, kind: string, tone: 'polite' | 'firm') =>
+    call<{ text: string; polished: boolean }>('/api/drafts/polish', { case: c, kind, tone }),
+  extract: (image: string) => call<Extraction>('/api/contracts/extract', { image }),
 }
