@@ -7,7 +7,7 @@ from app.agent import render, validate
 from app.models import Case, Contract
 from app.rules import calculate
 
-KINDS = ["notice_sms", "after_call_sms", "call_card", "certified_mail", "counter_list_price", "counter_low_offer", "go_1372"]
+KINDS = ["notice_sms", "after_call_sms", "call_card", "certified_mail", "counter_list_price", "counter_low_offer", "counter_penalty", "go_1372"]
 
 
 def case(**kw):
