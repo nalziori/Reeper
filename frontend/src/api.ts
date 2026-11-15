@@ -47,7 +47,13 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   samples: () => call<Sample[]>('/api/samples'),
   rules: () => call<Rules>('/api/rules'),
-  open: (contract: Contract, today: string) => call<Step>('/api/cases', { contract, today }),
+  open: (contract: Contract, today: string, target: number | null = null, floor: number | null = null) =>
+    call<Step>('/api/cases', {
+      contract,
+      today,
+      ...(target === null ? {} : { target }),
+      ...(floor === null ? {} : { floor }),
+    }),
   step: (c: Case, event: Record<string, unknown>, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }

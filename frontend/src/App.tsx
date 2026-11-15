@@ -58,17 +58,73 @@ function Draft({ kind, text }: { kind: string; text: string }) {
   )
 }
 
-function Start({ onOpen }: { onOpen: (c: Contract) => void }) {
+function Start({ onOpen }: { onOpen: (c: Contract, target: number | null, floor: number | null) => void }) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
+  const [selected, setSelected] = useState<Contract | null>(null)
+  const [target, setTarget] = useState('')
+  const [floor, setFloor] = useState('')
   useEffect(() => { api.samples().then(setSamples) }, [])
+  const review = (contract: Contract) => {
+    setC(contract)
+    setSelected(contract)
+  }
+  const amount = (value: string) => value === '' ? null : Number(value)
+  const validAmount = (value: string) => value === '' ||
+    (Number.isSafeInteger(Number(value)) && Number(value) >= 0)
+
+  if (selected) {
+    return (
+      <VStack gap={4}>
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>계약 내용 확인</Heading>
+            <Text>업체: {selected.gym_name || '이름 미입력'}</Text>
+            <Text>결제 금액: {won(selected.total_paid)}</Text>
+            <Text>이용 기간: {selected.start_date} ~ {selected.end_date}</Text>
+            {selected.special_terms && <Text>특약: {selected.special_terms}</Text>}
+            <Text type="supporting">입력한 계약 내용을 확인해 주세요. 환불액은 서버 규칙으로 계산합니다.</Text>
+          </VStack>
+        </Card>
+        <Card>
+          <VStack gap={3}>
+            <Heading level={3}>협상 기준 (선택)</Heading>
+            <label>목표 금액(원)
+              <input className="amount-input" type="number" min="0" step="1" value={target}
+                placeholder="비우면 예상 환불액과 같음" onChange={(e) => setTarget(e.target.value)} />
+            </label>
+            <label>최저 수용선(원)
+              <input className="amount-input" type="number" min="0" step="1" value={floor}
+                placeholder="비우면 예상 환불액과 같음" onChange={(e) => setFloor(e.target.value)} />
+            </label>
+            {((target === '') !== (floor === '')) &&
+              <p role="alert">목표 금액과 최저 수용선은 함께 입력하거나 둘 다 비워 두세요.</p>}
+            {target !== '' && floor !== '' && Number(floor) > Number(target) &&
+              <p role="alert">최저 수용선은 목표 금액보다 높게 설정할 수 없습니다.</p>}
+            {(!validAmount(target) || !validAmount(floor)) &&
+              <p role="alert">금액은 0 이상의 정수로 입력해 주세요.</p>}
+          </VStack>
+        </Card>
+        <HStack gap={2} wrap="wrap">
+          <Button label="계약 내용 수정" onClick={() => setSelected(null)} />
+          <Button variant="primary" label="환불액 계산" isDisabled={
+            !selected.total_paid || !selected.start_date || !selected.end_date ||
+            ((target === '') !== (floor === '')) ||
+            !validAmount(target) || !validAmount(floor) ||
+            (floor !== '' && target !== '' && Number(floor) > Number(target))
+          } onClick={() => onOpen(selected, amount(target), amount(floor))} />
+        </HStack>
+      </VStack>
+    )
+  }
+
   return (
     <VStack gap={4}>
       <Text as="p">헬스장·PT·필라테스 회원권 환불, 말 꺼내기부터 입금까지 챙겨 드립니다. 근거를 찾고, 그대로 보낼 문장을 만들고, 돈이 들어올 때까지 추적합니다.</Text>
       <Card>
         <VStack gap={3}>
           <Heading level={2}>샘플 계약서로 해 보기</Heading>
-          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} onClick={() => onOpen(s.contract)} />)}
+          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} onClick={() => review(s.contract)} />)}
         </VStack>
       </Card>
       <Card>
@@ -79,7 +135,7 @@ function Start({ onOpen }: { onOpen: (c: Contract) => void }) {
             onChange={(v) => setC({ ...c, total_paid: Number(v.replace(/\D/g, '')) })} />
           <label>이용 시작일 <input type="date" value={c.start_date} onChange={(e) => setC({ ...c, start_date: e.target.value })} /></label>
           <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => setC({ ...c, end_date: e.target.value })} /></label>
-          <Button label="환불액 계산" isDisabled={!c.total_paid || !c.start_date || !c.end_date} onClick={() => onOpen(c)} />
+          <Button label="계약 내용 확인" isDisabled={!c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
         </VStack>
       </Card>
     </VStack>
@@ -109,10 +165,24 @@ export default function App() {
   const send = (event: Record<string, unknown>, patch: Partial<Saved> = {}) =>
     run(api.step(saved!.step.case, event, isoDate(patch.offset ?? saved!.offset)), patch)
 
+  const exportCase = () => {
+    if (!saved) return
+    const file = new Blob([JSON.stringify(saved.step.case, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(file)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `reeper-case-${isoDate(saved.offset)}.json`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
   const header = (
     <HStack hAlign="between" vAlign="center">
       <Heading level={1}>Reeper</Heading>
-      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => keep(null)} />}
+      {saved && <HStack gap={2} wrap="wrap">
+        <Button variant="ghost" label="사건 내보내기" onClick={exportCase} />
+        <Button variant="ghost" label="새 사건 시작" onClick={() => keep(null)} />
+      </HStack>}
     </HStack>
   )
   if (!saved) {
@@ -120,7 +190,7 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={640}>
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Start onOpen={(c) => run(api.open(c, isoDate(0)))} />
+        <Start onOpen={(c, target, floor) => run(api.open(c, isoDate(0), target, floor))} />
       </VStack>
     )
   }
