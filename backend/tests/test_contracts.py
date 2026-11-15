@@ -31,7 +31,14 @@ def test_refund_regression(row):
 
 @pytest.mark.parametrize("row", ROWS, ids=[r["id"] for r in ROWS])
 def test_text_carries_answer_fields(row):
+    """추출 정답은 모두 본문에서 찾을 수 있어야 한다. used_count는 사용자 입력이라 usage에 있다."""
     c, text = row["contract"], row["text"]
-    assert c["gym_name"] in text and f"{c['total_paid']:,}원" in text
-    if c.get("addon_value"):
-        assert f"{c['addon_value']:,}원" in text
+    assert c["gym_name"] in text
+    assert c["start_date"].replace("-", ".") in text and c["end_date"].replace("-", ".") in text
+    assert f"{c['total_paid']:,}원" in text
+    for key, fmt in (("addon_value", "{:,}원"), ("security_deposit", "{:,}원"), ("total_count", "{}")):
+        if c.get(key):
+            assert fmt.format(c[key]) in text, key
+    if c.get("special_terms"):
+        assert c["special_terms"] in text
+    assert "used_count" not in c
