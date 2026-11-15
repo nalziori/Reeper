@@ -159,6 +159,22 @@ def test_analysis_drops_what_is_not_in_the_material(real):
     assert out == {"claims": [], "note": "", "fallback": False}
 
 
+def test_step_carries_the_analysis_only_for_pasted_replies(real):
+    real({"reply_type": "low_offer", "amount": 200_000, "claims": [claim(), claim(quote="없는 말")], "note": ""})
+    res = reply(REPLY)
+    assert res["analysis"] == {"claims": [claim()], "note": ""} and not res["llm_fallback"]
+    assert res["action"]["warn"] and "counter_low_offer" in res["drafts"]  # 단계와 문안은 그대로다
+
+    case = open_case(CONTRACT, D).model_dump(mode="json")
+    button = api.post("/api/cases/step", json={"case": case, "today": str(D), "event": {
+        "type": "reply_received", "reply_type": "refuse"}}).json()
+    assert button["analysis"] is None  # 버튼으로 고른 답은 LLM을 거치지 않는다
+
+    real(httpx.ConnectError("down"))
+    res = reply(REPLY)
+    assert res["analysis"] is None and res["llm_fallback"] and res["case"]["offered"] == 200_000
+
+
 def test_analysis_is_empty_without_a_real_llm_and_flags_failure(real, monkeypatch):
     assert analyze(real, RuntimeError("down")) == {"claims": [], "note": "", "fallback": True}
     monkeypatch.setattr(agent, "llm", agent.FAKE)

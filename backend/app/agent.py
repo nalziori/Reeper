@@ -368,7 +368,10 @@ def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
         return not _problems(text, case, today, reply)
 
     said = _squash(reply)
-    claims = [c for c in out["claims"]
-              if _squash(c["quote"]) and _squash(c["quote"]) in said and c["rule_id"] in (*RULES, None)
+    keys = {"quote", "claim", "rule_id", "advice"}  # 형식이 어긋난 응답은 서버를 멈추지 않고 버린다
+    claims = [c for c in out.get("claims") or []
+              if isinstance(c, dict) and set(c) == keys
+              and _squash(c["quote"]) and _squash(c["quote"]) in said and c["rule_id"] in (*RULES, None)
               and ok(c["advice"])]
-    return {"claims": claims, "note": out["note"] if ok(out["note"]) else "", "fallback": False}
+    note = out.get("note") or ""
+    return {"claims": claims, "note": note if ok(note) else "", "fallback": False}
