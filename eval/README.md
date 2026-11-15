@@ -96,3 +96,11 @@ cd backend && .venv/Scripts/python ../eval/run.py --plans
 빈 전략은 모든 내용 필드가 빈 경우이며 fallback과 겹쳐도 한 건으로 센다.
 기본 FakeLLM은 빈 전략을 반환하므로 성능 수치가 아니다. `--plans --live`는 실제 모델로
 상황마다 한 번 호출한다(유료, 팀에 먼저 말한다). `--plans`가 없으면 기존 답장 평가를 실행한다.
+
+## run.py --photos
+
+`contract_photos/`의 이미지를 `agent.extract_contract`로 읽어 5개 필드를 `contracts.jsonl` 정답과 비교한다. 실제 모델만 사진을 읽으므로 `--photos --live`로만 돈다(12회 호출, 유료, 팀에 먼저 말한다).
+
+- `photo_layout`: 이미지 양식(`A_table`, `B_clauses`, `C_short`, `D_application`). `make_contracts.py`의 `LAYOUT`이 넣는다.
+- 특약 없음 표현("없음", "해당 없음", "별도의 특약 사항은 없다.")은 빈 값과 같게 본다. 상호는 띄어쓰기를 무시한다.
+- 워드에서 내보낸 깨끗한 이미지라 실제 폰 사진보다 쉽다. 수치를 보고할 때 같이 적는다.

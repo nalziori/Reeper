@@ -46,3 +46,22 @@ def test_plan_labels_use_known_rules():
     for r in rows:
         assert set(r["must_grounds"]) <= rules.keys(), r["id"]
         assert set(r["forbid_grounds"]) <= rules.keys(), r["id"]
+
+
+def test_photo_scoring_normalizes_no_terms(monkeypatch, tmp_path):
+    from app.models import Extracted
+    rows = [r for r in run.load([RUN.parent / "contracts.jsonl"]) if r.get("photo_layout")]
+    assert len(rows) == 12
+    for r in rows[:2]:
+        (tmp_path / f"{r['id']}.jpg").write_bytes(b"x")
+
+    def fake_extract(url):
+        r = rows[0] if not fake_extract.n else rows[1]
+        fake_extract.n += 1
+        c = {**r["contract"], "special_terms": r["contract"]["special_terms"] or "별도의 특약 사항은 없다"}
+        return {f: Extracted(value=c[f], confidence=1.0, quote="", check=False) for f in agent.FIELDS}, False
+    fake_extract.n = 0
+    monkeypatch.setattr(agent, "extract_contract", fake_extract)
+    s = run.score_photos(rows, tmp_path)
+    assert s["n"] == 2 and s["all_ok"] == 2
+    assert run.norm("special_terms", "해당 없음") == "" and run.norm("gym_name", "가상짐 한빛점") == "가상짐한빛점"
