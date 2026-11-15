@@ -12,11 +12,14 @@ import argparse
 import json
 import sys
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent / "backend"))
 from app import agent  # noqa: E402
+from app.engine import open_case  # noqa: E402
+from app.models import Contract  # noqa: E402
 
 
 def load(paths=None) -> list[dict]:
@@ -50,9 +53,39 @@ def score(rows: list[dict]) -> dict:
                          for t in sorted({t for t, _ in by_type})}}
 
 
+def score_plans(rows: list[dict]) -> dict:
+    """앱과 같은 사건으로 전략을 만들고, 반환된 근거만 채점한다."""
+    rules = json.loads((ROOT.parent / "data" / "rules.json").read_text(encoding="utf-8"))
+    results = []
+    for r in rows:
+        today = date.fromisoformat(r["today"])
+        case = open_case(Contract.model_validate(r["contract"]), today)
+        strategy = agent.plan(case, r["situation"], today)
+        rule_ids = [g["rule_id"] for g in strategy.get("grounds", [])]
+        returned = set(rule_ids)
+        required = set(r["must_grounds"])
+        empty = strategy.get("fallback", False) or not any(
+            strategy.get(key) for key in
+            ("summary", "grounds", "contract_points", "objections", "cautions", "questions")
+        )
+        results.append({"id": r["id"], "rule_ids": rule_ids,
+                        "must_hit": len(returned & required) if required else None,
+                        "must_n": len(required),
+                        "forbid_hit": len(returned & set(r["forbid_grounds"])),
+                        "out_of_table": len(returned - rules.keys()), "empty": bool(empty)})
+    must_hit = sum(r["must_hit"] or 0 for r in results)
+    must_n = sum(r["must_n"] for r in results)
+    return {"n": len(rows), "must_hit": must_hit, "must_n": must_n,
+            "must_recall": must_hit / must_n if must_n else None,
+            "forbid_hits": sum(r["forbid_hit"] for r in results),
+            "out_of_table": sum(r["out_of_table"] for r in results),
+            "empty": sum(r["empty"] for r in results), "situations": results}
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--live", action="store_true", help="실제 모델을 부른다(유료)")
+    ap.add_argument("--plans", action="store_true", help="상황별 전략 근거를 평가한다")
     ap.add_argument("files", nargs="*", help="기본: eval/replies_*.jsonl 전부")
     args = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
@@ -60,6 +93,16 @@ def main(argv=None) -> None:
         agent.llm = agent.FAKE
     elif agent.llm is agent.FAKE:
         sys.exit("--live에는 OPENAI_API_KEY가 필요하다")
+    if args.plans:
+        s = score_plans(load(args.files or [ROOT / "situations_b.jsonl"]))
+        model = getattr(agent.llm, "model", type(agent.llm).__name__)
+        recall = f"{s['must_recall']:.1%}" if s["must_recall"] is not None else "N/A"
+        print(f"모델: {model}  N={s['n']}")
+        print(f"필수 근거 재현율 {recall} ({s['must_hit']}/{s['must_n']})  "
+              f"금지 근거 {s['forbid_hits']}  표 밖 근거 {s['out_of_table']}  빈 전략/대체 {s['empty']}")
+        for r in s["situations"]:
+            print(f"  {r['id']}: {r['rule_ids']}")
+        return
     s = score(load(args.files))
     print(f"모델: {type(agent.llm).__name__}  답장 {s['n']}건")
     print(f"유형 정답률 {s['type_acc']:.1%}  제시액 정답률 {s['amount_acc']:.1%} ({s['amount_n']}건)  대체 {s['fallbacks']}건")
