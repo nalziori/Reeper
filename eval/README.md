@@ -44,3 +44,16 @@
 | "소비자원에 신고하세요" | `refuse` | 환불을 하지 않겠다는 뜻 |
 | "요청 금액 맞고요, 다음 달 말 입금", "이미 처리했습니다" | `accept` | 수용. 입금 기한·확인은 추적 단계(시행규칙 제22조: 3영업일 넘으면 지연배상) |
 | 금액 없이 위약금 비율만 주장("20%입니다") | `unknown` | 맞는 유형이 없다. 문안은 `counter_penalty` 양식을 쓰도록 B가 연결 |
+
+## run.py
+
+답장 정답셋으로 `agent.read_reply`의 유형·제시액 정답률을 잰다. 기본은 가짜 LLM이라 키 없이 돈다.
+
+```
+cd backend && .venv/Scripts/python ../eval/run.py          # 가짜 LLM (기준선)
+cd backend && .venv/Scripts/python ../eval/run.py --live   # 실제 모델, 답장 1건에 1번 호출 (유료, 팀에 먼저 말한다)
+```
+
+- 제시액 정답률은 정답이 `low_offer`인 건만 센다.
+- 가짜 LLM 수치는 키워드 판단의 기준선이다. 실제 모델 성능이 아니다.
+- 계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 `contracts.jsonl`은 글이다.
