@@ -1,0 +1,10 @@
+{"id": "b01", "text": "네 회원님, 말씀하신 금액으로 환불 처리해 드리겠습니다. 계좌번호 남겨주세요.", "reply_type": "accept", "amount": null, "note": "금액 없이 수용"}
+{"id": "b02", "text": "위약금이랑 카드 수수료 빼면 35만원 정도 나옵니다. 그걸로 진행할게요.", "reply_type": "low_offer", "amount": 350000, "note": "만원 단위 제시"}
+{"id": "b03", "text": "확인해 보니 환불 가능 금액은 412,000원입니다.", "reply_type": "low_offer", "amount": 412000, "note": "쉼표 숫자 제시"}
+{"id": "b04", "text": "삼십만원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다.", "reply_type": "low_offer", "amount": 300000, "note": "한글 숫자. 키워드 판단은 못 읽는다"}
+{"id": "b05", "text": "프로모션가로 등록하신 분들은 계약서에 환불 불가로 명시되어 있습니다.", "reply_type": "refuse", "amount": null, "note": "특약을 든 거절"}
+{"id": "b06", "text": "60만원 결제 건은 이미 한 달이 지나서 환불이 안 됩니다.", "reply_type": "refuse", "amount": null, "note": "함정: 결제금액은 제시액이 아니다"}
+{"id": "b07", "text": "할인 전 정상가가 월 12만원이라 그 기준으로 이용하신 기간을 빼야 합니다.", "reply_type": "list_price", "amount": null, "note": "함정: 월 정상가는 제시액이 아니다"}
+{"id": "b08", "text": "해지는 본인이 신분증 지참해서 센터 방문하셔야 접수됩니다.", "reply_type": "visit", "amount": null, "note": "방문 요구"}
+{"id": "b09", "text": "세 번 걸었는데 계속 통화 중이고 안 받음", "reply_type": "no_answer", "amount": null, "note": "통화 메모"}
+{"id": "b10", "text": "점장님이 자리에 안 계셔서 내일 오전에 전화드리겠다고 함", "reply_type": "callback", "amount": null, "note": "통화 메모"}
