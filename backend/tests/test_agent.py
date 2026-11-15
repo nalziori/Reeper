@@ -58,6 +58,13 @@ def test_llm_reads_what_keywords_miss(real):
     assert res["case"]["offered"] is None and "counter_list_price" in res["drafts"]
 
 
+def test_zero_won_offer_is_an_offer(real):
+    real({"reply_type": "low_offer", "amount": 0})  # 0원 제시는 금액 없음과 다르다
+    res = reply("계산해 보니 환불 가능 금액은 0원입니다.")
+    assert res["case"]["offered"] == 0 and res["action"]["warn"]
+    assert "말씀하신 0원" in res["drafts"]["counter_low_offer"]
+
+
 def test_failure_falls_back_to_keywords(real):
     real(httpx.ConnectError("down"))
     res = reply("20만원만 드릴게요")
@@ -157,6 +164,22 @@ def test_analysis_drops_what_is_not_in_the_material(real):
         claim(advice="12월 25일까지 입금하라고 하세요."),  # 사건에 없는 날짜
     ], "응하지 않으면 소송하겠다고 하세요.")
     assert out == {"claims": [], "note": "", "fallback": False}
+
+
+def test_step_carries_the_analysis_only_for_pasted_replies(real):
+    real({"reply_type": "low_offer", "amount": 200_000, "claims": [claim(), claim(quote="없는 말")], "note": ""})
+    res = reply(REPLY)
+    assert res["analysis"] == {"claims": [claim()], "note": ""} and not res["llm_fallback"]
+    assert res["action"]["warn"] and "counter_low_offer" in res["drafts"]  # 단계와 문안은 그대로다
+
+    case = open_case(CONTRACT, D).model_dump(mode="json")
+    button = api.post("/api/cases/step", json={"case": case, "today": str(D), "event": {
+        "type": "reply_received", "reply_type": "refuse"}}).json()
+    assert button["analysis"] is None  # 버튼으로 고른 답은 LLM을 거치지 않는다
+
+    real(httpx.ConnectError("down"))
+    res = reply(REPLY)
+    assert res["analysis"] is None and res["llm_fallback"] and res["case"]["offered"] == 200_000
 
 
 def test_analysis_is_empty_without_a_real_llm_and_flags_failure(real, monkeypatch):

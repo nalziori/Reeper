@@ -126,7 +126,7 @@ class OpenAILLM:
 
 
 FAKE = FakeLLM()
-llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6-luna"))
+llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6.1-terra"))
        if os.environ.get("OPENAI_API_KEY") else FAKE)
 
 
@@ -158,7 +158,7 @@ def read_reply(text: str) -> tuple[ReplyType, int | None, bool]:
     except Exception as e:
         _fallback(e)
         return *FAKE.read_reply(text), True
-    if kind not in ("accept", "low_offer") or (amount is not None and amount <= 0):
+    if kind not in ("accept", "low_offer") or (amount is not None and amount < 0):
         amount = None  # 거절·정상가 주장 속의 금액(월 정상가 등)은 제시액이 아니다
     if amount is not None:
         kind = "low_offer"  # 금액이 있으면 수용 여부는 LLM이 아니라 서버가 목표·수용선과 비교해 정한다
@@ -368,7 +368,10 @@ def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
         return not _problems(text, case, today, reply)
 
     said = _squash(reply)
-    claims = [c for c in out["claims"]
-              if _squash(c["quote"]) and _squash(c["quote"]) in said and c["rule_id"] in (*RULES, None)
+    keys = {"quote", "claim", "rule_id", "advice"}  # 형식이 어긋난 응답은 서버를 멈추지 않고 버린다
+    claims = [c for c in out.get("claims") or []
+              if isinstance(c, dict) and set(c) == keys
+              and _squash(c["quote"]) and _squash(c["quote"]) in said and c["rule_id"] in (*RULES, None)
               and ok(c["advice"])]
-    return {"claims": claims, "note": out["note"] if ok(out["note"]) else "", "fallback": False}
+    note = out.get("note") or ""
+    return {"claims": claims, "note": note if ok(note) else "", "fallback": False}

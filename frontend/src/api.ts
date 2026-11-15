@@ -38,7 +38,16 @@ export type Case = {
   timeline: { on: string; type: string; text: string }[]
 }
 export type Action = { type: string; reason: string; warn: boolean }
-export type Step = { case: Case; action: Action; drafts: Record<string, string> }
+// 붙여넣은 답장에서 짚은 주장. 표시용이다. rule_id가 null이면 "확인 필요"로 보여 준다.
+export type Claim = { quote: string; claim: string; rule_id: string | null; advice: string }
+export type Analysis = { claims: Claim[]; note: string }
+export type Step = {
+  case: Case
+  action: Action
+  drafts: Record<string, string>
+  llm_fallback?: boolean
+  analysis?: Analysis | null
+}
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
 
