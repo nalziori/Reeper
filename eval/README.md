@@ -4,8 +4,18 @@
 |---|---|---|
 | `replies_b.jsonl`, `replies_c.jsonl` | 업체 답장과 정답 유형·제시액 | B, C |
 | `contracts.jsonl` | 가상 계약서 27건과 정답 필드·금액 (`make_contracts.py`로 생성) | C |
+| `situations_b.jsonl` | 상황 설명과 계약 10건. 전략(`agent.plan`) 평가용. 근거 정답은 C가 더한다 | B |
 
 모두 가상 데이터다. 실제 계약서와 개인정보는 넣지 않는다.
+
+## situations_b.jsonl (형식은 제안)
+
+한 줄: `id`, `cause`, `note`(무엇을 보는 사례인지), `today`, `contract`(`backend/app/models.py`의 `Contract` 필드), `situation`(사용자가 적은 상황 설명).
+
+- `cause`는 해지 이유가 누구 쪽인지다. `consumer`(개인 사정) 7건, `business`(업체 쪽 사유: 트레이너 퇴사, 휴업, 약속한 수업 폐지) 3건.
+- `business` 사례에서는 전략이 "위약금이 그대로다"라고 말하면 안 된다. 업체 사유인지 되묻고 1372 상담을 안내해야 한다. 요청액은 서버 계산값 그대로다(계산은 소비자 사정으로 해지하는 경우만 다룬다).
+- 사례마다 반드시 나와야 할 근거와 나오면 안 되는 근거는 아직 없다. C가 정답으로 더한다.
+- 정답이 없는 글이라 채점은 검사에 걸려 버려진 항목 수, 표 밖 근거 수, 금액 불일치 수, 근거 정답률로 한다.
 
 ## contracts.jsonl
 
