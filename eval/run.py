@@ -6,9 +6,11 @@
     python eval/run.py            # 가짜 LLM
     python eval/run.py --live     # 실제 모델 (OPENAI_API_KEY 필요)
 
-계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 contracts.jsonl은 글이다.
+계약서 사진 추출 평가는 --photos --live로 돈다(12회 호출). eval/README.md의 run.py --photos 참고.
 """
 import argparse
+import base64
+import os
 import re
 import json
 import sys
@@ -52,6 +54,54 @@ def score(rows: list[dict]) -> dict:
             "fallbacks": fallbacks, "misses": misses,
             "per_type": {t: f"{by_type[(t, True)]}/{by_type[(t, True)] + by_type[(t, False)]}"
                          for t in sorted({t for t, _ in by_type})}}
+
+
+NO_TERMS = re.compile(r"^(없음|해당\s*없음|별도의?\s*특약\s*사항은?\s*없(다|음|습니다))\.?$")
+
+
+# 인용 앞의 칸 이름("특약사항", "비고(특약)", "제5조(특약)")만 떼고, 남은 글 전체가 특약 없음 표현이어야 한다.
+TERMS_LABEL = re.compile(r"^\s*(?:제\s*\d+\s*조\s*)?\(?\s*(?:비고\s*\(\s*특약\s*\)|특약\s*사항|특약)\s*\)?\s*[:：]?\s*")
+
+
+def _quote_says_no_terms(quote: str) -> bool:
+    return bool(NO_TERMS.match(TERMS_LABEL.sub("", quote, count=1).strip()))
+
+
+def norm(name: str, value):
+    """채점용으로 값을 맞춘다. 특약 없음의 여러 표현은 빈 문자열, 글은 공백을 지운다."""
+    if isinstance(value, str):
+        value = re.sub(r"\s+", "", value) if name != "special_terms" else " ".join(value.split())
+        if name == "special_terms" and _quote_says_no_terms(value):  # "특약: 없음"처럼 칸 이름을 단 값도
+            value = ""
+    return value
+
+
+def score_photos(rows: list[dict], photo_dir: Path = ROOT / "contract_photos") -> dict:
+    """사진이 있는 계약서만 agent.extract_contract로 읽어 추출 필드 5개를 정답과 비교한다."""
+    fields, results = list(agent.FIELDS), []
+    rows = [r for r in rows if "photo_layout" in r]
+    missing = [r["id"] for r in rows if not (photo_dir / f"{r['id']}.jpg").exists()]
+    if missing:  # 빠진 사진을 건너뛰면 분모가 줄어 점수가 좋아 보인다. 호출 전에 멈춘다.
+        raise FileNotFoundError(f"사진이 없다: {', '.join(missing)}")
+    for r in rows:
+        img = photo_dir / f"{r['id']}.jpg"
+        url = "data:image/jpeg;base64," + base64.b64encode(img.read_bytes()).decode()
+        got, failed = agent.extract_contract(url)
+        want = {f: r["contract"].get(f, "") for f in fields}
+        ok = {}
+        for f in fields:
+            value = got[f].value
+            # 추출기가 빈 특약을 None으로 바꾼다. 인용문이 "없음" 같은 특약 없음 표현으로 끝날 때만
+            # 특약 없음을 읽은 것으로 본다. "특약사항"처럼 칸 이름만 인용했으면 못 읽은 것이다.
+            if f == "special_terms" and value is None and _quote_says_no_terms(got[f].quote):
+                value = ""
+            ok[f] = value is not None and norm(f, value) == norm(f, want[f])
+        results.append({"id": r["id"], "layout": r["photo_layout"], "failed": failed, "ok": ok,
+                        "checks": sum(got[f].check for f in fields)})
+    n = len(results)
+    return {"n": n, "fields": {f: sum(x["ok"][f] for x in results) for f in fields},
+            "all_ok": sum(all(x["ok"].values()) for x in results),
+            "failed": sum(x["failed"] for x in results), "results": results}
 
 
 # 위약금이 그대로 빠진다는 단정. "빠집니다"는 환급액에서 공제된다는 뜻으로 본다(면제 뜻이 아님).
@@ -132,14 +182,29 @@ def score_plans(rows: list[dict]) -> dict:
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--live", action="store_true", help="실제 모델을 부른다(유료)")
+    ap.add_argument("--photos", action="store_true", help="계약서 사진 추출을 평가한다(--live 필요)")
     ap.add_argument("--plans", action="store_true", help="상황별 전략 근거를 평가한다")
     ap.add_argument("files", nargs="*", help="기본: eval/replies_*.jsonl 전부")
     args = ap.parse_args(argv)
+    if args.photos and args.plans:  # 정답 파일과 호출 수가 달라 한 번에 돌리지 않는다
+        sys.exit("--photos와 --plans는 따로 돌린다")
     sys.stdout.reconfigure(encoding="utf-8")
     if not args.live:
         agent.llm = agent.FAKE
     elif agent.llm is agent.FAKE:
         sys.exit("--live에는 OPENAI_API_KEY가 필요하다")
+    if args.photos:
+        if not args.live:
+            sys.exit("사진 추출은 실제 모델만 읽는다. --photos --live로 돌린다(유료)")
+        os.environ["ALLOW_UPLOAD"] = "1"
+        s = score_photos(load([ROOT / "contracts.jsonl"]))
+        print(f"모델: {getattr(agent.llm, 'model', '')}  사진 {s['n']}장 (워드에서 내보낸 이미지, 실제 사진보다 쉽다)")
+        print("필드별:", ", ".join(f"{f} {k}/{s['n']}" for f, k in s["fields"].items()),
+              f" 전부 맞음 {s['all_ok']}/{s['n']}  대체 {s['failed']}")
+        for x in s["results"]:
+            bad = [f for f, v in x["ok"].items() if not v]
+            print(f"  {x['id']} {x['layout']}: {'OK' if not bad else '틀림 ' + ', '.join(bad)}  확인필요 {x['checks']}")
+        return
     if args.plans:
         rows = load(args.files or [ROOT / "situations_b.jsonl"])
         if not args.live:
