@@ -12,12 +12,17 @@ from pydantic import BaseModel, Field
 from . import agent
 from .agent import drafts_for
 from .engine import InvalidTransition, apply, next_action, open_case, validate_transition
-from .models import Action, Analysis, Case, Contract, Event, Refund, Strategy
+from .models import Action, Analysis, Case, Contract, Event, Extracted, Refund, Strategy
 from .rules import DATA, RULES, calculate
 
 # 요청 본문 상한(바이트). 입력 길이 제한이다. JSON 사건 요청은 이보다 훨씬 작다.
 # 계약서 사진(약 4MB base64) 경로가 생기면 이 전역 값을 올리지 말고 그 경로만 따로 올린다.
 MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(256 * 1024)))
+
+
+# 계약서 사진만 본문이 크다. 이 경로만 사진 상한(agent.MAX_IMAGE, data URL 글자 수)에 JSON 껍데기만큼 더 받는다.
+EXTRACT_PATH = "/api/contracts/extract"
+EXTRACT_BODY_BYTES = agent.MAX_IMAGE + 1024
 
 
 class BodyLimit:
@@ -29,7 +34,7 @@ class BodyLimit:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["method"] in ("GET", "HEAD", "OPTIONS"):
             return await self.app(scope, receive, send)
-        limit = MAX_BODY_BYTES
+        limit = EXTRACT_BODY_BYTES if scope["path"] == EXTRACT_PATH else MAX_BODY_BYTES
         declared = dict(scope["headers"]).get(b"content-length", b"")
         if declared.isdigit() and int(declared) > limit:
             return await self._reject(scope, receive, send)
@@ -87,6 +92,15 @@ class StepRequest(BaseModel):
     case: Case
     event: Event
     today: date
+
+
+class ExtractRequest(BaseModel):
+    image: str  # data:image/png·jpeg·webp;base64,... 서버는 저장하지 않는다
+
+
+class ExtractResponse(BaseModel):
+    fields: dict[str, Extracted]  # gym_name, total_paid, start_date, end_date, special_terms
+    llm_fallback: bool = False  # 실제 LLM이 실패해 아무것도 읽지 못했다. 화면은 직접 입력을 권한다
 
 
 class StrategyRequest(BaseModel):
@@ -163,6 +177,18 @@ def strategy(req: StrategyRequest) -> StrategyResponse:
         made = Strategy(**parts)
     case = req.case.model_copy(update={"situation": req.situation, "strategy": made})
     return StrategyResponse(case=case, llm_fallback=found["fallback"])
+
+
+@app.post(EXTRACT_PATH)
+def extract(req: ExtractRequest) -> ExtractResponse:
+    """계약서 사진에서 값을 읽어 돌려준다. 사건을 만들지 않는다. 화면이 확인받은 값으로 POST /api/cases를 부른다."""
+    try:
+        fields, failed = agent.extract_contract(req.image)
+    except PermissionError as e:
+        raise HTTPException(403, "계약서 사진 읽기는 꺼져 있습니다.") from e
+    except ValueError as e:
+        raise HTTPException(422, "사진 형식이나 크기가 맞지 않습니다. PNG·JPEG·WebP, 약 4MB까지입니다.") from e
+    return ExtractResponse(fields=fields, llm_fallback=failed)
 
 
 @app.post("/api/cases/step")
