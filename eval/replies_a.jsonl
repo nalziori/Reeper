@@ -1,0 +1,10 @@
+{"id": "a01", "text": "전화 걸었는데 신호만 가고 안 받음. 문자도 아직 답 없음", "reply_type": "no_answer", "amount": null, "note": "통화 메모. 연결 안 됨"}
+{"id": "a02", "text": "통화함. 사장님이 지금 운전 중이라 이따 저녁에 다시 전화 준다고 함", "reply_type": "callback", "amount": null, "note": "통화 메모. 업체가 나중에 연락"}
+{"id": "a03", "text": "통화 메모: 위약금 10% 빼고 이용한 날만큼 계산해서 47만 3천원 보내 주겠대요", "reply_type": "low_offer", "amount": 473000, "note": "만·천 단위가 섞인 금액. 비율은 금액이 아니다"}
+{"id": "a04", "text": "010-0000-0000으로 연락 달라고 하고, 11월 20일까지 정리해서 알려 준다고 함", "reply_type": "callback", "amount": null, "note": "전화번호와 날짜는 제시액이 아니다"}
+{"id": "a05", "text": "통화: 30만원은 절대 못 주고 25만원이 최대래요", "reply_type": "low_offer", "amount": 250000, "note": "부정된 금액이 먼저 나온다. 제시액은 25만원"}
+{"id": "a06", "text": "전화로 해지하겠다고 했더니 앱에서 해지 신청 버튼을 누르라고 함", "reply_type": "visit", "amount": null, "note": "해지와 상관없는 절차 요구"}
+{"id": "a07", "text": "통화 내용: 남은 3개월은 현금 말고 다른 지점 이용권으로 바꿔 준대", "reply_type": "refuse", "amount": null, "note": "이용권 전환은 현금 환불이 아니다"}
+{"id": "a08", "text": "전화 두 번 했는데 전원이 꺼져 있다는 안내만 나옴", "reply_type": "no_answer", "amount": null, "note": "통화 메모. 횟수 숫자는 금액이 아니다"}
+{"id": "a09", "text": "사장님 말로는 규정상 위약금이 30%라서 그거 빼고 준다고만 함", "reply_type": "unknown", "amount": null, "note": "금액 없이 위약금 비율만 주장"}
+{"id": "a10", "text": "제가 문자로 보낸 금액 그대로 처리해 주겠다고 함. 계좌번호 다시 보내 달래요", "reply_type": "accept", "amount": null, "note": "금액 없이 수용"}

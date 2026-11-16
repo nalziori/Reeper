@@ -2,7 +2,7 @@
 
 | 파일 | 무엇 | 담당 |
 |---|---|---|
-| `replies_b.jsonl`, `replies_c.jsonl` | 업체 답장과 정답 유형·제시액 | B, C |
+| `replies_a.jsonl`, `replies_b.jsonl`, `replies_c.jsonl` | 업체 답장·통화 메모와 정답 유형·제시액. A는 통화 메모 위주 | A, B, C |
 | `contracts.jsonl` | 가상 계약서 27건과 정답 필드·금액 (`make_contracts.py`로 생성) | C |
 | `contract_photos/` | 그중 12건의 계약서 이미지(`k01.jpg` 식)와 원본 `print.docx`. 계약서 추출(`agent.extract_contract`) 평가용 | B |
 | `situations_b.jsonl` | 상황 설명과 계약 10건. 전략(`agent.plan`) 평가용 근거 정답 포함 | B |
