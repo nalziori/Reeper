@@ -11,6 +11,8 @@ class InvalidTransition(ValueError):
 
 def validate_transition(case: Case, event: Event, today: date) -> None:
     stage = case.stage
+    if event.amount is not None and event.amount < 0:
+        raise InvalidTransition("금액은 0원 이상이어야 합니다.")
     if case.timeline and today < case.timeline[-1].on:
         raise InvalidTransition("마지막 기록보다 이른 날짜에는 처리할 수 없습니다.")
 
@@ -23,13 +25,15 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
     elif event.type == "call_attempted":
         allowed = stage == "ready"
     elif event.type == "reply_received":
+        if event.reply_type == "accept" and event.amount == 0:
+            raise InvalidTransition("수용 금액은 0원보다 커야 합니다.")
         allowed = stage in ("waiting", "negotiating", "escalated")
     elif event.type == "counter_sent":
         allowed = stage == "negotiating" and next_action(case, today).type == "counter"
     elif event.type == "agreement_recorded":
-        allowed = stage == "negotiating" or (
-            stage == "handed_off" and event.amount is not None and event.amount > 0
-        )
+        if event.amount is not None and event.amount <= 0:
+            raise InvalidTransition("합의 금액은 0원보다 커야 합니다.")
+        allowed = stage == "negotiating" or (stage == "handed_off" and event.amount is not None)
     elif event.type == "deposit_confirmed":
         allowed = stage == "agreed"
     elif event.type == "escalation_sent":
@@ -76,11 +80,14 @@ def apply(case: Case, event: Event, today: date) -> Case:
         log("업체에 전화했으나 연결되지 않음")
 
     elif event.type == "reply_received":
-        c.last_reply, c.offered = event.reply_type, event.amount
-        log(event.text or event.reply_type or "")
+        reply_type = event.reply_type
+        if reply_type == "accept" and event.amount is not None:
+            reply_type = "low_offer"  # 금액이 있는 수용은 서버가 목표·수용선과 비교해 정한다
+        c.last_reply, c.offered = reply_type, event.amount
+        log(event.text or reply_type or "")
         if event.reply_type in ("no_answer", "callback"):
             c.stage = _response_wait_stage(c)
-        elif event.reply_type == "accept":
+        elif reply_type == "accept":
             _agree(c, event.amount, today)
         else:
             c.stage = "negotiating"

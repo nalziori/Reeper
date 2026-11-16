@@ -1,9 +1,11 @@
 """FastAPI 앱. 서버는 사건을 저장하지 않는다. 사건은 요청에 담겨 오고 응답으로 돌아간다."""
 import json
+import os
 from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -13,7 +15,59 @@ from .engine import InvalidTransition, apply, next_action, open_case, validate_t
 from .models import Action, Analysis, Case, Contract, Event, Refund, Strategy
 from .rules import DATA, RULES, calculate
 
+# 요청 본문 상한(바이트). 입력 길이 제한이다. JSON 사건 요청은 이보다 훨씬 작다.
+# 계약서 사진(약 4MB base64) 경로가 생기면 이 전역 값을 올리지 말고 그 경로만 따로 올린다.
+MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(256 * 1024)))
+
+
+class BodyLimit:
+    """본문이 MAX_BODY_BYTES를 넘으면 413. Content-Length를 먼저 보고, 헤더가 없거나 거짓이어도 읽는 도중에 센다."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] in ("GET", "HEAD", "OPTIONS"):
+            return await self.app(scope, receive, send)
+        limit = MAX_BODY_BYTES
+        declared = dict(scope["headers"]).get(b"content-length", b"")
+        if declared.isdigit() and int(declared) > limit:
+            return await self._reject(scope, receive, send)
+        seen, started = 0, False
+
+        async def counted():
+            nonlocal seen
+            msg = await receive()
+            if msg["type"] == "http.request":
+                seen += len(msg.get("body", b""))
+                if seen > limit:
+                    raise _TooLarge
+            return msg
+
+        async def tracked(msg):
+            nonlocal started
+            started = started or msg["type"] == "http.response.start"
+            await send(msg)
+
+        try:
+            await self.app(scope, counted, tracked)
+        except _TooLarge:
+            if started:
+                raise
+            await self._reject(scope, receive, send)
+
+    @staticmethod
+    async def _reject(scope, receive, send):
+        res = JSONResponse({"detail": "요청 본문이 너무 큽니다."}, status_code=413)
+        await res(scope, receive, send)
+
+
+class _TooLarge(BaseException):  # Exception이면 FastAPI가 본문 오류(400)로 삼킨다
+    pass
+
+
 app = FastAPI(title="Reeper")
+app.add_middleware(BodyLimit)
 SAMPLES = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((DATA / "samples").glob("*.json"))}
 
 
