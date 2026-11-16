@@ -14,9 +14,30 @@ body {
   margin: 0;
 }
 
-input[type='date'] {
+.draft-section {
+  display: inline-block;
+  margin-top: 0.25em;
+}
+
+/* 날짜 입력은 전용 컴포넌트가 없어 네이티브를 쓴다. 입력 칸과 높이·모서리를 맞추고 손가락으로 누르기 쉽게 한다. */
+input[type='date'],
+.journey-interactions input[type='number'] {
   font: inherit;
-  padding: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+/* 키보드 사용자가 어디에 있는지 보이게 한다 */
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .journey-steps {

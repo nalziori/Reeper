@@ -14,4 +14,7 @@ COPY data data
 COPY --from=web /web/dist frontend/dist
 WORKDIR /srv/backend
 ENV PORT=8000
+RUN useradd --system --no-create-home reeper
+USER reeper
+HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import os,urllib.request as u; u.urlopen(f'http://127.0.0.1:{os.environ['PORT']}/api/health')"
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

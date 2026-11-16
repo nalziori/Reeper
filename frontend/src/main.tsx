@@ -3,12 +3,15 @@ import { neutralTheme } from '@astryxdesign/theme-neutral/built'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Theme theme={neutralTheme}>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </Theme>
   </StrictMode>,
 )

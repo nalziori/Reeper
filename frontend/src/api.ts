@@ -32,17 +32,21 @@ export type Case = {
   stage: 'ready' | 'waiting' | 'negotiating' | 'escalated' | 'agreed' | 'closed' | 'handed_off'
   notified_on: string | null
   deadline_on: string | null
+  attempts: number
+  last_reply: ReplyType | null
   offered: number | null
   agreed_amount: number | null
   deposit_due_on: string | null
   timeline: { on: string; type: string; text: string }[]
 }
+export type ReplyType = 'accept' | 'low_offer' | 'refuse' | 'list_price' | 'visit' | 'unknown' | 'no_answer' | 'callback'
 export type Action = { type: string; reason: string; warn: boolean }
 export type CaseEvent = {
   type: 'notice_sent' | 'call_attempted' | 'reply_received' | 'counter_sent' | 'time_passed' |
     'agreement_recorded' | 'deposit_confirmed' | 'escalation_sent' | 'handoff_done'
   channel?: 'sms' | 'call'
   text?: string
+  reply_type?: ReplyType | null
   amount?: number | null
 }
 // 붙여넣은 답장에서 짚은 주장. 표시용이다. rule_id가 null이면 "확인 필요"로 보여 준다.
@@ -55,6 +59,7 @@ export type Step = {
   llm_fallback?: boolean
   analysis?: Analysis | null
 }
+export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
 
@@ -73,6 +78,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
+  health: () => call<Health>('/api/health'),
   samples: () => call<Sample[]>('/api/samples'),
   rules: () => call<Rules>('/api/rules'),
   preview: (contract: Contract, today: string) => call<Refund>('/api/refund-preview', { contract, today }),
