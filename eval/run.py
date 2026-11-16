@@ -9,6 +9,9 @@
 계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 contracts.jsonl은 글이다.
 """
 import argparse
+import base64
+import os
+import re
 import json
 import sys
 from collections import Counter
@@ -50,9 +53,47 @@ def score(rows: list[dict]) -> dict:
                          for t in sorted({t for t, _ in by_type})}}
 
 
+NO_TERMS = re.compile(r"^(없음|해당\s*없음|별도의?\s*특약\s*사항은?\s*없(다|음|습니다)\.?)$")
+
+
+def norm(name: str, value):
+    """채점용으로 값을 맞춘다. 특약 없음의 여러 표현은 빈 문자열, 글은 공백을 지운다."""
+    if isinstance(value, str):
+        value = re.sub(r"\s+", "", value) if name != "special_terms" else " ".join(value.split())
+        if name == "special_terms" and NO_TERMS.match(value):
+            value = ""
+    return value
+
+
+def score_photos(rows: list[dict], photo_dir: Path = ROOT / "contract_photos") -> dict:
+    """사진이 있는 계약서만 agent.extract_contract로 읽어 추출 필드 5개를 정답과 비교한다."""
+    fields, results = list(agent.FIELDS), []
+    for r in rows:
+        img = photo_dir / f"{r['id']}.jpg"
+        if "photo_layout" not in r or not img.exists():
+            continue
+        url = "data:image/jpeg;base64," + base64.b64encode(img.read_bytes()).decode()
+        got, failed = agent.extract_contract(url)
+        want = {f: r["contract"].get(f, "") for f in fields}
+        ok = {}
+        for f in fields:
+            value = got[f].value
+            # 추출기가 빈 특약을 None으로 바꾸므로 읽은 위치의 인용이 있어야 인정한다.
+            if f == "special_terms" and value is None and got[f].quote.strip():
+                value = ""
+            ok[f] = value is not None and norm(f, value) == norm(f, want[f])
+        results.append({"id": r["id"], "layout": r["photo_layout"], "failed": failed, "ok": ok,
+                        "checks": sum(got[f].check for f in fields)})
+    n = len(results)
+    return {"n": n, "fields": {f: sum(x["ok"][f] for x in results) for f in fields},
+            "all_ok": sum(all(x["ok"].values()) for x in results),
+            "failed": sum(x["failed"] for x in results), "results": results}
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--live", action="store_true", help="실제 모델을 부른다(유료)")
+    ap.add_argument("--photos", action="store_true", help="계약서 사진 추출을 평가한다(--live 필요)")
     ap.add_argument("files", nargs="*", help="기본: eval/replies_*.jsonl 전부")
     args = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
@@ -60,6 +101,18 @@ def main(argv=None) -> None:
         agent.llm = agent.FAKE
     elif agent.llm is agent.FAKE:
         sys.exit("--live에는 OPENAI_API_KEY가 필요하다")
+    if args.photos:
+        if not args.live:
+            sys.exit("사진 추출은 실제 모델만 읽는다. --photos --live로 돌린다(유료)")
+        os.environ["ALLOW_UPLOAD"] = "1"
+        s = score_photos(load([ROOT / "contracts.jsonl"]))
+        print(f"모델: {getattr(agent.llm, 'model', '')}  사진 {s['n']}장 (워드에서 내보낸 이미지, 실제 사진보다 쉽다)")
+        print("필드별:", ", ".join(f"{f} {k}/{s['n']}" for f, k in s["fields"].items()),
+              f" 전부 맞음 {s['all_ok']}/{s['n']}  대체 {s['failed']}")
+        for x in s["results"]:
+            bad = [f for f, v in x["ok"].items() if not v]
+            print(f"  {x['id']} {x['layout']}: {'OK' if not bad else '틀림 ' + ', '.join(bad)}  확인필요 {x['checks']}")
+        return
     s = score(load(args.files))
     print(f"모델: {type(agent.llm).__name__}  답장 {s['n']}건")
     print(f"유형 정답률 {s['type_acc']:.1%}  제시액 정답률 {s['amount_acc']:.1%} ({s['amount_n']}건)  대체 {s['fallbacks']}건")

@@ -37,6 +37,9 @@ C = [
 ("k27","온새필라테스","3개월 필라테스","month",3,None,450000,None,"2028-01-31","2028-04-30","2028-02-29",None,0,"월 단위로 이용료를 정산합니다.","윤년 2월 29일 월말 경계"),
 ("k25","가상짐 한빛점","6개월 회원권","day",None,None,540000,None,"2026-10-01","2027-03-31","2026-12-31",None,0,"","해를 넘기는 기간"),
 ]
+# 사진 평가(eval/contract_photos/)에 쓴 양식. B가 워드로 만든 이미지 12장 (#29)
+LAYOUT={**dict.fromkeys(["k09","k19","k26"],"A_table"),**dict.fromkeys(["k04","k11","k21"],"B_clauses"),
+        **dict.fromkeys(["k01","k03","k10"],"C_short"),**dict.fromkeys(["k08","k13","k24"],"D_application")}
 def d(s): return date.fromisoformat(s)
 def months(a,b):
     m=(b.year-a.year)*12+(b.month-a.month); return m+1 if b.day>=a.day else m
@@ -67,5 +70,6 @@ for (i,gym,prod,unit,tot,usedc,paid,listp,s,e,n,addon,dep,sp,memo) in C:
     basis="unverified_month" if unit=="month" else "kca_case" if i=="k03" else "decision_table"
     out.append({"id":i,"basis":basis,"note":memo,"text":"\n".join(lines),"contract":contract,"notified_on":n,"usage":({"used_count":usedc} if unit=="count" else {}),
                 "expected":{"used_days":U,"total_days":T,"used_amount":used,"penalty":pen,"refund":refund,"per_day_loss":refund-refund2}})
+    if i in LAYOUT: out[-1]["photo_layout"]=LAYOUT[i]
 open(sys.argv[1],"w",encoding="utf-8",newline="").write("".join(json.dumps(o,ensure_ascii=False)+"\n" for o in out))
 print(len(out))

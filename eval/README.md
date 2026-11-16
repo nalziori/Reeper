@@ -83,3 +83,14 @@ cd backend && .venv/Scripts/python ../eval/run.py --live   # 실제 모델, 답�
 - 제시액 정답률은 정답이 `low_offer`인 건만 센다.
 - 가짜 LLM 수치는 키워드 판단의 기준선이다. 실제 모델 성능이 아니다.
 - 계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 `contracts.jsonl`은 글이다.
+
+## run.py --photos
+
+깨끗한 Word 내보내기 이미지이므로 실제 휴대전화 사진 대비 성능 상한에 가까운 조건이다. 수치를 보고할 때 실행 날짜, 모델명, 커밋(미커밋 수정 여부 포함)을 함께 기록한다.
+특약 값이 `None`이어도 인용문이 공백이 아니면 빈 특약을 읽은 것으로 비교한다. 공백 인용문의 `None`과 다른 필드의 `None`은 오답이다.
+
+`contract_photos/`의 이미지를 `agent.extract_contract`로 읽어 5개 필드를 `contracts.jsonl` 정답과 비교한다. 실제 모델만 사진을 읽으므로 `--photos --live`로만 돈다(12회 호출, 유료, 팀에 먼저 말한다).
+
+- `photo_layout`: 이미지 양식(`A_table`, `B_clauses`, `C_short`, `D_application`). `make_contracts.py`의 `LAYOUT`이 넣는다.
+- 특약 없음 표현("없음", "해당 없음", "별도의 특약 사항은 없다.")은 빈 값과 같게 본다. 상호는 띄어쓰기를 무시한다.
+- 워드에서 내보낸 깨끗한 이미지라 실제 폰 사진보다 쉽다. 수치를 보고할 때 같이 적는다.
