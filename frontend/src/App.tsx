@@ -10,7 +10,7 @@ import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, type CaseEvent, type Contract, type Rules, type Sample, type Step } from './api'
+import { api, type CaseEvent, type Contract, type Refund, type Rules, type Sample, type Step } from './api'
 
 // 사건은 서버가 아니라 이 브라우저에만 보관한다.
 const KEY = 'reeper.case'
@@ -40,36 +40,152 @@ const DRAFT: Record<string, string> = {
 const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만원만 드릴게요', '이벤트 상품은 환불 불가입니다',
   '정상가 기준으로 차감합니다', '방문하셔야 처리됩니다']
 
+const JOURNEY = ['계약 입력', '근거 확인', '말할 준비', '답변 대응', '입금 추적']
+const journeyPhase = (stage: Step['case']['stage']) =>
+  stage === 'ready' ? 3 : stage === 'agreed' || stage === 'closed' ? 5 : 4
+
+function JourneyProgress({ current }: { current: number }) {
+  return (
+    <ol className="journey-steps" aria-label="환불 진행 단계">
+      {JOURNEY.map((label, index) => {
+        const step = index + 1
+        return <li key={label} data-state={step === current ? 'current' : step < current ? 'done' : 'next'}
+          aria-current={step === current ? 'step' : undefined}>{label}</li>
+      })}
+    </ol>
+  )
+}
+
 function Draft({ kind, text }: { kind: string; text: string }) {
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState('')
   return (
     <Card>
       <VStack gap={3}>
         <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
         <pre className="draft">{text}</pre>
         <HStack gap={2} wrap="wrap">
-          <Button label={copied ? '복사됨' : '복사'} onClick={() => {
-            navigator.clipboard.writeText(text)
-            setCopied(true)
+          <Button label={copied ? '복사됨' : '복사'} onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text)
+              setCopied(true)
+              setCopyError('')
+            } catch {
+              setCopyError('복사하지 못했습니다. 문안을 직접 선택해 복사해 주세요.')
+            }
           }} />
           {kind !== 'call_card' && <a href={`sms:?&body=${encodeURIComponent(text)}`}>문자 앱으로 열기</a>}
         </HStack>
+        {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>
     </Card>
   )
 }
 
-function Start({ onOpen }: { onOpen: (c: Contract) => void }) {
+function Start({ onConfirm, rules }: { onConfirm: (step: Step, today: string) => void; rules: Rules }) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
-  useEffect(() => { api.samples().then(setSamples) }, [])
+  const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
+  const [target, setTarget] = useState('')
+  const [floor, setFloor] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    api.samples().then(setSamples).catch(() => setError('샘플 계약서를 불러오지 못했습니다. 직접 입력하거나 새로고침해 주세요.'))
+  }, [])
+
+  const runIntake = async (operation: () => Promise<void>) => {
+    setBusy(true)
+    setError('')
+    try {
+      await operation()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const review = (contract: Contract) => runIntake(async () => {
+    const today = isoDate(0)
+    const refund = await api.preview(contract, today)
+    setPreview({ contract, refund, today })
+    setC(contract)
+    setTarget('')
+    setFloor('')
+  })
+
+  if (preview) {
+    const { contract, refund } = preview
+    const targetAmount = target === '' ? refund.refund : Number(target)
+    const floorAmount = floor === '' ? refund.refund : Number(floor)
+    const validAmount = (value: string) => value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)))
+    const targetValid = validAmount(target)
+    const floorValid = validAmount(floor)
+    const limitsError = !targetValid || !floorValid ? '금액은 0원 이상의 정수로 입력해 주세요.'
+      : floorAmount > targetAmount ? '최저 수용선은 목표 금액 이하여야 합니다.' : ''
+    const confirm = () => runIntake(async () => {
+      const today = isoDate(0)
+      if (today !== preview.today) {
+        const recalculated = await api.preview(contract, today)
+        setPreview({ contract, refund: recalculated, today })
+        setError('날짜가 바뀌어 예상 환불액을 다시 계산했습니다. 금액을 확인해 주세요.')
+        return
+      }
+      const step = await api.open(contract, today, {
+        target: target === '' ? undefined : targetAmount,
+        floor: floor === '' ? undefined : floorAmount,
+      })
+      onConfirm(step, today)
+    })
+    return (
+      <VStack gap={4}>
+        <JourneyProgress current={2} />
+        {error && <Banner status="error" title={error} collapsible={false} />}
+        <Card>
+          <VStack gap={2}>
+            <Heading level={2}>예상 환불액</Heading>
+            <Text type="display-3">{won(refund.refund)}</Text>
+            <Text>{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
+            <Text type="supporting">
+              결제 {won(contract.total_paid)} · 이용분 {won(refund.used_amount)} · 위약금 {won(refund.penalty)}
+            </Text>
+            {refund.per_day_loss > 0 && <Text weight="semibold">하루 미루면 예상 환불액이 {won(refund.per_day_loss)} 줄어듭니다.</Text>}
+            {(refund.addon > 0 || refund.security_deposit > 0) && (
+              <Text type="supporting">부가 이용분 {won(refund.addon)} · 반환 보증금 {won(refund.security_deposit)}</Text>
+            )}
+            {contract.special_terms && <Text type="supporting">특약: {contract.special_terms}</Text>}
+            {refund.refs.length > 0 && <Text type="supporting">근거: {refund.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>}
+            {refund.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액입니다. 실제 환불액은 달라질 수 있습니다.</Text>}
+          </VStack>
+        </Card>
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>협상 기준</Heading>
+            <Text type="supporting">비워 둔 금액에는 예상 환불액 {won(refund.refund)}을 사용합니다.</Text>
+            <TextInput label="목표 금액(원)" value={target} onChange={setTarget} inputMode="numeric"
+              isDisabled={busy} status={!targetValid ? { type: 'error', message: limitsError } : undefined} />
+            <TextInput label="최저 수용선(원)" value={floor} onChange={setFloor} inputMode="numeric"
+              isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
+          </VStack>
+        </Card>
+        <HStack gap={2} wrap="wrap">
+          <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
+          <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />
+        </HStack>
+      </VStack>
+    )
+  }
+
   return (
     <VStack gap={4}>
+      <JourneyProgress current={1} />
+      {error && <Banner status="error" title={error} collapsible={false} />}
       <Text as="p">헬스장·PT·필라테스 회원권 환불, 말 꺼내기부터 입금까지 챙겨 드립니다. 근거를 찾고, 그대로 보낼 문장을 만들고, 돈이 들어올 때까지 추적합니다.</Text>
       <Card>
         <VStack gap={3}>
           <Heading level={2}>샘플 계약서로 해 보기</Heading>
-          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} onClick={() => onOpen(s.contract)} />)}
+          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract)} />)}
         </VStack>
       </Card>
       <Card>
@@ -80,7 +196,7 @@ function Start({ onOpen }: { onOpen: (c: Contract) => void }) {
             onChange={(v) => setC({ ...c, total_paid: Number(v.replace(/\D/g, '')) })} />
           <label>이용 시작일 <input type="date" value={c.start_date} onChange={(e) => setC({ ...c, start_date: e.target.value })} /></label>
           <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => setC({ ...c, end_date: e.target.value })} /></label>
-          <Button label="환불액 계산" isDisabled={!c.total_paid || !c.start_date || !c.end_date} onClick={() => onOpen(c)} />
+          <Button label={busy ? '계산 중…' : '환불액 계산'} isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
         </VStack>
       </Card>
     </VStack>
@@ -93,6 +209,8 @@ export default function App() {
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [evidenceStage, setEvidenceStage] = useState<Step['case']['stage'] | null>(null)
   const revision = useRef(0)
   const pending = useRef(0)
   useEffect(() => { api.rules().then(setRules) }, [])
@@ -140,6 +258,7 @@ export default function App() {
   const run = async (p: Promise<Step>, today: string, patch: Partial<Saved> = {}) => {
     const expected = ++revision.current
     pending.current++
+    setBusy(true)
     try {
       setError('')
       const step = await p
@@ -151,9 +270,11 @@ export default function App() {
       return false
     } finally {
       pending.current--
+      if (!pending.current) setBusy(false)
     }
   }
   const send = (event: CaseEvent, patch: Partial<Saved> = {}) => {
+    if (pending.current) return Promise.resolve(false)
     const today = isoDate(patch.offset ?? saved!.offset)
     return run(api.step(saved!.step.case, event, today), today, patch)
   }
@@ -161,7 +282,7 @@ export default function App() {
   const header = (
     <HStack hAlign="between" vAlign="center">
       <Heading level={1}>Reeper</Heading>
-      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); keep(null) }} />}
+      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); setEvidenceStage(null); keep(null) }} />}
     </HStack>
   )
   if (!saved) {
@@ -169,10 +290,7 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={640}>
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Start onOpen={(c) => {
-          const today = isoDate(0)
-          return run(api.open(c, today), today)
-        }} />
+        <Start rules={rules} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
       </VStack>
     )
   }
@@ -180,18 +298,28 @@ export default function App() {
   const { case: c, action, drafts } = saved.step
   const r = c.refund
   const settlementAmount = Number(settlement)
+  const showEvidence = evidenceStage === c.stage
   return (
     <VStack gap={4} padding={4} maxWidth={640}>
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 
-      <Card>
+      <JourneyProgress current={showEvidence ? 2 : journeyPhase(c.stage)} />
+      <HStack gap={2} wrap="wrap">
+        <Button label="계산 근거 보기" variant={showEvidence ? 'primary' : 'ghost'}
+          isDisabled={busy} onClick={() => setEvidenceStage(c.stage)} />
+        <Button label={c.stage === 'ready' ? '말할 준비' : c.stage === 'agreed' || c.stage === 'closed' ? '입금 추적' : '답변 대응'}
+          variant={showEvidence ? 'ghost' : 'primary'} isDisabled={busy} onClick={() => setEvidenceStage(null)} />
+      </HStack>
+
+      {showEvidence && <Card>
         <VStack gap={2}>
           <HStack hAlign="between" vAlign="center">
             <Heading level={2}>{c.contract.gym_name || '내 회원권'}</Heading>
             <Badge label={STAGE[c.stage]} variant={c.stage === 'closed' ? 'success' : 'info'} />
           </HStack>
           <Text type="display-3">{won(c.agreed_amount ?? r.refund)}</Text>
+          <Text type="supporting">목표 {won(c.target)} · 최저 수용선 {won(c.floor)}</Text>
           <Text type="supporting">
             결제 {won(c.contract.total_paid)} − 이용분 {won(r.used_amount)} ({r.total_days}{r.unit_label} 중 {r.used_days}{r.unit_label}) − 위약금 {won(r.penalty)}
           </Text>
@@ -200,12 +328,21 @@ export default function App() {
           <Text type="supporting">근거: {r.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
           {r.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액이며, 계산식은 원문 확인 전 임시입니다. 다툼이 있으면 1372 소비자상담센터에 문의하세요.</Text>}
         </VStack>
-      </Card>
+      </Card>}
 
+      {!showEvidence && <>
+      <Card>
+        <HStack hAlign="between" vAlign="center" wrap="wrap">
+          <Text weight="semibold">{c.contract.gym_name || '내 회원권'} · {STAGE[c.stage]}</Text>
+          <Text weight="semibold">{won(c.agreed_amount ?? r.refund)}</Text>
+        </HStack>
+      </Card>
       <Banner status={action.warn ? 'warning' : c.stage === 'closed' ? 'success' : 'info'} collapsible={false}
         title={action.warn ? `제시액 ${won(c.offered ?? 0)}은 최저 수용선 ${won(c.floor)}보다 적습니다` : action.reason}
         description={action.warn ? action.reason : undefined} />
 
+      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
+      <VStack gap={4}>
       {saved.note && <Draft kind="after_call_sms" text={saved.note} />}
       {Object.entries(drafts).filter(([k]) => k !== 'after_call_sms').map(([k, text]) => <Draft key={k} kind={k} text={text} />)}
 
@@ -264,6 +401,8 @@ export default function App() {
           </VStack>
         </Card>
       )}
+      </VStack>
+      </fieldset>
 
       {c.timeline.length > 0 && (
         <Card>
@@ -273,6 +412,7 @@ export default function App() {
           </VStack>
         </Card>
       )}
+      </>}
     </VStack>
   )
 }
