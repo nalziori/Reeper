@@ -48,12 +48,14 @@ def test_offer_at_negotiation_boundaries(offered, action, warn):
     assert (result["action"]["type"], result["action"]["warn"]) == (action, warn)
 
 
-def test_explicit_zero_offer_and_agreement_are_preserved(monkeypatch):
+def test_explicit_zero_offer_is_preserved_but_zero_agreement_rejected(monkeypatch):
     monkeypatch.setattr(agent, "read_reply", lambda _: ("low_offer", 200000, False))
     case = open_case(target=0, floor=0).json()["case"]
     assert case["target"] == case["floor"] == 0
     case = step(case, type="notice_sent", channel="sms")["case"]
     case = step(case, type="reply_received", text="제시액 입력", amount=0)["case"]
     assert case["offered"] == 0
-    case = step(case, type="agreement_recorded", amount=0)["case"]
-    assert case["agreed_amount"] == 0
+    # 합의 금액은 0원보다 커야 한다 (engine.validate_transition)
+    response = api.post("/api/cases/step", json={
+        "case": case, "today": TODAY, "event": {"type": "agreement_recorded", "amount": 0}})
+    assert response.status_code == 409
