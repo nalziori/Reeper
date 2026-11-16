@@ -70,15 +70,13 @@ export type Step = {
   llm_fallback?: boolean
   analysis?: Analysis | null
 }
-<<<<<<< HEAD
 // 문안 말투. 고정 양식이 기본이고, 다듬은 문안은 숫자·근거 검사를 통과해야 온다.
 export type Tone = 'polite' | 'firm'
 export type Polished = { text: string; polished: boolean }
-=======
+
 // 계약서 사진에서 읽은 값 하나. check가 참이면 사람이 계약서와 대조해 확인한다.
 export type Extracted = { value: string | number | null; confidence: number; quote: string; check: boolean }
 export type ExtractField = 'gym_name' | 'total_paid' | 'start_date' | 'end_date' | 'special_terms'
->>>>>>> origin/main
 export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
@@ -106,12 +104,10 @@ export const api = {
     call<Step>('/api/cases', { contract, today, ...limits }),
   strategy: (c: Case, situation: string, today: string) =>
     call<{ case: Case; llm_fallback?: boolean }>('/api/cases/strategy', { case: c, situation, today }),
-<<<<<<< HEAD
   polish: (c: Case, kind: string, tone: Tone) => call<Polished>('/api/drafts/polish', { case: c, kind, tone }),
-=======
+
   extract: (image: string) =>
     call<{ fields: Partial<Record<ExtractField, Extracted>>; llm_fallback?: boolean }>('/api/contracts/extract', { image }),
->>>>>>> origin/main
   step: (c: Case, event: CaseEvent, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }
