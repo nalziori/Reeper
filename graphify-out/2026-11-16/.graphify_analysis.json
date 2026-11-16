@@ -1,0 +1,372 @@
+{
+  "communities": {
+    "0": [
+      "backend_app_engine",
+      "backend_app_engine_agree",
+      "backend_app_engine_apply",
+      "backend_app_engine_apply_log",
+      "backend_app_engine_next_action",
+      "backend_app_engine_py_date",
+      "backend_app_engine_rationale_1",
+      "backend_app_main",
+      "backend_app_main_health",
+      "backend_app_main_rationale_1",
+      "backend_app_main_rules",
+      "backend_app_main_samples",
+      "backend_app_models",
+      "backend_app_models_action",
+      "backend_app_models_contract",
+      "backend_app_models_event",
+      "backend_app_models_py_basemodel",
+      "backend_app_models_rationale_1",
+      "backend_app_models_record",
+      "backend_app_models_refund",
+      "backend_app_rules",
+      "backend_app_rules_calculate",
+      "backend_app_rules_py_date",
+      "backend_app_rules_rationale_1",
+      "backend_app_rules_rationale_14",
+      "backend_tests_test_app_test_refund_shrinks_every_day",
+      "datetime",
+      "fastapi",
+      "fastapi_staticfiles",
+      "get",
+      "json",
+      "mimetypes",
+      "pathlib",
+      "pydantic",
+      "typing"
+    ],
+    "1": [
+      "frontend_package",
+      "frontend_package_dependencies",
+      "frontend_package_dependencies_astryxdesign_core",
+      "frontend_package_dependencies_astryxdesign_theme_neutral",
+      "frontend_package_dependencies_react",
+      "frontend_package_dependencies_react_dom",
+      "frontend_package_dependencies_stylexjs_stylex",
+      "frontend_package_name",
+      "frontend_package_private",
+      "frontend_package_scripts",
+      "frontend_package_scripts_build",
+      "frontend_package_scripts_dev",
+      "frontend_package_scripts_lint",
+      "frontend_package_scripts_preview",
+      "frontend_package_type",
+      "frontend_package_version",
+      "frontend_src_index",
+      "frontend_src_main",
+      "frontend_vite_config",
+      "ref_astryxdesign_cli",
+      "ref_astryxdesign_core",
+      "ref_astryxdesign_theme_neutral",
+      "ref_oxlint",
+      "ref_react",
+      "ref_react_dom",
+      "ref_stylexjs_stylex",
+      "ref_types_node",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_typescript",
+      "ref_vite",
+      "ref_vitejs_plugin_react"
+    ],
+    "2": [
+      "backend_app_agent",
+      "backend_app_agent_drafts_for",
+      "backend_app_agent_facts",
+      "backend_app_agent_rationale_1",
+      "backend_app_agent_rationale_59",
+      "backend_app_agent_rationale_68",
+      "backend_app_agent_render",
+      "backend_app_agent_validate",
+      "backend_app_engine_open_case",
+      "backend_app_main_create_case",
+      "backend_app_main_openrequest",
+      "backend_app_main_py_basemodel",
+      "backend_app_main_py_date",
+      "backend_app_main_respond",
+      "backend_app_main_step",
+      "backend_app_main_steprequest",
+      "backend_app_main_stepresponse",
+      "backend_app_models_case",
+      "backend_tests_test_app_test_all_templates_render_and_pass_validation",
+      "backend_tests_test_app_test_call_card_has_the_five_things_to_say",
+      "backend_tests_test_app_test_validator_blocks_invented_amounts_and_articles",
+      "post",
+      "re"
+    ],
+    "3": [
+      "frontend_src_api",
+      "frontend_src_api_action",
+      "frontend_src_api_api",
+      "frontend_src_api_call",
+      "frontend_src_api_case",
+      "frontend_src_api_contract",
+      "frontend_src_api_refund",
+      "frontend_src_api_rules",
+      "frontend_src_api_sample",
+      "frontend_src_api_step",
+      "frontend_src_app",
+      "frontend_src_app_app",
+      "frontend_src_app_draft",
+      "frontend_src_app_isodate",
+      "frontend_src_app_load",
+      "frontend_src_app_owner_says",
+      "frontend_src_app_saved",
+      "frontend_src_app_stage",
+      "frontend_src_app_start",
+      "frontend_src_app_won"
+    ],
+    "4": [
+      "frontend_tsconfig_app",
+      "frontend_tsconfig_app_compileroptions",
+      "frontend_tsconfig_app_compileroptions_allowarbitraryextensions",
+      "frontend_tsconfig_app_compileroptions_allowimportingtsextensions",
+      "frontend_tsconfig_app_compileroptions_erasablesyntaxonly",
+      "frontend_tsconfig_app_compileroptions_jsx",
+      "frontend_tsconfig_app_compileroptions_lib",
+      "frontend_tsconfig_app_compileroptions_module",
+      "frontend_tsconfig_app_compileroptions_moduledetection",
+      "frontend_tsconfig_app_compileroptions_moduleresolution",
+      "frontend_tsconfig_app_compileroptions_noemit",
+      "frontend_tsconfig_app_compileroptions_nofallthroughcasesinswitch",
+      "frontend_tsconfig_app_compileroptions_nounusedlocals",
+      "frontend_tsconfig_app_compileroptions_nounusedparameters",
+      "frontend_tsconfig_app_compileroptions_skiplibcheck",
+      "frontend_tsconfig_app_compileroptions_target",
+      "frontend_tsconfig_app_compileroptions_tsbuildinfofile",
+      "frontend_tsconfig_app_compileroptions_types",
+      "frontend_tsconfig_app_compileroptions_verbatimmodulesyntax",
+      "frontend_tsconfig_app_include"
+    ],
+    "5": [
+      "frontend_tsconfig_node",
+      "frontend_tsconfig_node_compileroptions",
+      "frontend_tsconfig_node_compileroptions_allowimportingtsextensions",
+      "frontend_tsconfig_node_compileroptions_erasablesyntaxonly",
+      "frontend_tsconfig_node_compileroptions_lib",
+      "frontend_tsconfig_node_compileroptions_module",
+      "frontend_tsconfig_node_compileroptions_moduledetection",
+      "frontend_tsconfig_node_compileroptions_noemit",
+      "frontend_tsconfig_node_compileroptions_nofallthroughcasesinswitch",
+      "frontend_tsconfig_node_compileroptions_nounusedlocals",
+      "frontend_tsconfig_node_compileroptions_nounusedparameters",
+      "frontend_tsconfig_node_compileroptions_skiplibcheck",
+      "frontend_tsconfig_node_compileroptions_target",
+      "frontend_tsconfig_node_compileroptions_tsbuildinfofile",
+      "frontend_tsconfig_node_compileroptions_types",
+      "frontend_tsconfig_node_compileroptions_verbatimmodulesyntax",
+      "frontend_tsconfig_node_include"
+    ],
+    "6": [
+      "backend_tests_test_app",
+      "backend_tests_test_app_flow",
+      "backend_tests_test_app_flow_init",
+      "backend_tests_test_app_flow_stage",
+      "backend_tests_test_app_flow_step",
+      "backend_tests_test_app_rationale_1",
+      "backend_tests_test_app_rationale_45",
+      "backend_tests_test_app_test_happy_path_to_deposit",
+      "backend_tests_test_app_test_low_offer_warns_then_agreement",
+      "backend_tests_test_app_test_objections_get_a_counter",
+      "backend_tests_test_app_test_samples_and_health",
+      "backend_tests_test_app_test_silence_escalates_to_1372",
+      "fastapi_testclient"
+    ],
+    "7": [
+      "frontend_package_devdependencies",
+      "frontend_package_devdependencies_astryxdesign_cli",
+      "frontend_package_devdependencies_oxlint",
+      "frontend_package_devdependencies_types_node",
+      "frontend_package_devdependencies_types_react",
+      "frontend_package_devdependencies_types_react_dom",
+      "frontend_package_devdependencies_typescript",
+      "frontend_package_devdependencies_vite",
+      "frontend_package_devdependencies_vitejs_plugin_react"
+    ],
+    "8": [
+      "frontend_oxlintrc",
+      "frontend_oxlintrc_plugins",
+      "frontend_oxlintrc_rules",
+      "frontend_oxlintrc_rules_react_only_export_components",
+      "frontend_oxlintrc_rules_react_rules_of_hooks",
+      "frontend_oxlintrc_schema"
+    ],
+    "9": [
+      "backend_app_agent_fakellm",
+      "backend_app_agent_fakellm_polish",
+      "backend_app_agent_fakellm_read_reply",
+      "backend_app_agent_rationale_16",
+      "replytype"
+    ],
+    "10": [
+      "frontend_tsconfig",
+      "frontend_tsconfig_files",
+      "frontend_tsconfig_references"
+    ],
+    "11": [
+      "backend_app_init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.11932773109243698,
+    "1": 0.07056451612903226,
+    "2": 0.16600790513833993,
+    "3": 0.15789473684210525,
+    "4": 0.1,
+    "5": 0.11764705882352941,
+    "6": 0.20512820512820512,
+    "7": 0.2222222222222222,
+    "8": 0.3333333333333333,
+    "9": 0.4,
+    "10": 0.6666666666666666,
+    "11": 1.0
+  },
+  "gods": [
+    {
+      "id": "frontend_tsconfig_app_compileroptions",
+      "label": "compilerOptions",
+      "degree": 18
+    },
+    {
+      "id": "backend_app_models_case",
+      "label": "Case",
+      "degree": 16
+    },
+    {
+      "id": "frontend_tsconfig_node_compileroptions",
+      "label": "compilerOptions",
+      "degree": 15
+    },
+    {
+      "id": "backend_app_engine_open_case",
+      "label": "open_case()",
+      "degree": 11
+    },
+    {
+      "id": "backend_app_engine_apply",
+      "label": "apply()",
+      "degree": 10
+    },
+    {
+      "id": "backend_app_rules_calculate",
+      "label": "calculate()",
+      "degree": 10
+    },
+    {
+      "id": "backend_app_models_contract",
+      "label": "Contract",
+      "degree": 9
+    },
+    {
+      "id": "backend_tests_test_app_flow",
+      "label": "Flow",
+      "degree": 9
+    },
+    {
+      "id": "backend_app_models_action",
+      "label": "Action",
+      "degree": 8
+    },
+    {
+      "id": "backend_app_main_respond",
+      "label": "respond()",
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "drafts_for()",
+      "target": "Action",
+      "source_files": [
+        "backend/app/agent.py",
+        "backend/app/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "StepResponse",
+      "target": "Action",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "open_case()",
+      "target": "Contract",
+      "source_files": [
+        "backend/app/engine.py",
+        "backend/app/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "OpenRequest",
+      "target": "Contract",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    },
+    {
+      "source": "StepRequest",
+      "target": "Event",
+      "source_files": [
+        "backend/app/main.py",
+        "backend/app/models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `devDependencies` connect `Community 7` to `Community 1`?",
+      "why": "High betweenness centrality (0.027) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `@astryxdesign/core` connect `Community 1` to `Community 3`?",
+      "why": "High betweenness centrality (0.022) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `react` connect `Community 1` to `Community 3`?",
+      "why": "High betweenness centrality (0.022) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 10 inferred relationships involving `Case` (e.g. with `drafts_for()` and `facts()`) actually correct?",
+      "why": "`Case` has 10 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 2 inferred relationships involving `apply()` (e.g. with `Case` and `Event`) actually correct?",
+      "why": "`apply()` has 2 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Action`, `Case`, `Refund` to the rest of the system?",
+      "why": "74 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.11932773109243698 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

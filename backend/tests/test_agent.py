@@ -112,6 +112,12 @@ def test_polish_keeps_only_text_with_the_same_numbers(real):
     assert agent.polished("notice_sms", case, "firm") == (base, False)
     real({"text": base + "\n민법 제999조에 따라 소송하겠습니다."})  # 없는 조문을 더했다
     assert agent.polished("notice_sms", case, "firm") == (base, False)
+    real({"text": base + " 답이 없으면 법적 조치를 하겠습니다."})  # 양식에 없던 압박 표현
+    assert agent.polished("notice_sms", case, "firm") == (base, False)
+    real({"text": base.replace("방문판매 등에 관한 법률 제31조와 ", "")})  # 근거 언급을 뺐다
+    assert agent.polished("notice_sms", case, "firm") == (base, False)
+    real({"text": base + " " + "빠른 처리를 거듭 부탁드립니다. " * 8})  # 문장을 덧붙여 길어졌다
+    assert agent.polished("notice_sms", case, "firm") == (base, False)
     real({"text": "확인 부탁드립니다. " + base})
     assert agent.polished("notice_sms", case, "firm") == ("확인 부탁드립니다. " + base, True)
     real(RuntimeError("down"))

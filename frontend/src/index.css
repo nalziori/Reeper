@@ -21,6 +21,7 @@ body {
 
 /* 날짜 입력은 전용 컴포넌트가 없어 네이티브를 쓴다. 입력 칸과 높이·모서리를 맞추고 손가락으로 누르기 쉽게 한다. */
 input[type='date'],
+.photo-input input[type='file'],
 .journey-interactions input[type='number'] {
   font: inherit;
   min-height: 44px;
@@ -65,4 +66,24 @@ textarea:focus-visible {
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+/* 전략 카드의 한국어 문장은 단어 단위로 줄을 바꾼다 */
+.strategy {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 계약서 특약 원문 인용. 이 화면에서 계약서 문장을 옮길 때만 쓴다 */
+.contract-quote {
+  margin: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid color-mix(in srgb, currentColor 20%, transparent);
+  word-break: keep-all;
+}
+
+/* 계약서 사진 칸: 이름, 설명, 파일 선택을 위아래로 쌓는다 */
+.photo-input {
+  display: grid;
+  gap: 4px;
 }

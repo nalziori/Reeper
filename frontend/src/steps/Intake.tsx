@@ -4,14 +4,20 @@ import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
+import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useEffect, useState } from 'react'
-import { api, type Contract, type Refund, type Rules, type Sample, type Step } from '../api'
+import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
+import { shrinkPhoto } from '../photo'
 
-export function Intake({ onConfirm, rules }: { onConfirm: (step: Step, today: string) => void; rules: Rules }) {
+const CHECK = { type: 'warning' as const, message: '사진에서 읽은 값이에요. 계약서와 같은지 확인해 주세요' }
+
+type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
+
+export function Intake({ onConfirm, rules, upload }: Props) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
@@ -19,6 +25,30 @@ export function Intake({ onConfirm, rules }: { onConfirm: (step: Step, today: st
   const [floor, setFloor] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [photoNote, setPhotoNote] = useState('')
+  // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
+  const [checks, setChecks] = useState<Set<ExtractField>>(new Set())
+  const edit = (field: ExtractField, next: Contract) => {
+    setC(next)
+    setChecks((prev) => { const s = new Set(prev); s.delete(field); return s })
+  }
+  const readPhoto = (file: File) => runIntake(async () => {
+    setPhotoNote('')
+    const { fields, llm_fallback } = await api.extract(await shrinkPhoto(file))
+    const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
+    const paid = fields.total_paid?.value
+    setC({
+      gym_name: str('gym_name'),
+      total_paid: typeof paid === 'number' ? paid : 0,
+      start_date: str('start_date'),
+      end_date: str('end_date'),
+      special_terms: str('special_terms') || undefined,
+    })
+    setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) => fields[f]?.check && fields[f]?.value != null)))
+    setPhotoNote(llm_fallback
+      ? '사진을 읽지 못했어요. 아래 칸에 직접 입력해 주세요'
+      : '사진에서 읽은 값을 아래 칸에 채웠어요. 비어 있거나 확인 표시가 있는 칸은 계약서와 대조해 주세요')
+  })
   useEffect(() => {
     api.samples().then(setSamples).catch(() => setError('샘플 계약서를 불러오지 못했습니다. 직접 입력하거나 새로고침해 주세요.'))
   }, [])
@@ -117,15 +147,46 @@ export function Intake({ onConfirm, rules }: { onConfirm: (step: Step, today: st
           {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract)} />)}
         </VStack>
       </Card>
+      {upload && (
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>계약서 사진으로 입력</Heading>
+            {/* Astryx FileInput은 사진을 고르면 화면이 멈춰(2026-11-16, Edge) 네이티브 입력을 쓴다 */}
+            <label className="photo-input">
+              <span>계약서 사진</span>
+              <Text type="supporting">사진에서 읽은 값을 아래 입력 칸에 채워요. 사진은 읽은 뒤 저장하지 않아요</Text>
+              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
+                onChange={(e) => {
+                  const input = e.target
+                  const file = input.files?.[0]
+                  // 칸을 읽기 전에 비우면 파일을 못 읽고 멈추는 브라우저가 있어, 다 읽은 뒤에 비운다(같은 사진 다시 고르기용)
+                  if (file) void readPhoto(file).finally(() => { input.value = '' })
+                }} />
+            </label>
+            {busy && <Text type="supporting" role="status">사진을 읽고 있어요</Text>}
+            {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
+          </VStack>
+        </Card>
+      )}
       <Card>
         <VStack gap={3}>
           <Heading level={2}>내 계약 직접 입력</Heading>
-          <TextInput label="업체 이름" value={c.gym_name} onChange={(v) => setC({ ...c, gym_name: v })} />
+          <TextInput label="업체 이름" value={c.gym_name} onChange={(v) => edit('gym_name', { ...c, gym_name: v })}
+            status={checks.has('gym_name') ? CHECK : undefined} />
           <TextInput label="실제 결제한 금액(원)" value={c.total_paid ? String(c.total_paid) : ''}
-            onChange={(v) => setC({ ...c, total_paid: Number(v.replace(/\D/g, '')) })} />
-          <label>이용 시작일 <input type="date" value={c.start_date} onChange={(e) => setC({ ...c, start_date: e.target.value })} /></label>
-          <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => setC({ ...c, end_date: e.target.value })} /></label>
-          <Button label={busy ? '계산 중…' : '환불액 계산'} isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
+            onChange={(v) => edit('total_paid', { ...c, total_paid: Number(v.replace(/\D/g, '')) })}
+            status={checks.has('total_paid') ? CHECK : undefined} />
+          <label>이용 시작일 <input type="date" value={c.start_date} onChange={(e) => edit('start_date', { ...c, start_date: e.target.value })} /></label>
+          {checks.has('start_date') && <Text type="supporting">{CHECK.message}</Text>}
+          <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => edit('end_date', { ...c, end_date: e.target.value })} /></label>
+          {checks.has('end_date') && <Text type="supporting">{CHECK.message}</Text>}
+          {(upload || c.special_terms) && (
+            <TextArea label="특약" description="계약서의 특약 칸 내용이에요. 없으면 비워 두세요" value={c.special_terms ?? ''}
+              onChange={(v) => edit('special_terms', { ...c, special_terms: v || undefined })}
+              status={checks.has('special_terms') ? CHECK : undefined} />
+          )}
+          <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 환불액 계산' : '환불액 계산'}
+            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
         </VStack>
       </Card>
     </VStack>

@@ -13,12 +13,14 @@ from pydantic import BaseModel, Field
 from . import agent
 from .agent import drafts_for
 from .engine import InvalidTransition, apply, next_action, open_case, validate_transition
-from .models import Action, Analysis, Case, Contract, Event, Refund, Strategy
+from .models import Action, Analysis, Case, Contract, Event, Extracted, Refund, Strategy
 from .rules import DATA, RULES, calculate
 
 # 요청 본문 상한(바이트). 입력 길이 제한이다. JSON 사건 요청은 이보다 훨씬 작다.
-# 계약서 사진(약 4MB base64) 경로가 생기면 이 전역 값을 올리지 말고 그 경로만 따로 올린다.
+# 계약서 사진(약 4MB base64) 경로는 이 전역 값을 올리지 않고 그 경로만 따로 둔다.
 MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(256 * 1024)))
+PHOTO_PATH = "/api/contracts/extract"
+PHOTO_BODY_BYTES = agent.MAX_IMAGE + 4096  # data URL + JSON 껍데기
 
 
 class BodyLimit:
@@ -30,7 +32,7 @@ class BodyLimit:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["method"] in ("GET", "HEAD", "OPTIONS"):
             return await self.app(scope, receive, send)
-        limit = MAX_BODY_BYTES
+        limit = PHOTO_BODY_BYTES if scope["path"] == PHOTO_PATH else MAX_BODY_BYTES
         declared = dict(scope["headers"]).get(b"content-length", b"")
         if declared.isdigit() and int(declared) > limit:
             return await self._reject(scope, receive, send)
@@ -101,6 +103,7 @@ class StrategyResponse(BaseModel):
     llm_fallback: bool = False  # 실제 LLM이 실패했다. 전략 없이 고정 양식으로 진행한다
 
 
+<<<<<<< HEAD
 class PolishRequest(BaseModel):
     case: Case
     kind: str  # data/templates/의 양식 이름. drafts의 키와 같다
@@ -110,6 +113,15 @@ class PolishRequest(BaseModel):
 class PolishResponse(BaseModel):
     text: str
     polished: bool  # 거짓이면 원래 양식이다. 가짜 LLM, 호출 실패, 숫자·근거 검사를 못 넘은 경우
+=======
+class ExtractRequest(BaseModel):
+    image: str  # data:image/png·jpeg·webp;base64,... 서버는 저장하거나 로그로 남기지 않는다
+
+
+class ExtractResponse(BaseModel):
+    fields: dict[str, Extracted]  # 못 읽은 값은 value가 null이다. check가 참인 값은 사람이 확인한다
+    llm_fallback: bool = False  # 실제 LLM이 실패했다. 모든 값이 비어 있으니 직접 입력한다
+>>>>>>> origin/main
 
 
 class StepResponse(BaseModel):
@@ -177,6 +189,7 @@ def strategy(req: StrategyRequest) -> StrategyResponse:
     return StrategyResponse(case=case, llm_fallback=found["fallback"])
 
 
+<<<<<<< HEAD
 @app.post("/api/drafts/polish")
 def polish(req: PolishRequest) -> PolishResponse:
     """고정 양식 문안의 말투만 다듬는다. 사건은 바꾸지 않고, 금액·조문이 달라지면 원래 양식을 돌려준다."""
@@ -186,6 +199,18 @@ def polish(req: PolishRequest) -> PolishResponse:
         raise HTTPException(422, "통화 준비 카드는 말투를 바꾸지 않습니다.")
     text, done = agent.polished(req.kind, req.case, req.tone)
     return PolishResponse(text=text, polished=done)
+=======
+@app.post(PHOTO_PATH)
+def extract_contract(req: ExtractRequest) -> ExtractResponse:
+    """계약서 사진에서 계약 값을 읽는다. 사건을 만들지 않는다. 확인된 값으로 화면이 POST /api/cases를 부른다."""
+    try:
+        fields, failed = agent.extract_contract(req.image)
+    except PermissionError as exc:
+        raise HTTPException(403, "계약서 사진 읽기가 꺼져 있습니다. 직접 입력해 주세요.") from exc
+    except ValueError as exc:
+        raise HTTPException(422, "사진 형식이나 크기가 맞지 않습니다. png, jpeg, webp 사진을 올려 주세요.") from exc
+    return ExtractResponse(fields=fields, llm_fallback=failed)
+>>>>>>> origin/main
 
 
 @app.post("/api/cases/step")
