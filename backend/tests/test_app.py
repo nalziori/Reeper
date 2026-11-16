@@ -146,3 +146,15 @@ def test_rejects_event_dated_before_latest_record():
 def test_samples_and_health():
     assert api.get("/api/health").json()["ok"]
     assert api.get("/api/samples").json()[0]["contract"]["total_paid"] == 600_000
+
+
+def test_refund_preview_uses_rules_without_generating_drafts(monkeypatch):
+    import importlib
+
+    main = importlib.import_module("app.main")
+    monkeypatch.setattr(main, "drafts_for", lambda *_: pytest.fail("미리보기에서 문안이나 LLM을 생성하지 않는다"))
+    response = api.post("/api/refund-preview", json={
+        "contract": CONTRACT.model_dump(mode="json"), "today": str(D),
+    })
+    assert response.status_code == 200
+    assert response.json()["refund"] == calculate(CONTRACT, D).refund

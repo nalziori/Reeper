@@ -57,18 +57,20 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (res.status === 409) {
+  if (!res.ok) {
     const error = await res.json().catch(() => null)
     if (typeof error?.detail === 'string') throw new Error(error.detail)
+    throw new Error(`요청에 실패했습니다 (${res.status})`)
   }
-  if (!res.ok) throw new Error(`요청에 실패했습니다 (${res.status})`)
   return res.json()
 }
 
 export const api = {
   samples: () => call<Sample[]>('/api/samples'),
   rules: () => call<Rules>('/api/rules'),
-  open: (contract: Contract, today: string) => call<Step>('/api/cases', { contract, today }),
+  preview: (contract: Contract, today: string) => call<Refund>('/api/refund-preview', { contract, today }),
+  open: (contract: Contract, today: string, limits?: { target?: number; floor?: number }) =>
+    call<Step>('/api/cases', { contract, today, ...limits }),
   step: (c: Case, event: Record<string, unknown>, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }
