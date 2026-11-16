@@ -144,7 +144,9 @@ def test_rejects_event_dated_before_latest_record():
 
 
 def test_samples_and_health():
-    assert api.get("/api/health").json()["ok"]
+    health = api.get("/api/health").json()
+    assert health["ok"]
+    assert health["llm"] == "FakeLLM"
     assert api.get("/api/samples").json()[0]["contract"]["total_paid"] == 600_000
 
 

@@ -39,12 +39,13 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
 
 def open_case(contract: Contract, today: date, target: int | None = None, floor: int | None = None) -> Case:
     refund = calculate(contract, today)
-    return Case(
-        contract=contract,
-        refund=refund,
-        target=target if target is not None else refund.refund,
-        floor=floor if floor is not None else refund.refund,
-    )
+    target = refund.refund if target is None else target
+    floor = refund.refund if floor is None else floor
+    if target < 0 or floor < 0:
+        raise ValueError("목표 금액과 최저 수용선은 0원 이상이어야 합니다.")
+    if floor > target:
+        raise ValueError("최저 수용선은 목표 금액보다 높을 수 없습니다.")
+    return Case(contract=contract, refund=refund, target=target, floor=floor)
 
 
 def apply(case: Case, event: Event, today: date) -> Case:
@@ -70,12 +71,12 @@ def apply(case: Case, event: Event, today: date) -> Case:
             if c.stage != "escalated":
                 c.stage = "waiting"
         elif event.reply_type == "accept":
-            _agree(c, event.amount or c.refund.refund, today)
+            _agree(c, event.amount, today)
         else:
             c.stage = "negotiating"
 
     elif event.type == "agreement_recorded":
-        _agree(c, event.amount or c.refund.refund, today)
+        _agree(c, event.amount, today)
         log(f"{c.agreed_amount:,}원에 합의")
 
     elif event.type == "deposit_confirmed":
@@ -97,9 +98,9 @@ def apply(case: Case, event: Event, today: date) -> Case:
     return c
 
 
-def _agree(c: Case, amount: int, today: date) -> None:
+def _agree(c: Case, amount: int | None, today: date) -> None:
     c.stage = "agreed"
-    c.agreed_amount = amount
+    c.agreed_amount = c.refund.refund if amount is None else amount
     c.deposit_due_on = today + timedelta(days=POLICY["deposit_days"])
 
 
@@ -115,10 +116,10 @@ def next_action(case: Case, today: date) -> Action:
         return Action(type="certified_mail", reason="재요청에도 답이 없다")
     if c.stage == "negotiating":
         if c.last_reply == "low_offer" and c.offered is not None:
-            if c.offered >= c.target:
-                return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
             if c.offered < c.floor:
                 return Action(type="counter", reason="제시액이 최저 수용선보다 적다", warn=True)
+            if c.offered >= c.target:
+                return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
             return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적다. 받아들일지 정한다")
         return Action(type="counter", reason="근거를 들어 다시 요청한다")
     if c.stage == "escalated":

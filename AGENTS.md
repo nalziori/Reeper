@@ -9,7 +9,7 @@ Reeper는 근거를 찾아 두고, 그대로 보내거나 말할 문장을 만�
 - 문안은 `data/templates/`의 고정 양식이 기본이다. 새 양식은 `validate`를 통과해야 한다.
 - 서버에 사건이나 계약 내용을 저장하거나 로그로 남기지 않는다.
 - API 키, 실제 계약서, 개인정보를 저장소에 넣지 않는다. 가상 데이터만 쓴다.
-- 테스트는 가짜 LLM으로 키 없이 통과해야 한다. 유료 API를 쓰는 실행은 사람에게 먼저 묻는다.
+- 테스트는 가짜 LLM으로 키 없이 통과해야 한다. `backend/tests/conftest.py`가 실행 환경의 API 키를 제거한다. 유료 API를 쓰는 실행은 사람에게 먼저 묻는다.
 - 예상 환불액 미리보기는 `POST /api/refund-preview`에서 규칙 계산만 한다. 문안·LLM을 호출하지 않으며 `test_refund_preview_uses_rules_without_generating_drafts`로 확인한다.
 - `backend/app/models.py`를 바꾸면 `frontend/src/api.ts`와 `docs/계약.md`를 같이 고친다.
 - Astryx 컴포넌트는 쓰기 전에 `npx astryx component <이름>`으로 문서를 확인한다.

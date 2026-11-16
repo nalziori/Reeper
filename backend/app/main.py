@@ -96,7 +96,8 @@ def step(req: StepRequest) -> StepResponse:
             validate_transition(req.case, event, req.today)
             reply = event.text
             reply_type, amount, fallback = agent.read_reply(reply)
-            event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
+            event = event.model_copy(update={"reply_type": reply_type,
+                                             "amount": amount if event.amount is None else event.amount})
         case = apply(req.case, event, req.today)
     except InvalidTransition as exc:
         raise HTTPException(409, str(exc)) from exc
