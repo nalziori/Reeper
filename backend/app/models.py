@@ -52,6 +52,32 @@ class Record(BaseModel):
     text: str = ""
 
 
+class Ground(BaseModel):
+    rule_id: str  # data/rules.json의 id
+    why: str  # 이 건에서 왜 쓰는지
+    verified: bool = False  # 근거 표에서 확인된 근거인지. 서버가 붙인다
+
+
+class ContractPoint(BaseModel):
+    quote: str  # 특약 원문 그대로
+    how_to_handle: str
+
+
+class Objection(BaseModel):
+    objection: str  # 업체가 할 법한 반론
+    response: str
+
+
+class Strategy(BaseModel):
+    """상황 설명을 듣고 LLM이 세운 전략. 표시용이며 단계 전이와 금액은 이 값을 보지 않는다."""
+    summary: str = ""
+    grounds: list[Ground] = []
+    contract_points: list[ContractPoint] = []
+    objections: list[Objection] = []
+    cautions: list[str] = []  # 기대를 조정하는 안내
+    questions: list[str] = []  # 사용자에게 되물을 것
+
+
 class Case(BaseModel):
     contract: Contract
     refund: Refund
@@ -66,6 +92,8 @@ class Case(BaseModel):
     agreed_amount: int | None = None
     deposit_due_on: date | None = None
     timeline: list[Record] = []
+    situation: str = Field(default="", max_length=1000)  # 사용자가 적은 상황 설명
+    strategy: Strategy | None = None  # POST /api/cases/strategy가 채운다
 
 
 class Event(BaseModel):
