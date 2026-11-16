@@ -447,11 +447,12 @@ def plan(case: Case, situation: str, today: date) -> dict:
     """사용자의 상황 설명을 듣고 전략을 세운다. 업체에 보낼 글은 만들지 않는다.
 
     돌려주는 것은 summary, grounds(rule_id, why), contract_points(quote, how_to_handle),
-    objections(objection, response), cautions, questions, fallback이다. 한 번만 부르고, 검사에 걸린 항목은
-    고쳐 쓰게 하지 않고 버린다. 가짜 LLM이면 빈 전략, 실제 호출이 실패하면 빈 전략에 fallback이 참이다.
+    objections(objection, response), cautions, questions, dropped, fallback이다. 한 번만 부르고, 검사에 걸린
+    항목은 고쳐 쓰게 하지 않고 버린다. dropped는 그렇게 버린 항목 수다(요약도 한 항목으로 센다). 가짜 LLM이면
+    빈 전략, 실제 호출이 실패하면 빈 전략에 fallback이 참이다.
     """
     empty = {"summary": "", "grounds": [], "contract_points": [], "objections": [], "cautions": [],
-             "questions": [], "fallback": False}
+             "questions": [], "dropped": 0, "fallback": False}
     situation = situation[:MAX_SITUATION]
     if llm is FAKE:
         return empty
@@ -471,7 +472,7 @@ def plan(case: Case, situation: str, today: date) -> dict:
     def rows(name: str, keys: set, keep) -> list[dict]:  # 형식이 어긋난 항목은 서버를 멈추지 않고 버린다
         return [x for x in out.get(name) or [] if isinstance(x, dict) and set(x) == keys and keep(x)]
 
-    return {
+    kept = {
         "summary": out["summary"] if ok(out.get("summary")) else "",
         "grounds": rows("grounds", {"rule_id", "why"}, lambda g: g["rule_id"] in RULES and ok(g["why"])),
         "contract_points": rows("contract_points", {"quote", "how_to_handle"},
@@ -481,5 +482,7 @@ def plan(case: Case, situation: str, today: date) -> dict:
                            lambda o: isinstance(o["objection"], str) and ok(o["response"])),
         "cautions": [x for x in out.get("cautions") or [] if ok(x)],
         "questions": [x for x in out.get("questions") or [] if ok(x)],
-        "fallback": False,
     }
+    lists = [k for k in kept if k != "summary"]
+    given = sum(len(out.get(k) or []) for k in lists) + bool(out.get("summary"))
+    return {**kept, "dropped": given - sum(len(kept[k]) for k in lists) - bool(kept["summary"]), "fallback": False}
