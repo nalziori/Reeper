@@ -178,6 +178,18 @@ def _numbers(text: str) -> list[str]:
     return sorted(n.replace(",", "") for n in re.findall(r"\d[\d,]*", text))
 
 
+THREATS = ("무효", "위법", "불법", "소송", "고소", "고발", "법적", "손해배상", "신고")  # 양식에 없으면 다듬은 글에도 없어야 한다
+
+
+def _same_claims(out: str, base: str) -> bool:
+    """다듬은 글이 말투만 바꿨는지 본다. 업체에 그대로 보내는 글이라 새 주장이 끼면 원래 양식을 쓴다."""
+    if any(w in out and w not in base for w in THREATS):
+        return False  # 양식에 없던 압박 표현
+    if sorted(LAWISH.findall(out)) != sorted(LAWISH.findall(base)):
+        return False  # 법령·조문 언급이 늘거나 줄었다
+    return len(out) <= len(base) * 1.3 + 20  # 문장을 덧붙여 길어졌다
+
+
 def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     """고정 양식을 말투만 다듬는다. 숫자가 하나라도 달라지거나 검사를 못 넘으면 원래 양식을 돌려준다."""
     base = render(kind, case)  # 없는 양식이면 KeyError
@@ -188,7 +200,7 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     except Exception as e:
         _fallback(e)
         return base, False
-    ok = bool(out) and validate(out, case) and _numbers(out) == _numbers(base)
+    ok = bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
     return (out, True) if ok else (base, False)
 
 
