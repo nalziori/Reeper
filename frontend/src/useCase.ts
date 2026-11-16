@@ -15,6 +15,14 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isStr = (v: unknown): v is string => typeof v === 'string'
 const orNull = (v: unknown, test: (x: unknown) => boolean) => v === null || test(v)
+const isStrArr = (v: unknown) => Array.isArray(v) && v.every(isStr)
+const isObjArr = (v: unknown, keys: string[]) =>
+  Array.isArray(v) && v.every((x) => isObj(x) && keys.every((k) => isStr(x[k])))
+// 전략은 표시용이다. 모양이 틀리면 사건 전체를 버린다.
+const isStrategy = (s: unknown): boolean => isObj(s) && isStr(s.summary)
+  && Array.isArray(s.grounds) && s.grounds.every((g) => isObj(g) && isStr(g.rule_id) && isStr(g.why) && typeof g.verified === 'boolean')
+  && isObjArr(s.contract_points, ['quote', 'how_to_handle']) && isObjArr(s.objections, ['objection', 'response'])
+  && isStrArr(s.cautions) && isStrArr(s.questions)
 const STAGES = ['ready', 'waiting', 'negotiating', 'escalated', 'agreed', 'closed', 'handed_off']
 
 // 화면이 바로 읽는 필드는 모양을 하나씩 확인한다. 하나라도 틀리면 저장값을 쓰지 않는다.
@@ -31,6 +39,8 @@ const isCase = (c: unknown): boolean => {
     && orNull(c.offered, isNum) && orNull(c.agreed_amount, isNum)
     && Array.isArray(c.timeline)
     && c.timeline.every((t) => isObj(t) && isStr(t.on) && isStr(t.type) && isStr(t.text))
+    && (c.situation === undefined || isStr(c.situation))
+    && (c.strategy == null || isStrategy(c.strategy))
 }
 
 const isStep = (v: unknown): v is Step => {
@@ -113,7 +123,8 @@ export function useCase() {
     }
   }, [saved, keep])
 
-  const run = async (p: Promise<Step>, today: string, patch: Partial<Saved> = {}) => {
+  // actionDate는 다음 행동을 그날 기준으로 받았는지 표시한다. 전략 요청처럼 행동을 바꾸지 않는 호출은 undefined를 넘겨 그대로 둔다.
+  const run = async (p: Promise<Step>, today: string | undefined, patch: Partial<Saved> = {}) => {
     const expected = ++revision.current
     pending.current++
     setBusy(true)
@@ -121,7 +132,7 @@ export function useCase() {
       setError('')
       const step = await p
       if (expected !== revision.current) return false
-      keep({ offset: 0, ...saved, ...patch, actionDate: today, step })
+      keep({ offset: 0, ...saved, ...patch, actionDate: today ?? saved?.actionDate, step })
       return true
     } catch (e) {
       if (expected === revision.current) setError(String((e as Error).message))
@@ -137,5 +148,19 @@ export function useCase() {
     return run(api.step(saved!.step.case, event, today), today, patch)
   }
 
-  return { saved, error, busy, keep, send }
+  // 상황 설명으로 전략을 받는다. 서버는 단계·금액·문안을 바꾸지 않으므로 사건만 바꿔 끼운다.
+  // 받은 전략이 null인지(자동 전략을 쓸 수 없음) 화면이 알 수 있게 결과를 돌려준다.
+  const plan = async (situation: string): Promise<'ok' | 'empty' | 'failed'> => {
+    if (pending.current || !saved) return 'failed'
+    const base = saved.step
+    let empty = false
+    const p = api.strategy(base.case, situation, isoDate(saved.offset)).then(({ case: c }) => {
+      empty = !c.strategy
+      return { ...base, case: c }
+    })
+    if (!await run(p, undefined)) return 'failed'
+    return empty ? 'empty' : 'ok'
+  }
+
+  return { saved, error, busy, keep, send, plan }
 }
