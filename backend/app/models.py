@@ -10,7 +10,7 @@ ReplyType = Literal[
     "no_answer", "callback",  # 통화 결과: 안 받음, 나중에 연락 준다고 함
 ]
 EventType = Literal[
-    "notice_sent", "reply_received", "time_passed",
+    "notice_sent", "call_attempted", "reply_received", "counter_sent", "time_passed",
     "agreement_recorded", "deposit_confirmed", "escalation_sent", "handoff_done",
 ]
 ActionType = Literal[

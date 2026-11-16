@@ -144,5 +144,76 @@ def test_rejects_event_dated_before_latest_record():
 
 
 def test_samples_and_health():
-    assert api.get("/api/health").json()["ok"]
+    health = api.get("/api/health").json()
+    assert health["ok"]
+    assert health["llm"] == "FakeLLM"
     assert api.get("/api/samples").json()[0]["contract"]["total_paid"] == 600_000
+
+
+def test_refund_preview_uses_rules_without_generating_drafts(monkeypatch):
+    import importlib
+
+    main = importlib.import_module("app.main")
+    monkeypatch.setattr(main, "drafts_for", lambda *_: pytest.fail("미리보기에서 문안이나 LLM을 생성하지 않는다"))
+    response = api.post("/api/refund-preview", json={
+        "contract": CONTRACT.model_dump(mode="json"), "today": str(D),
+    })
+    assert response.status_code == 200
+    assert response.json()["refund"] == calculate(CONTRACT, D).refund
+def test_counter_starts_new_wait_without_resetting_notice():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    previous = f.res["case"]
+    f.step(days=1, type="reply_received", reply_type="refuse")
+    assert f.step(type="counter_sent") == "wait"
+    case = f.res["case"]
+    assert f.stage == "waiting"
+    assert case["notified_on"] == previous["notified_on"]
+    assert case["refund"] == previous["refund"]
+    assert case["attempts"] == previous["attempts"]
+    assert f.step(days=4, type="time_passed") == "follow_up"
+
+
+def test_counter_after_certified_mail_can_still_reach_1372_and_deposit():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    f.step(days=4, type="notice_sent", channel="sms")
+    f.step(days=4, type="escalation_sent")
+    f.step(type="reply_received", reply_type="refuse")
+    assert f.step(type="counter_sent") == "wait"
+    assert f.stage == "escalated"
+    assert f.step(days=4, type="time_passed") == "go_1372"
+    f.step(type="handoff_done")
+    f.step(type="agreement_recorded", amount=300_000)
+    assert f.stage == "agreed"
+    assert f.res["case"]["agreed_amount"] == 300_000
+    assert f.step(type="deposit_confirmed") == "close"
+
+
+def test_failed_first_call_keeps_case_ready():
+    f = Flow()
+    assert f.step(type="call_attempted") == "send_notice"
+    case = f.res["case"]
+    assert case["stage"] == "ready" and case["notified_on"] is None
+    assert case["attempts"] == 0
+    assert case["timeline"][-1]["type"] == "call_attempted"
+
+
+def test_restored_waiting_case_uses_existing_certified_mail_record():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    f.step(days=4, type="notice_sent", channel="sms")
+    f.step(days=4, type="escalation_sent")
+    # 이전 버전에서 내용증명 이후 재연락 약속을 기록하면 waiting으로 저장될 수 있었다.
+    f.res["case"]["stage"] = "waiting"
+    assert f.step(days=4, type="time_passed") == "go_1372"
+    f.step(type="handoff_done")
+    assert f.stage == "handed_off"
+
+
+def test_refreshing_action_does_not_add_a_timeline_entry():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    case = f.res["case"]
+    assert f.step(days=4, type="time_passed") == "follow_up"
+    assert f.res["case"] == case

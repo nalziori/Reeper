@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from . import agent
 from .agent import drafts_for
 from .engine import InvalidTransition, apply, next_action, open_case, validate_transition
-from .models import Action, Analysis, Case, Contract, Event
-from .rules import DATA, RULES
+from .models import Action, Analysis, Case, Contract, Event, Refund
+from .rules import DATA, RULES, calculate
 
 app = FastAPI(title="Reeper")
 SAMPLES = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((DATA / "samples").glob("*.json"))}
@@ -22,6 +22,11 @@ class OpenRequest(BaseModel):
     today: date
     target: int | None = None
     floor: int | None = None
+
+
+class PreviewRequest(BaseModel):
+    contract: Contract
+    today: date
 
 
 class StepRequest(BaseModel):
@@ -65,6 +70,14 @@ def rules() -> dict:
     return RULES
 
 
+@app.post("/api/refund-preview")
+def refund_preview(req: PreviewRequest) -> Refund:
+    try:
+        return calculate(req.contract, req.today)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
 @app.post("/api/cases")
 def create_case(req: OpenRequest) -> StepResponse:
     try:
@@ -83,7 +96,8 @@ def step(req: StepRequest) -> StepResponse:
             validate_transition(req.case, event, req.today)
             reply = event.text
             reply_type, amount, fallback = agent.read_reply(reply)
-            event = event.model_copy(update={"reply_type": reply_type, "amount": event.amount or amount})
+            event = event.model_copy(update={"reply_type": reply_type,
+                                             "amount": amount if event.amount is None else event.amount})
         case = apply(req.case, event, req.today)
     except InvalidTransition as exc:
         raise HTTPException(409, str(exc)) from exc
