@@ -12,6 +12,7 @@ import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
 import { RealityNote } from './components/RealityNote'
+import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
 import { STAGE, journeyPhase, won } from './format'
 import { Deposit } from './steps/Deposit'
@@ -83,9 +84,10 @@ export default function App() {
 
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
       <VStack gap={4}>
-      {phase === 3 && <Prepare saved={saved} send={send} />}
+      <ReplyReading step={saved.step} rules={rules} />
+      {phase === 3 &&<Prepare saved={saved} send={send} />}
       {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
-        settlement={settlement} setSettlement={setSettlement} rules={rules} autoReadOff={autoReadOff} />}
+        settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff} />}
       {phase === 5 && <Deposit saved={saved} send={send} />}
       <DemoPanel stage={c.stage} offset={saved.offset} send={send} />
       </VStack>

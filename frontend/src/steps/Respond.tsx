@@ -4,8 +4,6 @@ import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { VStack } from '@astryxdesign/core/VStack'
-import type { Rules } from '../api'
-import { AnalysisCard } from '../components/AnalysisCard'
 import { DraftList } from '../components/Draft'
 import { ReplyButtons } from '../components/ReplyButtons'
 import { won } from '../format'
@@ -18,21 +16,15 @@ type Props = {
   setReply: (update: string | ((current: string) => string)) => void
   settlement: string
   setSettlement: (value: string) => void
-  rules: Rules
   autoReadOff: boolean
 }
 
 // stage가 waiting, negotiating, escalated, handed_off일 때: 문안, 기록 버튼, 답장 입력
-export function Respond({ saved, send, reply, setReply, settlement, setSettlement, rules, autoReadOff }: Props) {
+export function Respond({ saved, send, reply, setReply, settlement, setSettlement, autoReadOff }: Props) {
   const { case: c, action, drafts } = saved.step
   const settlementAmount = Number(settlement)
   return (
     <>
-      {c.stage === 'negotiating' && saved.step.llm_fallback && (
-        <Banner status="warning" collapsible={false}
-          title="붙여넣은 답장을 자동으로 읽지 못해 키워드로 판단했어요. 맞는지 확인하고 버튼으로 고쳐 주세요." />
-      )}
-      {c.stage === 'negotiating' && saved.step.analysis && <AnalysisCard analysis={saved.step.analysis} rules={rules} />}
       <DraftList drafts={drafts} note={saved.note} />
       <Card>
         <VStack gap={3}>
@@ -41,7 +33,8 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
           {action.type === 'counter' && <Button label="반박 문안을 보냈어요" onClick={() => send({ type: 'counter_sent' })} />}
           {action.type === 'certified_mail' && <Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} />}
           {action.type === 'go_1372' && c.stage !== 'handed_off' && <Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} />}
-          {c.stage === 'negotiating' && c.offered != null && !action.warn && (
+          {/* 합의 금액은 0원보다 커야 한다(서버가 0원 이하는 409로 거절) */}
+          {c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn && (
             <Button variant="primary" label={`${won(c.offered)}에 합의했어요`} onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} />
           )}
           {c.stage === 'handed_off' && (

@@ -84,7 +84,7 @@ def apply(case: Case, event: Event, today: date) -> Case:
         if reply_type == "accept" and event.amount is not None:
             reply_type = "low_offer"  # 금액이 있는 수용은 서버가 목표·수용선과 비교해 정한다
         c.last_reply, c.offered = reply_type, event.amount
-        log(event.text or event.reply_type or "")
+        log(event.text or reply_type or "")
         if event.reply_type in ("no_answer", "callback"):
             c.stage = _response_wait_stage(c)
         elif reply_type == "accept":
