@@ -116,7 +116,8 @@ def score_plans(rows: list[dict]) -> dict:
                         "must_hit": len(returned & required) if required else None,
                         "must_n": len(required),
                         "forbid_hit": len(returned & set(r["forbid_grounds"])),
-                        "out_of_table": len(returned - rules.keys()), "empty": bool(empty)})
+                        "out_of_table": len(returned - rules.keys()), "empty": bool(empty),
+                        "dropped": strategy.get("dropped", 0)})
     must_hit = sum(r["must_hit"] or 0 for r in results)
     must_n = sum(r["must_n"] for r in results)
     return {"n": len(rows), "must_hit": must_hit, "must_n": must_n,
@@ -124,7 +125,8 @@ def score_plans(rows: list[dict]) -> dict:
             "forbid_hits": sum(r["forbid_hit"] for r in results),
             "out_of_table": sum(r["out_of_table"] for r in results),
             "business_content_failures": sum(r["content_ok"] is False for r in results),
-            "empty": sum(r["empty"] for r in results), "situations": results}
+            "empty": sum(r["empty"] for r in results), "dropped": sum(r["dropped"] for r in results),
+            "situations": results}
 
 
 def main(argv=None) -> None:
@@ -151,9 +153,9 @@ def main(argv=None) -> None:
         print(f"모델: {model}  N={s['n']}")
         print(f"필수 근거 재현율 {recall} ({s['must_hit']}/{s['must_n']})  "
               f"금지 근거 {s['forbid_hits']}  표 밖 근거 {s['out_of_table']}  빈 전략/대체 {s['empty']}")
-        print(f"업체 귀책 내용 검사 실패 {s['business_content_failures']}")
+        print(f"업체 귀책 내용 검사 실패 {s['business_content_failures']}  서버 검사로 버려진 항목 {s['dropped']}")
         for r in s["situations"]:
-            print(f"  {r['id']}: {r['rule_ids']}")
+            print(f"  {r['id']}: {r['rule_ids']}  버림 {r['dropped']}")
         return
     s = score(load(args.files))
     print(f"모델: {type(agent.llm).__name__}  답장 {s['n']}건")

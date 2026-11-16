@@ -143,3 +143,12 @@ def test_fault_question_reads_business_side_change():
     assert run._fault_question("수업 시간을 업체가 바꿨나요?")
     assert not run._fault_question("시간 변경을 요청하신 적이 있나요?")
     assert not run._fault_question("헬스장을 옮기셨나요?")
+
+
+def test_plan_score_sums_dropped(monkeypatch):
+    rows = run.load([RUN.parent / "situations_b.jsonl"])[:2]
+    monkeypatch.setattr(agent, "plan", lambda *args: {"summary": "요약", "grounds": [], "contract_points": [],
+                                                      "objections": [], "cautions": [], "questions": [],
+                                                      "dropped": 3, "fallback": False})
+    s = run.score_plans(rows)
+    assert [r["dropped"] for r in s["situations"]] == [3, 3] and s["dropped"] == 6
