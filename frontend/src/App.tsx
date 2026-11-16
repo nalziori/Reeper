@@ -47,7 +47,7 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={640}>
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Intake rules={rules} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
+        <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
       </VStack>
     )
   }
