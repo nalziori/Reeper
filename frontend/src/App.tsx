@@ -9,12 +9,13 @@ import { Text } from '@astryxdesign/core/Text'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
-import { useEffect, useState } from 'react'
-import { api, type Contract, type Refund, type Rules, type Sample, type Step } from './api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, type CaseEvent, type Contract, type Refund, type Rules, type Sample, type Step } from './api'
 
 // 사건은 서버가 아니라 이 브라우저에만 보관한다.
 const KEY = 'reeper.case'
-type Saved = { step: Step; offset: number; note?: string }
+const REFRESH_ERROR = '다음 행동을 새로 불러오지 못했습니다.'
+type Saved = { step: Step; offset: number; note?: string; actionDate?: string }
 const load = (): Saved | null => JSON.parse(localStorage.getItem(KEY) ?? 'null')
 
 const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
@@ -58,7 +59,7 @@ function Draft({ kind, text }: { kind: string; text: string }) {
   )
 }
 
-function Start({ onConfirm, rules }: { onConfirm: (step: Step) => void; rules: Rules }) {
+function Start({ onConfirm, rules }: { onConfirm: (step: Step, today: string) => void; rules: Rules }) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
@@ -112,7 +113,7 @@ function Start({ onConfirm, rules }: { onConfirm: (step: Step) => void; rules: R
         target: target === '' ? undefined : targetAmount,
         floor: floor === '' ? undefined : floorAmount,
       })
-      onConfirm(step)
+      onConfirm(step, today)
     })
     return (
       <VStack gap={4}>
@@ -181,31 +182,77 @@ export default function App() {
   const [saved, setSaved] = useState<Saved | null>(load)
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
+  const [settlement, setSettlement] = useState('')
   const [error, setError] = useState('')
+  const revision = useRef(0)
+  const pending = useRef(0)
   useEffect(() => { api.rules().then(setRules) }, [])
 
-  const keep = (s: Saved | null) => {
+  const keep = useCallback((s: Saved | null) => {
+    revision.current++
     setSaved(s)
     if (s) localStorage.setItem(KEY, JSON.stringify(s))
     else localStorage.removeItem(KEY)
-  }
-  const run = async (p: Promise<Step>, patch: Partial<Saved> = {}) => {
+  }, [])
+
+  useEffect(() => {
+    if (!saved || saved.step.case.stage === 'closed') return
+    let active = true
+    let refreshing = false
+    const refresh = async () => {
+      const today = isoDate(saved.offset)
+      if (refreshing || pending.current || saved.actionDate === today) return
+      refreshing = true
+      const expected = revision.current
+      try {
+        const { action, drafts } = await api.step(saved.step.case, { type: 'time_passed' }, today)
+        if (active && expected === revision.current) {
+          keep({ ...saved, actionDate: today, step: { ...saved.step, action, drafts } })
+          setError((current) => current === REFRESH_ERROR ? '' : current)
+        }
+      } catch {
+        if (active && expected === revision.current) {
+          setError((current) => current || REFRESH_ERROR)
+        }
+      } finally {
+        refreshing = false
+      }
+    }
+    void refresh()
+    window.addEventListener('focus', refresh)
+    const timer = window.setInterval(refresh, 60_000)
+    return () => {
+      active = false
+      window.removeEventListener('focus', refresh)
+      window.clearInterval(timer)
+    }
+  }, [saved, keep])
+
+  const run = async (p: Promise<Step>, today: string, patch: Partial<Saved> = {}) => {
+    const expected = ++revision.current
+    pending.current++
     try {
       setError('')
-      keep({ offset: 0, ...saved, ...patch, step: await p })
+      const step = await p
+      if (expected !== revision.current) return false
+      keep({ offset: 0, ...saved, ...patch, actionDate: today, step })
       return true
     } catch (e) {
-      setError(String((e as Error).message))
+      if (expected === revision.current) setError(String((e as Error).message))
       return false
+    } finally {
+      pending.current--
     }
   }
-  const send = (event: Record<string, unknown>, patch: Partial<Saved> = {}) =>
-    run(api.step(saved!.step.case, event, isoDate(patch.offset ?? saved!.offset)), patch)
+  const send = (event: CaseEvent, patch: Partial<Saved> = {}) => {
+    const today = isoDate(patch.offset ?? saved!.offset)
+    return run(api.step(saved!.step.case, event, today), today, patch)
+  }
 
   const header = (
     <HStack hAlign="between" vAlign="center">
       <Heading level={1}>Reeper</Heading>
-      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => keep(null)} />}
+      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); keep(null) }} />}
     </HStack>
   )
   if (!saved) {
@@ -213,13 +260,14 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={640}>
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Start rules={rules} onConfirm={(step) => keep({ offset: 0, step })} />
+        <Start rules={rules} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
       </VStack>
     )
   }
 
   const { case: c, action, drafts } = saved.step
   const r = c.refund
+  const settlementAmount = Number(settlement)
   return (
     <VStack gap={4} padding={4} maxWidth={640}>
       {header}
@@ -257,15 +305,27 @@ export default function App() {
             <HStack gap={2} wrap="wrap">
               <Button variant="primary" label="문자로 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />
               <Button label="전화로 말했어요" onClick={() => send({ type: 'notice_sent', channel: 'call' }, { note: drafts.after_call_sms })} />
+              <Button label="전화 연결이 안 됐어요" onClick={() => send({ type: 'call_attempted' })} />
             </HStack>
           )}
           {action.type === 'follow_up' && <Button variant="primary" label="재요청을 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />}
+          {action.type === 'counter' && <Button label="반박 문안을 보냈어요" onClick={() => send({ type: 'counter_sent' })} />}
           {action.type === 'certified_mail' && <Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} />}
           {action.type === 'go_1372' && c.stage !== 'handed_off' && <Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} />}
           {c.stage === 'negotiating' && c.offered != null && !action.warn && (
             <Button variant="primary" label={`${won(c.offered)}에 합의했어요`} onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} />
           )}
           {c.stage === 'agreed' && <Button variant="primary" label="입금을 확인했어요" onClick={() => send({ type: 'deposit_confirmed' })} />}
+          {c.stage === 'handed_off' && (
+            <>
+              <label>1372 접수 후 합의 금액(원) <input type="number" min="1" step="1" value={settlement}
+                onChange={(e) => setSettlement(e.target.value)} /></label>
+              <Button label="합의 금액 기록" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}
+                onClick={async () => {
+                  if (await send({ type: 'agreement_recorded', amount: settlementAmount })) setSettlement('')
+                }} />
+            </>
+          )}
           {['waiting', 'negotiating', 'escalated'].includes(c.stage) && (
             <>
               <TextArea label="업체 답장이나 통화 내용" description="받은 문자를 붙여넣거나, 통화에서 들은 말을 적어 주세요."

@@ -1,7 +1,7 @@
 """사건 단계 전이. 순수 함수이며 저장하지 않는다. 클라이언트가 사건을 보관하고 판단은 여기서 한다."""
 from datetime import date, timedelta
 
-from .models import Action, Case, Contract, Event, Record
+from .models import Action, Case, Contract, Event, Record, Stage
 from .rules import POLICY, calculate
 
 
@@ -20,16 +20,22 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
 
     if event.type == "notice_sent":
         allowed = stage == "ready" or (stage == "waiting" and next_action(case, today).type == "follow_up")
+    elif event.type == "call_attempted":
+        allowed = stage == "ready"
     elif event.type == "reply_received":
         allowed = stage in ("waiting", "negotiating", "escalated")
+    elif event.type == "counter_sent":
+        allowed = stage == "negotiating" and next_action(case, today).type == "counter"
     elif event.type == "agreement_recorded":
-        allowed = stage == "negotiating"
+        allowed = stage == "negotiating" or (
+            stage == "handed_off" and event.amount is not None and event.amount > 0
+        )
     elif event.type == "deposit_confirmed":
         allowed = stage == "agreed"
     elif event.type == "escalation_sent":
         allowed = stage == "waiting" and next_action(case, today).type == "certified_mail"
     elif event.type == "handoff_done":
-        allowed = stage == "escalated" and next_action(case, today).type == "go_1372"
+        allowed = stage in ("waiting", "escalated") and next_action(case, today).type == "go_1372"
     else:
         allowed = event.type == "time_passed"
 
@@ -50,6 +56,8 @@ def open_case(contract: Contract, today: date, target: int | None = None, floor:
 
 def apply(case: Case, event: Event, today: date) -> Case:
     validate_transition(case, event, today)
+    if event.type == "time_passed":
+        return case
     c = case.model_copy(deep=True)
 
     def log(text: str = "") -> None:
@@ -64,16 +72,23 @@ def apply(case: Case, event: Event, today: date) -> Case:
         c.deadline_on = today + timedelta(days=POLICY["wait_days"])
         log("전화로 말함" if event.channel == "call" else "문자로 보냄")
 
+    elif event.type == "call_attempted":
+        log("업체에 전화했으나 연결되지 않음")
+
     elif event.type == "reply_received":
         c.last_reply, c.offered = event.reply_type, event.amount
         log(event.text or event.reply_type or "")
         if event.reply_type in ("no_answer", "callback"):
-            if c.stage != "escalated":
-                c.stage = "waiting"
+            c.stage = _response_wait_stage(c)
         elif event.reply_type == "accept":
             _agree(c, event.amount, today)
         else:
             c.stage = "negotiating"
+
+    elif event.type == "counter_sent":
+        c.stage = _response_wait_stage(c)
+        c.deadline_on = today + timedelta(days=POLICY["wait_days"])
+        log("반박 문안 발송")
 
     elif event.type == "agreement_recorded":
         _agree(c, event.amount, today)
@@ -92,10 +107,13 @@ def apply(case: Case, event: Event, today: date) -> Case:
         c.stage = "handed_off"
         log("1372 소비자상담센터에 접수")
 
-    elif event.type == "time_passed":
-        log()
-
     return c
+
+
+def _response_wait_stage(case: Case) -> Stage:
+    if case.stage == "escalated" or any(record.type == "escalation_sent" for record in case.timeline):
+        return "escalated"
+    return "waiting"
 
 
 def _agree(c: Case, amount: int | None, today: date) -> None:
@@ -108,9 +126,11 @@ def next_action(case: Case, today: date) -> Action:
     c = case
     if c.stage == "ready":
         return Action(type="send_notice", reason="해지 의사를 알려야 환불액이 더 줄지 않는다")
-    if c.stage == "waiting":
+    if c.stage in ("waiting", "escalated"):
         if today <= c.deadline_on:
             return Action(type="wait", reason=f"{c.deadline_on:%m월 %d일}까지 답을 기다린다")
+        if _response_wait_stage(c) == "escalated":
+            return Action(type="go_1372", reason="내용증명에도 답이 없다")
         if c.attempts <= POLICY["max_follow_ups"]:
             return Action(type="follow_up", reason="답변 기한이 지났다")
         return Action(type="certified_mail", reason="재요청에도 답이 없다")
@@ -122,10 +142,6 @@ def next_action(case: Case, today: date) -> Action:
                 return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
             return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적다. 받아들일지 정한다")
         return Action(type="counter", reason="근거를 들어 다시 요청한다")
-    if c.stage == "escalated":
-        if today <= c.deadline_on:
-            return Action(type="wait", reason=f"{c.deadline_on:%m월 %d일}까지 답을 기다린다")
-        return Action(type="go_1372", reason="내용증명에도 답이 없다")
     if c.stage == "agreed":
         if today <= c.deposit_due_on:
             return Action(type="wait", reason=f"{c.deposit_due_on:%m월 %d일}까지 입금을 기다린다")
