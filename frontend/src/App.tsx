@@ -13,6 +13,7 @@ import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
 import { RealityNote } from './components/RealityNote'
 import { ReplyReading } from './components/ReplyReading'
+import { StrategyCard } from './components/StrategyCard'
 import { Timeline } from './components/Timeline'
 import { STAGE, journeyPhase, won } from './format'
 import { Deposit } from './steps/Deposit'
@@ -85,6 +86,7 @@ export default function App() {
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
       <VStack gap={4}>
       <ReplyReading step={saved.step} rules={rules} />
+      {(phase === 3 || phase === 4) && <StrategyCard saved={saved} keep={keep} rules={rules} llmOff={autoReadOff} />}
       {phase === 3 &&<Prepare saved={saved} send={send} />}
       {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
         settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff} />}
