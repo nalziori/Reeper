@@ -12,6 +12,7 @@ import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
 import { RealityNote } from './components/RealityNote'
+import { StrategyCard } from './components/StrategyCard'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
 import { STAGE, journeyPhase, won } from './format'
@@ -23,7 +24,7 @@ import { Respond } from './steps/Respond'
 import { useCase } from './useCase'
 
 export default function App() {
-  const { saved, error, busy, keep, send } = useCase()
+  const { saved, error, busy, keep, send, plan } = useCase()
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
@@ -89,6 +90,7 @@ export default function App() {
       {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
         settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff} />}
       {phase === 5 && <Deposit saved={saved} send={send} />}
+      {(phase === 3 || phase === 4) && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
       <DemoPanel stage={c.stage} offset={saved.offset} send={send} />
       </VStack>
       </fieldset>
