@@ -18,3 +18,30 @@ input[type='date'] {
   font: inherit;
   padding: 8px;
 }
+
+.journey-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.journey-steps li {
+  border-top: 3px solid currentColor;
+  padding-top: 8px;
+  font-size: clamp(0.6875rem, 2.5vw, 0.875rem);
+  word-break: keep-all;
+}
+
+.journey-steps li[data-state='done'] { opacity: 0.7; }
+.journey-steps li[data-state='next'] { opacity: 0.6; }
+.journey-steps li[data-state='current'] { font-weight: 700; }
+
+.journey-interactions {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

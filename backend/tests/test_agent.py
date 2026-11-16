@@ -204,7 +204,7 @@ def test_analysis_is_empty_without_a_real_llm_and_flags_failure(real, monkeypatc
 SITUATION = "다음 달에 이사 가서 더 못 다녀요. 위약금 없이 60만원 전액 받고 싶어요."
 TERMS = "이벤트 상품은 환불이 불가합니다."
 NO_PLAN = {"summary": "", "grounds": [], "contract_points": [], "objections": [], "cautions": [], "questions": [],
-           "fallback": False}
+           "dropped": 0, "fallback": False}
 
 
 def strategy(real, out):
@@ -226,7 +226,7 @@ def good_plan(**over):
 
 
 def test_plan_keeps_grounded_strategy(real):
-    assert strategy(real, good_plan()) == {**good_plan(), "fallback": False}
+    assert strategy(real, good_plan()) == {**good_plan(), "dropped": 0, "fallback": False}
 
 
 def test_plan_drops_what_is_not_in_the_material(real):
@@ -238,7 +238,7 @@ def test_plan_drops_what_is_not_in_the_material(real):
         objections=[{"objection": "환불 불가", "response": "소송하겠다고 하세요."}],
         cautions=["350,000원까지는 받을 수 있어요.", ""],
         questions=["12월 25일에 결제하셨나요?", 3]))  # 사건에 없는 날짜, 글이 아닌 값
-    assert out == NO_PLAN
+    assert out == {**NO_PLAN, "dropped": 9}  # 요약 1, 근거 2, 특약 1, 반론 1, 주의 2, 질문 2
 
 
 def test_plan_is_empty_without_a_real_llm_and_survives_bad_output(real, monkeypatch):
