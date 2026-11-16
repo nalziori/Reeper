@@ -4,6 +4,8 @@ from pathlib import Path
 
 from typing import get_args
 
+import pytest
+
 from app import agent
 from app.models import ReplyType
 
@@ -62,7 +64,6 @@ def test_unread_special_terms_are_not_counted_as_no_terms(monkeypatch, tmp_path)
     assert s["fields"]["special_terms"] == 0 and s["all_ok"] == 0
 
 
-
 def test_photo_none_requires_special_terms_quote(monkeypatch, tmp_path):
     from app.models import Extracted
     row = next(r for r in run.load([RUN.parent / "contracts.jsonl"])
@@ -93,7 +94,6 @@ def test_photo_quote_must_say_no_terms(monkeypatch, tmp_path):
 
 
 def test_missing_photo_stops_before_any_call(monkeypatch, tmp_path):
-    import pytest
     rows = [r for r in run.load([RUN.parent / "contracts.jsonl"]) if r.get("photo_layout")]
     (tmp_path / f"{rows[0]['id']}.jpg").write_bytes(b"x")
     calls = []
@@ -101,3 +101,10 @@ def test_missing_photo_stops_before_any_call(monkeypatch, tmp_path):
     with pytest.raises(FileNotFoundError):
         run.score_photos(rows, tmp_path)
     assert calls == []
+
+
+def test_no_terms_allows_trailing_period_and_label_in_value():
+    assert run._quote_says_no_terms("특약사항: 없음.")
+    assert run.norm("special_terms", "없음.") == ""
+    assert run.norm("special_terms", "특약: 없음") == ""
+    assert run.norm("special_terms", "특약: 환불 불가") != ""

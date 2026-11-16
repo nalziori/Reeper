@@ -6,7 +6,7 @@
     python eval/run.py            # 가짜 LLM
     python eval/run.py --live     # 실제 모델 (OPENAI_API_KEY 필요)
 
-계약서 추출 평가는 아직 없다. 추출기가 사진만 받는데 contracts.jsonl은 글이다.
+계약서 사진 추출 평가는 --photos --live로 돈다(12회 호출). eval/README.md의 run.py --photos 참고.
 """
 import argparse
 import base64
@@ -53,7 +53,7 @@ def score(rows: list[dict]) -> dict:
                          for t in sorted({t for t, _ in by_type})}}
 
 
-NO_TERMS = re.compile(r"^(없음|해당\s*없음|별도의?\s*특약\s*사항은?\s*없(다|음|습니다)\.?)$")
+NO_TERMS = re.compile(r"^(없음|해당\s*없음|별도의?\s*특약\s*사항은?\s*없(다|음|습니다))\.?$")
 
 
 # 인용 앞의 칸 이름("특약사항", "비고(특약)", "제5조(특약)")만 떼고, 남은 글 전체가 특약 없음 표현이어야 한다.
@@ -68,7 +68,7 @@ def norm(name: str, value):
     """채점용으로 값을 맞춘다. 특약 없음의 여러 표현은 빈 문자열, 글은 공백을 지운다."""
     if isinstance(value, str):
         value = re.sub(r"\s+", "", value) if name != "special_terms" else " ".join(value.split())
-        if name == "special_terms" and NO_TERMS.match(value):
+        if name == "special_terms" and _quote_says_no_terms(value):  # "특약: 없음"처럼 칸 이름을 단 값도
             value = ""
     return value
 
