@@ -140,7 +140,7 @@ llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "g
 
 
 def upload_enabled() -> bool:
-    """계약서 사진 읽기. 운영사무국 답을 받기 전까지 꺼 둔다. 켜려면 ALLOW_UPLOAD=1."""
+    """계약서 사진 읽기. 기본은 꺼짐이고 ALLOW_UPLOAD=1로 켠다. 합성(가상) 계약서만 쓴다(운영사무국 답, 2026-11-16)."""
     return os.environ.get("ALLOW_UPLOAD") == "1" and llm is not FAKE
 
 
