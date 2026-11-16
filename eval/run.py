@@ -56,6 +56,14 @@ def score(rows: list[dict]) -> dict:
 NO_TERMS = re.compile(r"^(없음|해당\s*없음|별도의?\s*특약\s*사항은?\s*없(다|음|습니다)\.?)$")
 
 
+# 인용 앞의 칸 이름("특약사항", "비고(특약)", "제5조(특약)")만 떼고, 남은 글 전체가 특약 없음 표현이어야 한다.
+TERMS_LABEL = re.compile(r"^\s*(?:제\s*\d+\s*조\s*)?\(?\s*(?:비고\s*\(\s*특약\s*\)|특약\s*사항|특약)\s*\)?\s*[:：]?\s*")
+
+
+def _quote_says_no_terms(quote: str) -> bool:
+    return bool(NO_TERMS.match(TERMS_LABEL.sub("", quote, count=1).strip()))
+
+
 def norm(name: str, value):
     """채점용으로 값을 맞춘다. 특약 없음의 여러 표현은 빈 문자열, 글은 공백을 지운다."""
     if isinstance(value, str):
@@ -68,18 +76,21 @@ def norm(name: str, value):
 def score_photos(rows: list[dict], photo_dir: Path = ROOT / "contract_photos") -> dict:
     """사진이 있는 계약서만 agent.extract_contract로 읽어 추출 필드 5개를 정답과 비교한다."""
     fields, results = list(agent.FIELDS), []
+    rows = [r for r in rows if "photo_layout" in r]
+    missing = [r["id"] for r in rows if not (photo_dir / f"{r['id']}.jpg").exists()]
+    if missing:  # 빠진 사진을 건너뛰면 분모가 줄어 점수가 좋아 보인다. 호출 전에 멈춘다.
+        raise FileNotFoundError(f"사진이 없다: {', '.join(missing)}")
     for r in rows:
         img = photo_dir / f"{r['id']}.jpg"
-        if "photo_layout" not in r or not img.exists():
-            continue
         url = "data:image/jpeg;base64," + base64.b64encode(img.read_bytes()).decode()
         got, failed = agent.extract_contract(url)
         want = {f: r["contract"].get(f, "") for f in fields}
         ok = {}
         for f in fields:
             value = got[f].value
-            # 추출기가 빈 특약을 None으로 바꾸므로 읽은 위치의 인용이 있어야 인정한다.
-            if f == "special_terms" and value is None and got[f].quote.strip():
+            # 추출기가 빈 특약을 None으로 바꾼다. 인용문이 "없음" 같은 특약 없음 표현으로 끝날 때만
+            # 특약 없음을 읽은 것으로 본다. "특약사항"처럼 칸 이름만 인용했으면 못 읽은 것이다.
+            if f == "special_terms" and value is None and _quote_says_no_terms(got[f].quote):
                 value = ""
             ok[f] = value is not None and norm(f, value) == norm(f, want[f])
         results.append({"id": r["id"], "layout": r["photo_layout"], "failed": failed, "ok": ok,

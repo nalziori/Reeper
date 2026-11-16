@@ -41,7 +41,7 @@ def test_photo_scoring_normalizes_no_terms(monkeypatch, tmp_path):
         return {f: Extracted(value=c[f], confidence=1.0, quote="", check=False) for f in agent.FIELDS}, False
     fake_extract.n = 0
     monkeypatch.setattr(agent, "extract_contract", fake_extract)
-    s = run.score_photos(rows, tmp_path)
+    s = run.score_photos(rows[:2], tmp_path)
     assert s["n"] == 2 and s["all_ok"] == 2
     assert run.norm("special_terms", "해당 없음") == "" and run.norm("gym_name", "가상짐 한빛점") == "가상짐한빛점"
 
@@ -76,3 +76,28 @@ def test_photo_none_requires_special_terms_quote(monkeypatch, tmp_path):
         assert result["fields"]["special_terms"] == int(bool(quote.strip()))
         assert all(n == 0 for f, n in result["fields"].items() if f != "special_terms")
         assert result["all_ok"] == 0
+
+
+def test_photo_quote_must_say_no_terms(monkeypatch, tmp_path):
+    from app.models import Extracted
+    row = next(r for r in run.load([RUN.parent / "contracts.jsonl"])
+               if r.get("photo_layout") and not r["contract"]["special_terms"])
+    (tmp_path / f"{row['id']}.jpg").write_bytes(b"x")
+    for quote, want in [("특약사항", 0), ("비고(특약)", 0), ("특약사항 해당 없음", 1),
+                        ("제5조(특약) 별도의 특약 사항은 없다.", 1), ("비고(특약) 없음", 1),
+                        ("특약사항: 읽을 수 없음", 0), ("특약사항: 확인할 수 없음", 0),
+                        ("평가용 가상 계약서 · 실제 업체·인물과 관계없음 · k01", 0)]:
+        extracted = {f: Extracted(value=None, confidence=0.0, quote=quote, check=True) for f in agent.FIELDS}
+        monkeypatch.setattr(agent, "extract_contract", lambda url: (extracted, False))
+        assert run.score_photos([row], tmp_path)["fields"]["special_terms"] == want, quote
+
+
+def test_missing_photo_stops_before_any_call(monkeypatch, tmp_path):
+    import pytest
+    rows = [r for r in run.load([RUN.parent / "contracts.jsonl"]) if r.get("photo_layout")]
+    (tmp_path / f"{rows[0]['id']}.jpg").write_bytes(b"x")
+    calls = []
+    monkeypatch.setattr(agent, "extract_contract", lambda url: calls.append(url))
+    with pytest.raises(FileNotFoundError):
+        run.score_photos(rows, tmp_path)
+    assert calls == []
