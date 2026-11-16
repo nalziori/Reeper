@@ -3,6 +3,7 @@ import json
 import os
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -102,6 +103,16 @@ class StrategyResponse(BaseModel):
     llm_fallback: bool = False  # 실제 LLM이 실패했다. 전략 없이 고정 양식으로 진행한다
 
 
+class PolishRequest(BaseModel):
+    case: Case
+    kind: str  # data/templates/의 양식 이름. drafts의 키와 같다
+    tone: Literal["polite", "firm"]
+
+
+class PolishResponse(BaseModel):
+    text: str
+    polished: bool  # 거짓이면 원래 양식이다. 가짜 LLM, 호출 실패, 숫자·근거 검사를 못 넘은 경우
+
 class ExtractRequest(BaseModel):
     image: str  # data:image/png·jpeg·webp;base64,... 서버는 저장하거나 로그로 남기지 않는다
 
@@ -175,6 +186,16 @@ def strategy(req: StrategyRequest) -> StrategyResponse:
     case = req.case.model_copy(update={"situation": req.situation, "strategy": made})
     return StrategyResponse(case=case, llm_fallback=found["fallback"])
 
+
+@app.post("/api/drafts/polish")
+def polish(req: PolishRequest) -> PolishResponse:
+    """고정 양식 문안의 말투만 다듬는다. 사건은 바꾸지 않고, 금액·조문이 달라지면 원래 양식을 돌려준다."""
+    if req.kind not in agent.TEMPLATES:
+        raise HTTPException(404, "없는 문안 양식입니다.")
+    if req.kind == "call_card":  # 보내는 문장이 아니라 통화 전에 보는 메모다
+        raise HTTPException(422, "통화 준비 카드는 말투를 바꾸지 않습니다.")
+    text, done = agent.polished(req.kind, req.case, req.tone)
+    return PolishResponse(text=text, polished=done)
 
 @app.post(PHOTO_PATH)
 def extract_contract(req: ExtractRequest) -> ExtractResponse:
