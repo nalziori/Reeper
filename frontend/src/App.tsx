@@ -40,20 +40,43 @@ const DRAFT: Record<string, string> = {
 const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만원만 드릴게요', '이벤트 상품은 환불 불가입니다',
   '정상가 기준으로 차감합니다', '방문하셔야 처리됩니다']
 
+const JOURNEY = ['계약 입력', '근거 확인', '말할 준비', '답변 대응', '입금 추적']
+const journeyPhase = (stage: Step['case']['stage']) =>
+  stage === 'ready' ? 3 : stage === 'agreed' || stage === 'closed' ? 5 : 4
+
+function JourneyProgress({ current }: { current: number }) {
+  return (
+    <ol className="journey-steps" aria-label="환불 진행 단계">
+      {JOURNEY.map((label, index) => {
+        const step = index + 1
+        return <li key={label} data-state={step === current ? 'current' : step < current ? 'done' : 'next'}
+          aria-current={step === current ? 'step' : undefined}>{label}</li>
+      })}
+    </ol>
+  )
+}
+
 function Draft({ kind, text }: { kind: string; text: string }) {
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState('')
   return (
     <Card>
       <VStack gap={3}>
         <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
         <pre className="draft">{text}</pre>
         <HStack gap={2} wrap="wrap">
-          <Button label={copied ? '복사됨' : '복사'} onClick={() => {
-            navigator.clipboard.writeText(text)
-            setCopied(true)
+          <Button label={copied ? '복사됨' : '복사'} onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text)
+              setCopied(true)
+              setCopyError('')
+            } catch {
+              setCopyError('복사하지 못했습니다. 문안을 직접 선택해 복사해 주세요.')
+            }
           }} />
           {kind !== 'call_card' && <a href={`sms:?&body=${encodeURIComponent(text)}`}>문자 앱으로 열기</a>}
         </HStack>
+        {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>
     </Card>
   )
@@ -117,6 +140,7 @@ function Start({ onConfirm, rules }: { onConfirm: (step: Step, today: string) =>
     })
     return (
       <VStack gap={4}>
+        <JourneyProgress current={2} />
         {error && <Banner status="error" title={error} collapsible={false} />}
         <Card>
           <VStack gap={2}>
@@ -155,6 +179,7 @@ function Start({ onConfirm, rules }: { onConfirm: (step: Step, today: string) =>
 
   return (
     <VStack gap={4}>
+      <JourneyProgress current={1} />
       {error && <Banner status="error" title={error} collapsible={false} />}
       <Text as="p">헬스장·PT·필라테스 회원권 환불, 말 꺼내기부터 입금까지 챙겨 드립니다. 근거를 찾고, 그대로 보낼 문장을 만들고, 돈이 들어올 때까지 추적합니다.</Text>
       <Card>
@@ -184,6 +209,8 @@ export default function App() {
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [evidenceStage, setEvidenceStage] = useState<Step['case']['stage'] | null>(null)
   const revision = useRef(0)
   const pending = useRef(0)
   useEffect(() => { api.rules().then(setRules) }, [])
@@ -231,6 +258,7 @@ export default function App() {
   const run = async (p: Promise<Step>, today: string, patch: Partial<Saved> = {}) => {
     const expected = ++revision.current
     pending.current++
+    setBusy(true)
     try {
       setError('')
       const step = await p
@@ -242,9 +270,11 @@ export default function App() {
       return false
     } finally {
       pending.current--
+      if (!pending.current) setBusy(false)
     }
   }
   const send = (event: CaseEvent, patch: Partial<Saved> = {}) => {
+    if (pending.current) return Promise.resolve(false)
     const today = isoDate(patch.offset ?? saved!.offset)
     return run(api.step(saved!.step.case, event, today), today, patch)
   }
@@ -252,7 +282,7 @@ export default function App() {
   const header = (
     <HStack hAlign="between" vAlign="center">
       <Heading level={1}>Reeper</Heading>
-      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); keep(null) }} />}
+      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); setEvidenceStage(null); keep(null) }} />}
     </HStack>
   )
   if (!saved) {
@@ -268,12 +298,21 @@ export default function App() {
   const { case: c, action, drafts } = saved.step
   const r = c.refund
   const settlementAmount = Number(settlement)
+  const showEvidence = evidenceStage === c.stage
   return (
     <VStack gap={4} padding={4} maxWidth={640}>
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 
-      <Card>
+      <JourneyProgress current={showEvidence ? 2 : journeyPhase(c.stage)} />
+      <HStack gap={2} wrap="wrap">
+        <Button label="계산 근거 보기" variant={showEvidence ? 'primary' : 'ghost'}
+          isDisabled={busy} onClick={() => setEvidenceStage(c.stage)} />
+        <Button label={c.stage === 'ready' ? '말할 준비' : c.stage === 'agreed' || c.stage === 'closed' ? '입금 추적' : '답변 대응'}
+          variant={showEvidence ? 'ghost' : 'primary'} isDisabled={busy} onClick={() => setEvidenceStage(null)} />
+      </HStack>
+
+      {showEvidence && <Card>
         <VStack gap={2}>
           <HStack hAlign="between" vAlign="center">
             <Heading level={2}>{c.contract.gym_name || '내 회원권'}</Heading>
@@ -289,12 +328,21 @@ export default function App() {
           <Text type="supporting">근거: {r.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
           {r.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액이며, 계산식은 원문 확인 전 임시입니다. 다툼이 있으면 1372 소비자상담센터에 문의하세요.</Text>}
         </VStack>
-      </Card>
+      </Card>}
 
+      {!showEvidence && <>
+      <Card>
+        <HStack hAlign="between" vAlign="center" wrap="wrap">
+          <Text weight="semibold">{c.contract.gym_name || '내 회원권'} · {STAGE[c.stage]}</Text>
+          <Text weight="semibold">{won(c.agreed_amount ?? r.refund)}</Text>
+        </HStack>
+      </Card>
       <Banner status={action.warn ? 'warning' : c.stage === 'closed' ? 'success' : 'info'} collapsible={false}
         title={action.warn ? `제시액 ${won(c.offered ?? 0)}은 최저 수용선 ${won(c.floor)}보다 적습니다` : action.reason}
         description={action.warn ? action.reason : undefined} />
 
+      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
+      <VStack gap={4}>
       {saved.note && <Draft kind="after_call_sms" text={saved.note} />}
       {Object.entries(drafts).filter(([k]) => k !== 'after_call_sms').map(([k, text]) => <Draft key={k} kind={k} text={text} />)}
 
@@ -353,6 +401,8 @@ export default function App() {
           </VStack>
         </Card>
       )}
+      </VStack>
+      </fieldset>
 
       {c.timeline.length > 0 && (
         <Card>
@@ -362,6 +412,7 @@ export default function App() {
           </VStack>
         </Card>
       )}
+      </>}
     </VStack>
   )
 }
