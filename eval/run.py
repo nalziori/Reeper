@@ -54,7 +54,24 @@ def score(rows: list[dict]) -> dict:
                          for t in sorted({t for t, _ in by_type})}}
 
 
-PENALTY_STAYS = re.compile(r"위약금\s*(?:은|이|을)?\s*(?:그대로|공제됩니다|공제합니다|유지됩니다)")
+# 위약금이 그대로 빠진다는 단정. 같은 문장에 유보·부정 표현(HEDGE)이 있으면 단정으로 보지 않는다.
+PENALTY_STAYS = re.compile(r"위약금\s*(?:은|이|을|도)?\s*(?:\S+\s*){0,2}?(?:그대로|공제됩니다|공제돼요|공제합니다|유지됩니다|빠집니다|빠져요)")
+HEDGE = re.compile(r"단정|않|아니|아닐|수 없|여지|라면|이라면|확인|다를 수|면제|달라질")
+# 업체 사정(서비스 중단·변경·계약상 약속)을 되묻는 질문. "센터에 몇 번 방문하셨나요?" 같은 질문은 인정하지 않는다.
+FAULT_QUESTION = re.compile(r"퇴사|그만두|교체|휴업|폐업|문을 닫|리모델링|폐지|없어졌|없어진|변경|중단|약속|보장|계약할 때|계약 당시|이전(?:한|했|하|된)|옮기|옮긴")
+
+
+def _penalty_stays(text: str) -> bool:
+    return any(PENALTY_STAYS.search(x) and not HEDGE.search(x) for x in re.split(r"(?<=[.?!])\s+|\n", text))
+
+
+def _texts(strategy: dict) -> list[str]:
+    """앱이 사용자에게 보여 주는 조언 글 전부. 업체가 할 반론(objection)과 특약 원문(quote)은 뺀다."""
+    out = [strategy.get("summary") or "", *strategy.get("cautions", []), *strategy.get("questions", [])]
+    out += [g.get("why", "") for g in strategy.get("grounds", [])]
+    out += [c.get("how_to_handle", "") for c in strategy.get("contract_points", [])]
+    out += [o.get("response", "") for o in strategy.get("objections", [])]
+    return [t for t in out if isinstance(t, str)]
 
 
 def score_plans(rows: list[dict]) -> dict:
@@ -77,9 +94,9 @@ def score_plans(rows: list[dict]) -> dict:
             cautions = strategy.get("cautions", [])
             questions = strategy.get("questions", [])
             content_ok = (
-                any("1372" in text or text.rstrip().endswith("?") for text in cautions + questions)
-                and not any(PENALTY_STAYS.search(text) for text in [strategy.get("summary", ""), *cautions])
-            )
+                any("1372" in text for text in cautions + questions)
+                or any(q.rstrip().endswith("?") and FAULT_QUESTION.search(q) for q in questions)
+            ) and not any(_penalty_stays(text) for text in _texts(strategy))
         results.append({"id": r["id"], "rule_ids": rule_ids, "content_ok": content_ok,
                         "must_hit": len(returned & required) if required else None,
                         "must_n": len(required),

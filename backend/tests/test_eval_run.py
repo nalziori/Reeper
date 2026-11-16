@@ -81,3 +81,32 @@ def test_business_content_check(monkeypatch):
     strategy["cautions"] = ["위약금은 그대로입니다"]
     assert run.score_plans([row])["situations"][0]["content_ok"] is False
     assert run.score_plans([{**row, "cause": "consumer"}])["situations"][0]["content_ok"] is None
+
+
+def test_business_check_covers_every_advice_field_and_relevant_questions(monkeypatch):
+    row = next(r for r in run.load([RUN.parent / "situations_b.jsonl"]) if r["cause"] == "business")
+    base = {"grounds": [{"rule_id": rid, "why": "근거"} for rid in row["must_grounds"]],
+            "summary": "업체 사정인지 확인하세요", "cautions": [], "contract_points": [], "objections": [],
+            "questions": ["계약할 때 그 수업을 약속받았나요?"]}
+
+    def ok(**change):
+        monkeypatch.setattr(agent, "plan", lambda *args: {**base, **change})
+        return run.score_plans([row])["situations"][0]["content_ok"]
+
+    assert ok() is True
+    assert ok(questions=["운동은 얼마나 하셨나요?"]) is False  # 업체 사정과 상관없는 질문
+    assert ok(grounds=[{"rule_id": "R31", "why": "위약금은 그대로입니다"}]) is False
+    assert ok(contract_points=[{"quote": "특약", "how_to_handle": "위약금이 그대로 공제됩니다"}]) is False
+    assert ok(objections=[{"objection": "위약금은 그대로입니다", "response": "업체 사정이면 다를 수 있다"}]) is True
+    assert ok(objections=[{"objection": "환불 불가", "response": "위약금은 공제됩니다"}]) is False
+
+
+def test_penalty_check_reads_sentences_and_fault_questions():
+    assert run._penalty_stays("트레이너가 퇴사했어도 위약금도 그대로 공제됩니다.")
+    assert run._penalty_stays("위약금은 그대로입니다")
+    assert not run._penalty_stays("위약금은 그대로 공제된다고 단정할 수 없습니다. 업체 귀책 여부부터 확인해 주세요.")
+    assert not run._penalty_stays("업체 사정이라면 위약금이 빠지지 않을 수 있어요.")
+    assert not run.FAULT_QUESTION.search("센터에 몇 번 방문하셨나요?")
+    assert not run.FAULT_QUESTION.search("이전에 환불을 요청하셨나요?")
+    assert run.FAULT_QUESTION.search("담당 트레이너가 퇴사한 뒤 업체가 대체 강사를 안내했나요?")
+    assert run.FAULT_QUESTION.search("계약할 때 그 수업을 약속받았나요?")
