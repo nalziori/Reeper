@@ -11,6 +11,7 @@ import { DeadlineLine } from './components/DeadlineLine'
 import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
+import { PolishContext } from './components/PolishContext'
 import { RealityNote } from './components/RealityNote'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
@@ -82,6 +83,7 @@ export default function App() {
 
       <DeadlineLine c={c} offset={saved.offset} />
 
+      <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
       <VStack gap={4}>
       <ReplyReading step={saved.step} rules={rules} />
@@ -92,6 +94,7 @@ export default function App() {
       <DemoPanel stage={c.stage} offset={saved.offset} send={send} />
       </VStack>
       </fieldset>
+      </PolishContext.Provider>
 
       <Timeline c={c} />
       <ExportMenu c={c} rules={rules} />

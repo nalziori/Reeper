@@ -70,6 +70,9 @@ export type Step = {
   llm_fallback?: boolean
   analysis?: Analysis | null
 }
+// 문안 말투. 고정 양식이 기본이고, 다듬은 문안은 숫자·근거 검사를 통과해야 온다.
+export type Tone = 'polite' | 'firm'
+export type Polished = { text: string; polished: boolean }
 export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
@@ -97,6 +100,7 @@ export const api = {
     call<Step>('/api/cases', { contract, today, ...limits }),
   strategy: (c: Case, situation: string, today: string) =>
     call<{ case: Case; llm_fallback?: boolean }>('/api/cases/strategy', { case: c, situation, today }),
+  polish: (c: Case, kind: string, tone: Tone) => call<Polished>('/api/drafts/polish', { case: c, kind, tone }),
   step: (c: Case, event: CaseEvent, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }
