@@ -6,7 +6,7 @@ const STEPS: [number, number][] = [[2000, 0.85], [1600, 0.8], [1200, 0.75]]
 export async function shrinkPhoto(file: File): Promise<string> {
   let bitmap: ImageBitmap
   try {
-    // 파일 선택 칸이 값을 비우면 디스크를 가리키는 File을 읽지 못해 멈추는 브라우저가 있다. 먼저 메모리로 읽는다.
+    // 파일을 메모리로 읽은 뒤 그린다. 형식이 틀린 파일은 여기서 걸러진다.
     const bytes = new Blob([await file.arrayBuffer()], { type: file.type })
     bitmap = await createImageBitmap(bytes)
   } catch {

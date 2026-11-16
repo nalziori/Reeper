@@ -1,6 +1,7 @@
 import { Banner } from '@astryxdesign/core/Banner'
 import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
+import { FileInput } from '@astryxdesign/core/FileInput'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
@@ -25,6 +26,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [floor, setFloor] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
   const [photoNote, setPhotoNote] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
   const [checks, setChecks] = useState<Set<ExtractField>>(new Set())
@@ -33,6 +35,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     setChecks((prev) => { const s = new Set(prev); s.delete(field); return s })
   }
   const readPhoto = (file: File) => runIntake(async () => {
+    setPhoto(file)
     setPhotoNote('')
     const { fields, llm_fallback } = await api.extract(await shrinkPhoto(file))
     const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
@@ -151,19 +154,15 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         <Card>
           <VStack gap={3}>
             <Heading level={2}>계약서 사진으로 입력</Heading>
-            {/* Astryx FileInput은 사진을 고르면 화면이 멈춰(2026-11-16, Edge) 네이티브 입력을 쓴다 */}
-            <label className="photo-input">
-              <span>계약서 사진</span>
-              <Text type="supporting">사진에서 읽은 값을 아래 입력 칸에 채워요. 사진은 읽은 뒤 저장하지 않아요</Text>
-              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
-                onChange={(e) => {
-                  const input = e.target
-                  const file = input.files?.[0]
-                  // 칸을 읽기 전에 비우면 파일을 못 읽고 멈추는 브라우저가 있어, 다 읽은 뒤에 비운다(같은 사진 다시 고르기용)
-                  if (file) void readPhoto(file).finally(() => { input.value = '' })
-                }} />
-            </label>
-            {busy && <Text type="supporting" role="status">사진을 읽고 있어요</Text>}
+            <FileInput label="계약서 사진" accept="image/png,image/jpeg,image/webp" value={photo}
+              description="사진에서 읽은 값을 아래 입력 칸에 채워요. 사진은 읽은 뒤 저장하지 않아요"
+              placeholder="사진 고르기" isLoading={busy}
+              onChange={(f) => {
+                // 같은 파일이나 빈 값으로 다시 불려도 읽기를 반복하지 않는다
+                const file = Array.isArray(f) ? f[0] ?? null : f
+                if (!file) { if (!busy) { setPhoto(null); setPhotoNote('') } return }
+                if (file !== photo && !busy) void readPhoto(file)
+              }} />
             {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
           </VStack>
         </Card>
