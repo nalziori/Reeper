@@ -110,3 +110,36 @@ def test_penalty_check_reads_sentences_and_fault_questions():
     assert not run.FAULT_QUESTION.search("이전에 환불을 요청하셨나요?")
     assert run.FAULT_QUESTION.search("담당 트레이너가 퇴사한 뒤 업체가 대체 강사를 안내했나요?")
     assert run.FAULT_QUESTION.search("계약할 때 그 수업을 약속받았나요?")
+
+
+def test_penalty_check_hedge_must_be_a_phrase():
+    # A 리뷰 반례: 단어 하나(않·면제·확인)로 유보 판정하면 확실한 단정을 놓친다
+    assert run._penalty_stays("위약금은 면제되지 않고 그대로 공제됩니다.")
+    assert run._penalty_stays("위약금은 그대로 공제되니 영수증을 확인해 두세요.")
+    assert run._penalty_stays("위약금이 공제됩니다.업체 사정이면 다를 수 있어요.")
+    assert run._penalty_stays("위약금은 당연히 내야 합니다.")
+
+
+def test_fault_question_needs_class_or_center_context():
+    assert not run.FAULT_QUESTION.search("결제 수단을 변경하셨나요?")
+    assert not run.FAULT_QUESTION.search("다른 지점으로 옮기실 계획인가요?")
+    assert run.FAULT_QUESTION.search("수업 시간이 변경된 걸 언제 알게 되셨나요?")
+    assert run.FAULT_QUESTION.search("센터가 다른 곳으로 이전했나요?")
+
+
+def test_penalty_check_reads_negation_after_the_claim():
+    # council 반례: 맞는 조언은 단정이 아니다
+    assert not run._penalty_stays("위약금은 그대로 공제되지 않습니다.")
+    assert not run._penalty_stays("위약금을 내야 하는 건 아닙니다.")
+    assert not run._penalty_stays("위약금은 그대로 낼 필요가 없어요.")
+    # 부정이 단정보다 앞에 있으면 여전히 단정이다
+    assert run._penalty_stays("위약금은 면제되지 않고 그대로 공제됩니다.")
+    assert run._penalty_stays("위약금은 업체 사정과 무관하게 그대로 공제됩니다.")
+    assert run._penalty_stays("위약금은 그대로 공제되며 환불은 없습니다.")
+
+
+def test_fault_question_reads_business_side_change():
+    assert run._fault_question("담당 강사가 그만뒀나요?")
+    assert run._fault_question("수업 시간을 업체가 바꿨나요?")
+    assert not run._fault_question("시간 변경을 요청하신 적이 있나요?")
+    assert not run._fault_question("헬스장을 옮기셨나요?")

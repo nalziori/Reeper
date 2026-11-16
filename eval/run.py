@@ -54,15 +54,30 @@ def score(rows: list[dict]) -> dict:
                          for t in sorted({t for t, _ in by_type})}}
 
 
-# 위약금이 그대로 빠진다는 단정. 같은 문장에 유보·부정 표현(HEDGE)이 있으면 단정으로 보지 않는다.
-PENALTY_STAYS = re.compile(r"위약금\s*(?:은|이|을|도)?\s*(?:\S+\s*){0,2}?(?:그대로|공제됩니다|공제돼요|공제합니다|유지됩니다|빠집니다|빠져요)")
-HEDGE = re.compile(r"단정|않|아니|아닐|수 없|여지|라면|이라면|확인|다를 수|면제|달라질")
-# 업체 사정(서비스 중단·변경·계약상 약속)을 되묻는 질문. "센터에 몇 번 방문하셨나요?" 같은 질문은 인정하지 않는다.
-FAULT_QUESTION = re.compile(r"퇴사|그만두|교체|휴업|폐업|문을 닫|리모델링|폐지|없어졌|없어진|변경|중단|약속|보장|계약할 때|계약 당시|이전(?:한|했|하|된)|옮기|옮긴")
+# 위약금이 그대로 빠진다는 단정. "빠집니다"는 환급액에서 공제된다는 뜻으로 본다(면제 뜻이 아님).
+# 같은 문장에 유보 구절(HEDGE)이 있으면 단정으로 보지 않는다. "않"·"면제"·"확인" 같은 단어 하나로는 유보로 보지 않는다.
+PENALTY_STAYS = re.compile(r"위약금\s*(?:은|이|을|도)?\s*(?:\S+\s*){0,4}?(?:그대로|공제됩니다|공제돼요|공제합니다|유지됩니다|빠집니다|빠져요|내야|내셔야|부담해야|물어야)")
+HEDGE = re.compile(r"단정할 수 없|단정하기 어렵|단정하지 않|다를 수 있|달라질 수 있|않을 수 있|아닐 수 있|면제될 수 있|여지가 있|라면")
+# 단정 표현 "뒤"에서 그 단정을 부정하면("공제되지 않습니다", "내야 하는 건 아닙니다") 단정이 아니다.
+# 앞에 있는 부정("면제되지 않고 그대로 공제됩니다")은 보지 않는다.
+NEGATED = re.compile(r"(?:지|진)\s*않|(?:건|것은?)\s*아(?:니|닙)|필요(?:가|는)?\s*없")
+# 업체 사정(서비스 중단·변경·계약상 약속)을 되묻는 질문. "변경"·"이전"은 수업·강사·센터 같은 말과 함께 나올 때만 인정한다.
+FAULT_QUESTION = re.compile(r"퇴사|그만두|그만뒀|그만둔|교체|휴업|폐업|문을 닫|리모델링|폐지|없어졌|없어진|중단|약속|보장|계약할 때|계약 당시"
+                            r"|(?:수업|강사|트레이너|시간|시간표|프로그램)\S*\s*(?:\S+\s*){0,2}?(?:변경|바뀌|바뀐|바꿨|바꾼)"
+                            r"|(?:센터|헬스장|업체|매장)\S*\s*(?:\S+\s*){0,3}?(?:이전했|이전된|이전한|옮겼|옮긴)")
+CONSUMER_ASK = re.compile(r"요청하|원하|희망하")  # 소비자가 바꾸려 했는지 묻는 질문은 업체 사정 질문이 아니다
 
 
 def _penalty_stays(text: str) -> bool:
-    return any(PENALTY_STAYS.search(x) and not HEDGE.search(x) for x in re.split(r"(?<=[.?!])\s+|\n", text))
+    for x in re.split(r"(?<=[.?!])(?!\d)\s*|\n", text):
+        m = PENALTY_STAYS.search(x)
+        if m and not HEDGE.search(x) and not NEGATED.search(x[m.end():]):
+            return True
+    return False
+
+
+def _fault_question(q: str) -> bool:
+    return q.rstrip().endswith("?") and bool(FAULT_QUESTION.search(q)) and not CONSUMER_ASK.search(q)
 
 
 def _texts(strategy: dict) -> list[str]:
@@ -95,7 +110,7 @@ def score_plans(rows: list[dict]) -> dict:
             questions = strategy.get("questions", [])
             content_ok = (
                 any("1372" in text for text in cautions + questions)
-                or any(q.rstrip().endswith("?") and FAULT_QUESTION.search(q) for q in questions)
+                or any(_fault_question(q) for q in questions)
             ) and not any(_penalty_stays(text) for text in _texts(strategy))
         results.append({"id": r["id"], "rule_ids": rule_ids, "content_ok": content_ok,
                         "must_hit": len(returned & required) if required else None,
