@@ -38,6 +38,17 @@ export type Case = {
   agreed_amount: number | null
   deposit_due_on: string | null
   timeline: { on: string; type: string; text: string }[]
+  situation?: string
+  strategy?: Strategy | null
+}
+// 상황 설명으로 세운 전략. 표시용이다. 근거의 정식 명칭은 GET /api/rules에서 붙인다.
+export type Strategy = {
+  summary: string
+  grounds: { rule_id: string; why: string; verified: boolean }[]
+  contract_points: { quote: string; how_to_handle: string }[]
+  objections: { objection: string; response: string }[]
+  cautions: string[]
+  questions: string[]
 }
 export type ReplyType = 'accept' | 'low_offer' | 'refuse' | 'list_price' | 'visit' | 'unknown' | 'no_answer' | 'callback'
 export type Action = { type: string; reason: string; warn: boolean }
@@ -84,6 +95,8 @@ export const api = {
   preview: (contract: Contract, today: string) => call<Refund>('/api/refund-preview', { contract, today }),
   open: (contract: Contract, today: string, limits?: { target?: number; floor?: number }) =>
     call<Step>('/api/cases', { contract, today, ...limits }),
+  strategy: (c: Case, situation: string, today: string) =>
+    call<{ case: Case; llm_fallback?: boolean }>('/api/cases/strategy', { case: c, situation, today }),
   step: (c: Case, event: CaseEvent, today: string) =>
     call<Step>('/api/cases/step', { case: c, event, today }),
 }

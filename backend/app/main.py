@@ -7,12 +7,12 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import agent
 from .agent import drafts_for
 from .engine import InvalidTransition, apply, next_action, open_case, validate_transition
-from .models import Action, Analysis, Case, Contract, Event, Refund
+from .models import Action, Analysis, Case, Contract, Event, Refund, Strategy
 from .rules import DATA, RULES, calculate
 
 # 요청 본문 상한(바이트). 입력 길이 제한이다. JSON 사건 요청은 이보다 훨씬 작다.
@@ -89,6 +89,17 @@ class StepRequest(BaseModel):
     today: date
 
 
+class StrategyRequest(BaseModel):
+    case: Case
+    situation: str = Field(default="", max_length=agent.MAX_SITUATION)
+    today: date
+
+
+class StrategyResponse(BaseModel):
+    case: Case
+    llm_fallback: bool = False  # 실제 LLM이 실패했다. 전략 없이 고정 양식으로 진행한다
+
+
 class StepResponse(BaseModel):
     case: Case
     action: Action
@@ -139,6 +150,19 @@ def create_case(req: OpenRequest) -> StepResponse:
     except ValueError as e:
         raise HTTPException(422, str(e))
     return respond(case, req.today)
+
+
+@app.post("/api/cases/strategy")
+def strategy(req: StrategyRequest) -> StrategyResponse:
+    """상황 설명으로 전략을 세워 사건에 싣는다. 단계, 금액, 타임라인은 건드리지 않는다."""
+    found = agent.plan(req.case, req.situation, req.today)
+    parts = {k: found[k] for k in Strategy.model_fields}
+    made = None
+    if any(parts.values()):  # 가짜 LLM, 호출 실패, 모두 버려진 경우에는 전략이 없다
+        parts["grounds"] = [{**g, "verified": bool(RULES[g["rule_id"]].get("verified"))} for g in parts["grounds"]]
+        made = Strategy(**parts)
+    case = req.case.model_copy(update={"situation": req.situation, "strategy": made})
+    return StrategyResponse(case=case, llm_fallback=found["fallback"])
 
 
 @app.post("/api/cases/step")
