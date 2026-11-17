@@ -28,6 +28,8 @@ export const DRAFT: Record<string, string> = {
   accept_offer: '수락 문안', confirm_agreement: '합의 확인 문안', remind_deposit: '입금 요청 문안',
   certified_mail: '내용증명 초안', go_1372: '1372 상담 신청 내용',
 }
+// 시연 조작(사장 답, 날짜 건너뛰기)은 개발 서버이거나 주소에 ?demo가 있을 때만 보인다. 실제 사용자에게는 숨긴다.
+export const DEMO = import.meta.env.DEV || new URLSearchParams(window.location.search).has('demo')
 // 시연용: 심사위원이 사장 역할로 던져 볼 답
 export const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만원만 드릴게요', '이벤트 상품은 환불 불가입니다',
   '정상가 기준으로 차감합니다', '방문하셔야 처리됩니다']

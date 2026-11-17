@@ -40,10 +40,10 @@ export function ReplyButtons({ send }: { send: Send }) {
       </HStack>
       <TextInput label="제시한 금액(원)" value={amount} onChange={setAmount} inputMode="numeric"
         status={invalid ? { type: 'error', message: '0보다 큰 정수만 적어 주세요.' } : undefined} />
-      <Button label="금액을 제시했어요" isDisabled={parsed === null}
+      <HStack><Button label="금액을 제시했어요" isDisabled={parsed === null}
         onClick={async () => {
           if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: '금액을 제시했어요' })) setAmount('')
-        }} />
+        }} /></HStack>
       {parsed === null && !invalid && <Text type="supporting">금액을 제시했다면 위 칸에 숫자만 적어 주세요.</Text>}
     </VStack>
   )

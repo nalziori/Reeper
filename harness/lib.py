@@ -21,10 +21,10 @@ def free_port() -> int:
 
 
 @contextlib.contextmanager
-def server():
-    """실제 LLM 키를 지운 서버. 끝나면 종료한다."""
+def server(extra_env: dict | None = None):
+    """실제 LLM 키를 지운 서버. extra_env로 값을 더할 수 있다. 끝나면 종료한다."""
     port = free_port()
-    env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
+    env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"} | (extra_env or {})
     py = BACKEND / ".venv" / "bin" / "python"
     proc = subprocess.Popen([str(py if py.exists() else sys.executable), "-m", "uvicorn", "app.main:app",
                              "--port", str(port), "--log-level", "warning"],

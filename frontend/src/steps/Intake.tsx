@@ -3,15 +3,21 @@ import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
+import { DateInput } from '@astryxdesign/core/DateInput'
 import { Text } from '@astryxdesign/core/Text'
-import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
-import { useEffect, useState } from 'react'
+import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
+import { ContractExtras } from '../components/ContractExtras'
+import { extrasProblem } from '../contractCheck'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
+
+// DateInput은 YYYY-MM-DD 모양만 받는다. 빈 값이나 다른 모양이면 비워 둔다
+type Iso = NonNullable<ComponentProps<typeof DateInput>['value']>
+const asIso = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? (v as Iso) : undefined)
 
 const CHECK = { type: 'warning' as const, message: '사진에서 읽은 값이에요. 계약서와 같은지 확인해 주세요' }
 
@@ -176,17 +182,16 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           <TextInput label="실제 결제한 금액(원)" value={c.total_paid ? String(c.total_paid) : ''}
             onChange={(v) => edit('total_paid', { ...c, total_paid: Number(v.replace(/\D/g, '')) })}
             status={checks.has('total_paid') ? CHECK : undefined} />
-          <label>이용 시작일 <input type="date" value={c.start_date} onChange={(e) => edit('start_date', { ...c, start_date: e.target.value })} /></label>
-          {checks.has('start_date') && <Text type="supporting">{CHECK.message}</Text>}
-          <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => edit('end_date', { ...c, end_date: e.target.value })} /></label>
-          {checks.has('end_date') && <Text type="supporting">{CHECK.message}</Text>}
-          {(upload || c.special_terms) && (
-            <TextArea label="특약" description="계약서의 특약 칸 내용이에요. 없으면 비워 두세요" value={c.special_terms ?? ''}
-              onChange={(v) => edit('special_terms', { ...c, special_terms: v || undefined })}
-              status={checks.has('special_terms') ? CHECK : undefined} />
-          )}
+          <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)}
+            onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })}
+            status={checks.has('start_date') ? CHECK : undefined} />
+          <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)}
+            onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })}
+            status={checks.has('end_date') ? CHECK : undefined} />
+          <ContractExtras c={c} isDisabled={busy} termsStatus={checks.has('special_terms') ? CHECK : undefined}
+            onChange={(next) => next.special_terms !== c.special_terms ? edit('special_terms', next) : setC(next)} />
           <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 환불액 계산' : '환불액 계산'}
-            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
+            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date || Boolean(extrasProblem(c))} onClick={() => review(c)} />
         </VStack>
       </Card>
     </VStack>

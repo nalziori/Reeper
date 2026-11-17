@@ -16,7 +16,7 @@ import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
-import { STAGE, journeyPhase, won } from './format'
+import { DEMO, STAGE, journeyPhase, won } from './format'
 import { Deposit } from './steps/Deposit'
 import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
@@ -45,7 +45,7 @@ export default function App() {
   )
   if (!saved) {
     return (
-      <VStack gap={4} padding={4} maxWidth={640}>
+      <VStack gap={4} padding={4} maxWidth={640} className="page">
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
         <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
@@ -56,16 +56,19 @@ export default function App() {
   const { case: c, action } = saved.step
   const showEvidence = evidenceStage === c.stage
   const phase = journeyPhase(c.stage)
+  // 1372에 넘긴 뒤에는 상담 결과(합의 금액)만 기록한다. 전략과 날짜 조작은 쓸 일이 없다.
+  const handedOff = c.stage === 'handed_off'
   return (
-    <VStack gap={4} padding={4} maxWidth={640}>
+    <VStack gap={4} padding={4} maxWidth={640} className="page">
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 
-      <JourneyProgress current={showEvidence ? 2 : phase} />
+      {/* 근거를 다시 볼 때도 진행 표시는 지금 단계에 둔다 */}
+      <JourneyProgress current={phase} />
       <HStack gap={2} wrap="wrap">
         <Button label="계산 근거 보기" variant={showEvidence ? 'primary' : 'ghost'}
           isDisabled={busy} onClick={() => setEvidenceStage(c.stage)} />
-        <Button label={phase === 3 ? '말할 준비' : phase === 5 ? '입금 추적' : '답변 대응'}
+        <Button label={phase === 3 ? '말할 준비' : phase === 5 ? '입금 추적' : handedOff ? '1372 상담' : '답변 대응'}
           variant={showEvidence ? 'ghost' : 'primary'} isDisabled={busy} onClick={() => setEvidenceStage(null)} />
       </HStack>
 
@@ -92,15 +95,15 @@ export default function App() {
       {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
         settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff} />}
       {phase === 5 && <Deposit saved={saved} send={send} />}
-      {(phase === 3 || phase === 4) && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
-      <DemoPanel stage={c.stage} offset={saved.offset} send={send} />
+      {(phase === 3 || phase === 4) && !handedOff && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
+      {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send} />}
       </VStack>
       </fieldset>
       </PolishContext.Provider>
 
       <Timeline c={c} />
       <ExportMenu c={c} rules={rules} />
-      <RealityNote />
+      <RealityNote demo={DEMO} />
       </>}
     </VStack>
   )
