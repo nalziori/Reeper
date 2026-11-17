@@ -8,13 +8,15 @@ services:
     region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
+    # CI(서버 테스트, 화면 빌드)가 통과한 main 커밋만 배포한다. 실제 키를 넣은 뒤 심사 기간에는 off로 바꿔 손으로 배포한다
+    autoDeployTrigger: checksPass
     envVars:
       # 실제 LLM 키. 키 주인의 동의를 받은 뒤 대시보드에서만 넣는다. 비워 두면 가짜 LLM으로 뜬다
       - key: OPENAI_API_KEY
         sync: false
       # 하루 전체 LLM 호출 상한. 키 주인과 정해 대시보드에서 바꾼다. 비우지 않는다(숫자가 아니면 서버가 뜨지 않음)
       - key: LLM_DAILY_LIMIT
-        value: "100"
+        value: "50"
       # 하루 상한이 한국 자정에 초기화되도록 서버 시간대를 맞춘다
       - key: TZ
         value: Asia/Seoul
