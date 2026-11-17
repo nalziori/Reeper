@@ -3,6 +3,7 @@ import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
+import { RadioList, RadioListItem } from '@astryxdesign/core/RadioList'
 import { DateInput } from '@astryxdesign/core/DateInput'
 import { Text } from '@astryxdesign/core/Text'
 import { TextInput } from '@astryxdesign/core/TextInput'
@@ -32,6 +33,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
   const [target, setTarget] = useState('')
   const [floor, setFloor] = useState('')
+  // 해지 이유. 위약금 공제는 업체 잘못이 없는 해지가 전제라(docs/환불_규칙.md) 업체 잘못이면 이 계산을 쓰지 않는다
+  const [reason, setReason] = useState<'mine' | 'business'>('mine')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
@@ -122,6 +125,22 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         <JourneyProgress current={2} />
         {error && <Banner status="error" title={error} collapsible={false} />}
         <Card>
+          <RadioList label="해지하려는 이유" description="이유에 따라 위약금을 빼는지가 달라져요" value={reason}
+            onChange={(v) => setReason(v as 'mine' | 'business')} isDisabled={busy}>
+            <RadioListItem value="mine" label="내 사정이에요(이사, 건강, 마음이 바뀜 등)" />
+            <RadioListItem value="business" label="업체 잘못이에요(시설 운영 중단, 약속한 강사·프로그램 불이행 등)" />
+          </RadioList>
+        </Card>
+        {reason === 'business' ? (
+          <Card>
+            <VStack gap={2}>
+              <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
+              <Text as="p">이 앱의 계산은 내 사정으로 해지할 때 위약금을 빼는 방식이에요. 업체 잘못으로 해지하면 위약금을 빼지 않아야 할 수 있어서, 이 계산 금액과 문안을 쓰지 않아요.</Text>
+              <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담을 신청하세요. 계약서와 업체 잘못을 보여 주는 자료(공지 사진, 문자 등)를 함께 준비하면 좋아요.</Text>
+            </VStack>
+          </Card>
+        ) : (<>
+        <Card>
           <VStack gap={2}>
             <Heading level={2}>예상 환불액</Heading>
             <Text type="display-3">{won(refund.refund)}</Text>
@@ -148,9 +167,10 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
           </VStack>
         </Card>
+        </>)}
         <HStack gap={2} wrap="wrap">
           <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-          <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />
+          {reason === 'mine' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
         </HStack>
       </VStack>
     )
