@@ -16,9 +16,11 @@ const shown = (n: number | null | undefined) => (n == null || n === 0 ? '' : Str
 
 // 직접 입력에서 기본 네 칸 밖의 계약 내용: 이용 단위, 특약, 부가상품, 보증금
 type Status = { type: 'warning' | 'error'; message: string }
+type Field = 'unit' | 'total_count' | 'special_terms' | 'addon_value' | 'security_deposit'
 
-export function ContractExtras({ c, onChange, isDisabled, termsStatus }: {
-  c: Contract; onChange: (next: Contract) => void; isDisabled: boolean; termsStatus?: Status
+// statusOf: 사진에서 읽어 사람이 확인할 칸의 표시. 없으면 표시하지 않는다
+export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undefined }: {
+  c: Contract; onChange: (next: Contract) => void; isDisabled: boolean; statusOf?: (field: Field) => Status | undefined
 }) {
   const unit: Unit = c.unit ?? 'day'
   const setUnit = (v: string) => {
@@ -36,9 +38,11 @@ export function ContractExtras({ c, onChange, isDisabled, termsStatus }: {
         <RadioListItem value="month" label="개월 수" />
         <RadioListItem value="count" label="횟수(PT·레슨)" />
       </RadioList>
+      {statusOf('unit') && <Text type="supporting">{statusOf('unit')!.message}</Text>}
       {unit !== 'day' && (
         <TextInput label={unit === 'month' ? '총 개월 수' : '총 횟수'} inputMode="numeric" isDisabled={isDisabled}
-          value={shown(c.total_count)} onChange={(v) => onChange({ ...c, total_count: digits(v) || undefined })} />
+          value={shown(c.total_count)} onChange={(v) => onChange({ ...c, total_count: digits(v) || undefined })}
+          status={statusOf('total_count')} />
       )}
       {unit === 'count' && (
         <TextInput label="이미 쓴 횟수" inputMode="numeric" isDisabled={isDisabled}
@@ -48,13 +52,15 @@ export function ContractExtras({ c, onChange, isDisabled, termsStatus }: {
       {problem && !usedTooMany && <Text type="supporting">{problem}</Text>}
       <TextArea label="특약사항(선택)" isDisabled={isDisabled} maxLength={1000}
         description="계약서의 특약이나 비고 칸을 그대로 옮겨 적어 주세요."
-        value={c.special_terms ?? ''} onChange={(v) => onChange({ ...c, special_terms: v || undefined })} status={termsStatus} />
+        value={c.special_terms ?? ''} onChange={(v) => onChange({ ...c, special_terms: v || undefined })} status={statusOf('special_terms')} />
       <TextInput label="부가상품 가액(원, 선택)" inputMode="numeric" isDisabled={isDisabled}
         description="운동복·사은품처럼 계약서에 금액이 적힌 것만 적습니다."
-        value={shown(c.addon_value)} onChange={(v) => onChange({ ...c, addon_value: digits(v) })} />
+        value={shown(c.addon_value)} onChange={(v) => onChange({ ...c, addon_value: digits(v) })}
+        status={statusOf('addon_value')} />
       <TextInput label="보증금(원, 선택)" inputMode="numeric" isDisabled={isDisabled}
         description="락커 보증금처럼 결제 금액과 따로 낸 돈입니다. 돌려받을 금액에 더합니다."
-        value={shown(c.security_deposit)} onChange={(v) => onChange({ ...c, security_deposit: digits(v) })} />
+        value={shown(c.security_deposit)} onChange={(v) => onChange({ ...c, security_deposit: digits(v) })}
+        status={statusOf('security_deposit')} />
     </>
   )
 }
