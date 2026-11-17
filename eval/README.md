@@ -66,7 +66,7 @@ s07은 시간표 변경 특약 때문에 업체 귀책 여부가 모호하다. s
   - `decision_table`: `docs/환불_규칙.md` 팀 결정표를 따른다.
   - `unverified_month`: 월 단위 해석(도달일이 속한 달까지 이용). 팀 확인 전이라 정확도 수치에서 뺀다.
 - **`total_paid`는 보증금 제외**(`docs/계약.md`, 고시 제5조 제2항). k26처럼 본문에 "총 납부액 650,000원(회원권 600,000원 + 보증금 50,000원)"이 있으면 정답은 `total_paid` 600,000, `security_deposit` 50,000이다. 650,000을 읽으면 오답이다.
-- **추출 채점 대상**은 추출기가 읽는 필드만이다. 지금 `agent.py`의 `FIELDS`는 `gym_name`, `total_paid`, `start_date`, `end_date`, `special_terms` 5개다. `unit`, `total_count`, `addon_value`, `security_deposit`은 추출기가 읽게 되면 채점한다.
+- **추출 채점 대상**은 추출기가 읽는 필드만이다. `run.py --photos`는 `agent.py`의 `FIELDS` 5개(`gym_name`, `total_paid`, `start_date`, `end_date`, `special_terms`)를 채점한다. #53부터 추출기는 `MORE_FIELDS` 4개(`unit`, `total_count`, `addon_value`, `security_deposit`)도 읽고 #61부터 화면 입력란에 채우지만, 이 네 값은 `run.py`가 아니라 임시 스크립트로 쟀다(아래 2026-11-17 기록).
 - **보고할 수 있는 수치**: 추출 필드 정답률과 (`unverified_month` 제외) 환불액 일치율. 본문은 템플릿으로 만든 문장이라 실제 계약서 난이도를 대표하지 않는다고 함께 적는다.
 - `expected.per_day_loss`: 하루 늦게 도달했을 때 줄어드는 환불액(오늘 환불액 − 내일 환불액).
 
