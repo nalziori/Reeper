@@ -163,3 +163,47 @@ def test_deposit_due_counts_business_days(agreed_on, due):
     from app.engine import add_business_days
     assert POLICY["deposit_days"] == 3
     assert add_business_days(agreed_on, 3) == due
+
+
+def refusing():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    assert f.step(type="reply_received", reply_type="refuse") == "counter"
+    return f
+
+
+def test_repeated_refusal_moves_to_certified_mail_then_1372():
+    f = refusing()
+    f.step(type="counter_sent")
+    assert f.step(type="reply_received", reply_type="refuse") == "counter"  # 반박 1번: 아직 다시 반박
+    f.step(type="counter_sent")
+    assert f.step(type="reply_received", reply_type="list_price") == "certified_mail"  # 반박 2번 뒤 거절
+    assert "certified_mail" in f.res["drafts"]
+    assert f.step(type="escalation_sent") == "wait" and f.stage == "escalated"
+    assert f.step(type="reply_received", reply_type="refuse") == "go_1372"  # 내용증명 뒤에도 거절
+    assert f.stage == "negotiating" and "go_1372" in f.res["drafts"]
+    f.step(type="handoff_done")
+    assert f.stage == "handed_off"
+
+
+def test_repeated_refusal_forbidden_moves():
+    f = refusing()
+    assert f.raw(type="escalation_sent").status_code == 409  # 반박 전에는 내용증명으로 못 간다
+    assert f.raw(type="handoff_done").status_code == 409
+    f.step(type="counter_sent")
+    f.step(type="reply_received", reply_type="refuse")
+    f.step(type="counter_sent")
+    f.step(type="reply_received", reply_type="refuse")
+    assert f.raw(type="counter_sent").status_code == 409  # 정한 횟수를 넘으면 반박을 되풀이하지 않는다
+    assert f.raw(type="handoff_done").status_code == 409  # 내용증명 전에는 1372로 못 간다
+
+
+def test_low_offer_after_max_counters_still_warns_and_good_offer_can_be_confirmed():
+    f = refusing()
+    for _ in range(POLICY["max_counters"]):
+        f.step(type="counter_sent")
+        f.step(type="reply_received", reply_type="refuse")
+    floor = f.res["case"]["floor"]
+    assert f.step(type="reply_received", reply_type="low_offer", amount=floor - 1) == "certified_mail" and f.warn
+    target = f.res["case"]["target"]
+    assert f.step(type="reply_received", reply_type="low_offer", amount=target) == "confirm_agreement"
