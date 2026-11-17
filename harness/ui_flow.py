@@ -203,6 +203,44 @@ def photo_fill(browser, base):
     ctx.close()
 
 
+def not_sent_drafts(browser, base):
+    """1372 상담 신청 내용은 업체에 보내는 글이 아니라 말투 선택과 문자 앱 버튼이 없다. 업체에 보내는 문자는 있다."""
+    from lib import call
+    contract = call(base, "/api/samples")[1][0]["contract"]
+    _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
+    steps = [({"type": "notice_sent", "channel": "sms"}, "2026-11-16"), ({"type": "time_passed"}, "2026-11-20"),
+             ({"type": "notice_sent", "channel": "sms"}, "2026-11-20"), ({"type": "time_passed"}, "2026-11-24"),
+             ({"type": "escalation_sent"}, "2026-11-24"), ({"type": "time_passed"}, "2026-11-28")]
+    for event, today in steps:
+        _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": today})
+    tag = "보내지 않는 문안"
+    rec(f"{tag}: 1372 단계 준비", res["action"]["type"] == "go_1372" and "go_1372" in res["drafts"], res["action"]["type"])
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
+    page = ctx.new_page()
+    page.route("**/api/health", lambda r: r.fulfill(json={**r.fetch().json(), "llm": "OpenAILLM", "calls_left": 5}))
+    page.goto(base, wait_until="networkidle")
+    page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": res, "offset": 0})
+    page.reload(wait_until="networkidle")
+    card = page.locator("h3:has-text('1372 상담 신청 내용')").locator("xpath=ancestor::*[self::div][2]")
+    card.first.wait_for()
+    # "문안 말투"는 화면 낭독용 이름이라 글자로 찾지 않고 선택지로 찾는다
+    rec(f"{tag}: 1372 카드에 말투 선택 없음", card.get_by_role("radio", name="정중하게").count() == 0)
+    rec(f"{tag}: 1372 카드에 문자 앱 버튼 없음", card.get_by_role("link", name="문자 앱으로 열기").count() == 0
+        and card.get_by_role("button", name="문자 앱으로 열기").count() == 0)
+    rec(f"{tag}: 1372 카드 복사는 있음", card.get_by_role("button", name="복사", exact=True).count() == 1)
+    ctx.close()
+    # 대조: 업체에 보내는 첫 문자에는 말투 선택이 보인다
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
+    page = ctx.new_page()
+    page.route("**/api/health", lambda r: r.fulfill(json={**r.fetch().json(), "llm": "OpenAILLM", "calls_left": 5}))
+    page.goto(base, wait_until="networkidle")
+    page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 기준으로 시작").click()
+    btn(page, "문자로 보냈어요").wait_for()
+    rec(f"{tag}: 대조 - 업체에 보내는 문자는 말투 선택 있음", page.get_by_role("radio", name="정중하게").count() >= 1)
+    ctx.close()
+
+
 def business_fault(browser, base):
     """업체 잘못으로 해지하면 위약금을 뺀 금액·시작 버튼 대신 1372 안내가 나오고, 내 사정으로 돌리면 금액이 다시 보인다."""
     errors: list[str] = []
@@ -256,6 +294,7 @@ def main() -> int:
             full_flow(browser, base, "모바일", {"width": 390, "height": 844})
             demo_hidden(browser, base)
             photo_fill(browser, base)
+            not_sent_drafts(browser, base)
             business_fault(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:

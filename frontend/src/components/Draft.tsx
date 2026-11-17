@@ -12,6 +12,9 @@ import { PolishContext } from './PolishContext'
 
 type Choice = 'base' | Tone
 
+// 업체에 보내는 글이 아니다. 통화 메모와 1372 상담 신청에 옮겨 적을 내용이라 말투를 다듬지 않고(서버 agent.NOT_SENT와 같다) 문자 앱으로 열지 않는다
+const NOT_SENT = new Set(['call_card', 'go_1372'])
+
 // 문안은 줄바꿈 그대로 보여 주되, [첫마디] 같은 구역 제목 줄은 굵게 해서 훑어볼 수 있게 한다. 복사는 원문 그대로다.
 function DraftText({ text }: { text: string }) {
   const lines = text.split('\n')
@@ -53,7 +56,7 @@ function useTone(kind: string, base: string) {
     }
   }
   const text = choice === 'base' ? base : cache[choice] ?? base
-  return { canPolish: enabled && !!c && kind !== 'call_card', choice, select, text, loading, note }
+  return { canPolish: enabled && !!c && !NOT_SENT.has(kind), choice, select, text, loading, note }
 }
 
 export function Draft({ kind, text: base }: { kind: string; text: string }) {
@@ -86,7 +89,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
               setCopyError('복사하지 못했습니다. 문안을 직접 선택해 복사해 주세요.')
             }
           }} />
-          {kind !== 'call_card' && <Button label="문자 앱으로 열기" href={`sms:?&body=${encodeURIComponent(text)}`} />}
+          {!NOT_SENT.has(kind) && <Button label="문자 앱으로 열기" href={`sms:?&body=${encodeURIComponent(text)}`} />}
         </HStack>
         {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>
