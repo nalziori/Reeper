@@ -5,6 +5,7 @@ interface Env {
   OPENAI_API_KEY?: string // wrangler secret put OPENAI_API_KEY. 없으면 가짜 LLM으로 뜬다
   LLM_DAILY_LIMIT: string
   OPENAI_MODEL: string
+  TZ: string
 }
 
 // 화면과 /api를 함께 내보내는 FastAPI 컨테이너. 요청은 모두 한 인스턴스로 보낸다.
@@ -15,7 +16,7 @@ export class ReeperContainer extends Container<Env> {
 
   constructor(ctx: DurableObjectState<Env>, env: Env) {
     super(ctx, env)
-    const vars: Record<string, string> = { LLM_DAILY_LIMIT: env.LLM_DAILY_LIMIT, OPENAI_MODEL: env.OPENAI_MODEL }
+    const vars: Record<string, string> = { LLM_DAILY_LIMIT: env.LLM_DAILY_LIMIT, OPENAI_MODEL: env.OPENAI_MODEL, TZ: env.TZ }
     if (env.OPENAI_API_KEY) vars.OPENAI_API_KEY = env.OPENAI_API_KEY
     this.envVars = vars
   }

@@ -9,7 +9,8 @@
   "observability": { "enabled": false },
   "vars": {
     "LLM_DAILY_LIMIT": "300",
-    "OPENAI_MODEL": "gpt-6.1-terra"
+    "OPENAI_MODEL": "gpt-6.1-terra",
+    "TZ": "Asia/Seoul"
   },
   "containers": [
     {

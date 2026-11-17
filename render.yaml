@@ -1,0 +1,21 @@
+# Render 무료 웹 서비스 설정(Blueprint). 저장소 루트의 Dockerfile을 그대로 쓴다.
+# 결제수단을 등록하지 않으면 무료 한도를 넘었을 때 과금 대신 정지된다.
+services:
+  - type: web
+    name: reeper
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      # 실제 LLM 키. 키 주인의 동의를 받은 뒤 대시보드에서만 넣는다. 비워 두면 가짜 LLM으로 뜬다
+      - key: OPENAI_API_KEY
+        sync: false
+      # 하루 전체 LLM 호출 상한. 키 주인과 정해 대시보드에서 바꾼다. 비우지 않는다(숫자가 아니면 서버가 뜨지 않음)
+      - key: LLM_DAILY_LIMIT
+        value: "300"
+      # 하루 상한이 한국 자정에 초기화되도록 서버 시간대를 맞춘다
+      - key: TZ
+        value: Asia/Seoul
+      # ALLOW_UPLOAD는 넣지 않는다. 사진 읽기는 꺼진 채로 뜬다
