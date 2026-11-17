@@ -163,3 +163,53 @@ def test_deposit_due_counts_business_days(agreed_on, due):
     from app.engine import add_business_days
     assert POLICY["deposit_days"] == 3
     assert add_business_days(agreed_on, 3) == due
+
+
+def agreed():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    f.step(type="reply_received", reply_type="accept")
+    assert f.stage == "agreed"
+    return f
+
+
+def test_partial_deposit_keeps_tracking_until_the_rest_arrives():
+    f = agreed()
+    total = f.res["case"]["agreed_amount"]
+    assert f.step(type="deposit_confirmed", amount=200_000) == "wait" and f.stage == "agreed"
+    assert f.res["case"]["deposited"] == 200_000 and f"남은 {total - 200_000:,}원" in f.res["action"]["reason"]
+    assert f.step(type="deposit_confirmed", amount=total - 200_000) == "close" and f.stage == "closed"
+
+
+def test_deposit_without_amount_still_closes_and_bad_amounts_are_rejected():
+    f = agreed()
+    assert f.raw(type="deposit_confirmed", amount=0).status_code == 409
+    assert f.raw(type="deposit_confirmed", amount=-1).status_code == 409
+    assert f.step(type="deposit_confirmed") == "close" and f.res["case"]["deposited"] == f.res["case"]["agreed_amount"]
+
+
+def test_unpaid_deposit_reminds_then_goes_to_1372():
+    f = agreed()
+    f.step(type="deposit_confirmed", amount=100_000)
+    due = date.fromisoformat(f.res["case"]["deposit_due_on"])
+    assert f.step(days=(due - f.today).days, type="time_passed") == "wait"
+    assert f.raw(type="handoff_done").status_code == 409  # 기한 전에는 1372로 못 간다
+    assert f.step(days=1, type="time_passed") == "remind_deposit"
+    remind = f.res["drafts"]["remind_deposit"]
+    assert "100,000원만 들어왔습니다" in remind and "남은" in remind
+    assert f.raw(type="handoff_done").status_code == 409  # 독촉 기간에도 아직이다
+    assert f.step(days=WAIT - 1, type="time_passed") == "remind_deposit"  # 기한 + wait_days: 독촉 기간 마지막 날
+    assert f.step(days=1, type="time_passed") == "go_1372"
+    assert "입금 기한이 지나도록 100,000원만 받음" in f.res["drafts"]["go_1372"]
+    f.step(type="handoff_done")
+    assert f.stage == "handed_off"
+    f.step(type="agreement_recorded", amount=373_334)
+    assert f.stage == "agreed" and f.res["case"]["deposited"] == 0  # 1372 뒤 합의 금액을 새로 받는다
+    assert f.step(type="deposit_confirmed", amount=373_334) == "close"
+
+
+def test_remind_text_without_any_deposit_is_unchanged():
+    f = agreed()
+    due = date.fromisoformat(f.res["case"]["deposit_due_on"])
+    f.step(days=(due - f.today).days + 1, type="time_passed")
+    assert "아직 확인되지 않습니다. 입금 일정을 회신 부탁드립니다." in f.res["drafts"]["remind_deposit"]

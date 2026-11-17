@@ -90,6 +90,7 @@ class Case(BaseModel):
     last_reply: ReplyType | None = None
     offered: int | None = None  # 업체가 마지막으로 제시한 금액
     agreed_amount: int | None = None
+    deposited: int = 0  # 합의 뒤 확인한 입금 합계. agreed_amount 이상이 되면 종결한다
     deposit_due_on: date | None = None
     timeline: list[Record] = []
     situation: str = Field(default="", max_length=1000)  # 사용자가 적은 상황 설명

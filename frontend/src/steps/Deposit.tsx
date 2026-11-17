@@ -1,21 +1,43 @@
 import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
+import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
+import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
+import { useState } from 'react'
 import { DraftList } from '../components/Draft'
+import { won } from '../format'
 import type { Saved, Send } from '../useCase'
 
-// stage가 agreed, closed일 때: 합의 문안과 입금 확인
+// stage가 agreed, closed일 때: 합의 문안, 입금 확인(금액), 기한이 한참 지나면 1372 접수
 export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
-  const { case: c, drafts } = saved.step
+  const { case: c, action, drafts } = saved.step
+  const deposited = c.deposited ?? 0
+  const left = Math.max((c.agreed_amount ?? 0) - deposited, 0)
+  // 비워 두면 남은 금액 전부가 들어온 것으로 본다
+  const [amount, setAmount] = useState('')
+  const typed = amount === '' ? left : Number(amount)
+  const valid = Number.isSafeInteger(typed) && typed > 0
   return (
     <>
       <DraftList drafts={drafts} note={saved.note} />
       <Card>
         <VStack gap={3}>
           <Heading level={3}>기록하기</Heading>
-          {c.stage === 'agreed' && <Button variant="primary" label="입금을 확인했어요" onClick={() => send({ type: 'deposit_confirmed' })} />}
+          {c.stage === 'agreed' && (
+            <>
+              {deposited > 0 && <Text>받은 금액 {won(deposited)} · 남은 금액 {won(left)}</Text>}
+              <TextInput label="들어온 금액(원)" inputMode="numeric" value={amount} placeholder={left.toLocaleString('ko-KR')}
+                description="비워 두면 남은 금액이 모두 들어온 것으로 기록해요. 일부만 들어왔으면 그 금액을 적어 주세요"
+                onChange={(v) => setAmount(v.replace(/\D/g, ''))} />
+              <HStack gap={2} wrap="wrap">
+                <Button variant="primary" label="입금을 확인했어요" isDisabled={!valid}
+                  onClick={async () => { if (await send({ type: 'deposit_confirmed', amount: typed })) setAmount('') }} />
+                {action.type === 'go_1372' && <Button label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} />}
+              </HStack>
+            </>
+          )}
           {c.stage === 'closed' && <Text>환불금을 받았습니다. 수고하셨습니다.</Text>}
         </VStack>
       </Card>
