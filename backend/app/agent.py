@@ -35,6 +35,10 @@ PENALTY_RATE = re.compile(r"위약금.*?\d+\s*(?:%|퍼센트|프로)|\d+\s*(?:%|
 class FakeLLM:
     """키 없이 개발·테스트하기 위한 가짜 구현. 키워드로만 판단한다."""
 
+    # ponytail: 낱말 목록이다. 실제 LLM이 실패하거나 상한을 넘었을 때도 이 판정을 쓴다. 놓치는 표현은 평가셋으로 보강한다.
+    DEFER = ("검토", "확인 후", "확인해 보", "확인하고", "알아보", "전달", "연락드리", "연락 드리", "전화드리", "나중에")
+    CONDITION = ("빼고", "제하고", "제외", "공제", "차감", "위약금", "수수료", "%", "퍼센트", "대신", "다만", "근데", "그런데", "하지만")
+
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
         if m := re.search(r"(\d+)\s*만\s*원?", text):
@@ -47,6 +51,11 @@ class FakeLLM:
                             (("불가", "안 돼", "안돼", "안 됩니다"), "refuse"),
                             (("알겠", "해드릴", "환불해", "처리해"), "accept")):
             if any(w in text for w in words):
+                # 수용은 바로 합의로 이어진다. 미루는 말이나 조건이 섞이면 수용으로 보지 않는다
+                if kind == "accept" and any(w in text for w in self.DEFER):
+                    return "callback", None
+                if kind == "accept" and any(w in text for w in self.CONDITION):
+                    return "unknown", None
                 return kind, None
         return "unknown", None
 

@@ -302,3 +302,21 @@ def test_case_closes_with_templates_when_the_llm_is_down_or_over_the_limit(real,
     assert res["llm_fallback"] and res["case"]["stage"] == "agreed" and res["case"]["agreed_amount"] == 473_334
     res = step(res["case"], type="deposit_confirmed")
     assert res["case"]["stage"] == "closed" and res["action"]["type"] == "close"
+
+
+@pytest.mark.parametrize("text, kind", [
+    ("네 알겠습니다 환불해 드릴게요", "accept"),
+    ("확인했습니다. 요청하신 대로 처리해 드릴게요.", "accept"),
+    ("환불해 드릴게요. 위약금 30% 빼고요", "unknown"),  # 조건이 붙었다
+    ("환불해 드리긴 하는데 수수료는 제외됩니다", "unknown"),
+    ("알겠습니다. 검토 후 처리해 드릴게요", "callback"),  # 미루는 답
+    ("알겠습니다. 담당자에게 전달해 드릴게요", "callback"),
+])
+def test_keyword_reading_does_not_accept_conditional_or_deferred_replies(text, kind):
+    assert agent.FAKE.read_reply(text) == (kind, None)
+
+
+def test_conditional_reply_does_not_agree_when_the_llm_is_down(real):
+    real(httpx.ConnectError("down"))  # 실제 LLM이 실패해 키워드 판정으로 넘어간 경우
+    res = reply("환불해 드릴게요. 위약금 30% 빼고요")
+    assert res["llm_fallback"] and res["case"]["stage"] != "agreed" and res["case"]["agreed_amount"] is None
