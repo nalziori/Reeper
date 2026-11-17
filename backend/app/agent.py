@@ -279,6 +279,9 @@ def facts(case: Case) -> dict[str, str]:
         "paid_part": (f"{case.deposited:,}원만 들어왔습니다. 남은 {case.agreed_amount - case.deposited:,}원의"
                       if case.deposited and case.agreed_amount else "아직 확인되지 않습니다."),
         "history": _history(case),
+        # paid_part와 history 속 금액을 validate가 알아보게 숫자만 따로 둔다(문안 속 금액은 facts의 값이어야 한다)
+        "deposited": f"{case.deposited:,}" if case.deposited else "",
+        "left": f"{case.agreed_amount - case.deposited:,}" if case.deposited and case.agreed_amount else "",
     }
 
 
