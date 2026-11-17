@@ -144,7 +144,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           <FaultSummary c={contract} />
         </>) : (<>
         {reason === 'unsure' && (
-          <Banner status="info" collapsible={false} title="업체 잘못인지 애매하면 사건을 시작한 뒤 '상황에 맞춘 대응 전략'에 상황을 적어 보세요. 확인할 것과 모을 자료를 알려 줘요. 그래도 애매하면 1372에 문의하세요" />
+          <Banner status="info" collapsible={false} title="업체 잘못인지 애매하면 문자를 보내기 전에 '상황에 맞춘 대응 전략'에 상황을 먼저 적어 보세요. 확인할 것과 모을 자료를 알려 줘요. 그래도 애매하면 1372에 문의하세요" />
         )}
         <Card>
           <VStack gap={2}>
