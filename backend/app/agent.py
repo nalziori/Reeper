@@ -22,6 +22,8 @@ DAILY_LIMIT = int(os.environ.get("LLM_DAILY_LIMIT", "300"))
 TONES = {"polite": "정중하고 부드럽게", "firm": "단호하고 간결하게"}
 FIELDS = {"gym_name": "string", "total_paid": "integer", "start_date": "string",
           "end_date": "string", "special_terms": "string"}
+# 환불 계산에 쓰는 나머지 계약 값. 계약서에 적혀 있을 때만 값이 온다. 없으면 null이고 화면은 기본값(일 단위, 0원)을 쓴다.
+MORE_FIELDS = {"unit": "string", "total_count": "integer", "addon_value": "integer", "security_deposit": "integer"}
 
 TEMPLATES = {p.stem: p.read_text(encoding="utf-8").strip() for p in (DATA / "templates").glob("*.txt")}
 COUNTER_KIND = {"refuse": "counter_refuse", "list_price": "counter_list_price",
@@ -127,10 +129,14 @@ class OpenAILLM:
             "gym_name: 상호 / total_paid: 회원이 내는 금액(원). 항목 이름은 결제금액, 이용요금, 총 결제액처럼 "
             "다를 수 있다. 정상가가 아니다. 보증금이 합쳐 적혀 있으면 보증금을 뺀 금액이 적힌 자리를 읽고, 직접 "
             "계산하지 않는다 / start_date, end_date: 이용 개시일과 종료일(YYYY-MM-DD). 계약일이나 결제일이 아니다 / "
-            "special_terms: 특약 칸에 적힌 글 원문. 환불·해지와 관계없어 보여도 옮긴다. 특약이 없다고 적혀 있으면 null.\n"
+            "special_terms: 특약 칸에 적힌 글 원문. 환불·해지와 관계없어 보여도 옮긴다. 특약이 없다고 적혀 있으면 null / "
+            "unit: 이용 횟수가 정해진 상품(예: PT 20회)이면 count, 이용료를 월 단위로 정산한다고 적혀 있으면 month, "
+            "그 밖에는 day / total_count: unit이 count면 총 횟수, month면 총 개월 수, day면 null / "
+            "addon_value: 부가상품(운동복 등)에 적힌 가액(원). 부가상품이 없거나 가액이 적혀 있지 않으면 null / "
+            "security_deposit: 보증금(원). 보증금이 적혀 있지 않으면 null.\n"
             "보이지 않거나 추측해야 하는 값은 null로 둔다. confidence는 0~1, quote는 그 값을 읽은 자리의 원문이다.",
             [{"type": "image_url", "image_url": {"url": image}}],
-            {k: _field(t) for k, t in FIELDS.items()},
+            {k: _field(t) for k, t in {**FIELDS, **MORE_FIELDS}.items()},
         )
 
 
@@ -220,13 +226,15 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
         _fallback(e)
         raw, failed = {}, True
     out = {}
-    for name in FIELDS:
+    for name, kind in {**FIELDS, **MORE_FIELDS}.items():
         f = raw.get(name) or {}
         value, conf = f.get("value"), f.get("confidence") or 0
         try:
             if name.endswith("_date") and value is not None:
                 date.fromisoformat(value)
-            if name == "total_paid" and value is not None and value <= 0:
+            if kind == "integer" and value is not None and value <= 0:  # 금액·횟수는 0 이하면 못 읽은 것으로 본다
+                value = None
+            if name == "unit" and value not in ("day", "month", "count"):
                 value = None
             conf = min(max(float(conf), 0.0), 1.0)
         except (TypeError, ValueError):
