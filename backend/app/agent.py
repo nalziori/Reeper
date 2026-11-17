@@ -187,6 +187,9 @@ def _numbers(text: str) -> list[str]:
 THREATS = ("무효", "위법", "불법", "소송", "고소", "고발", "법적", "손해배상", "신고")  # 양식에 없으면 다듬은 글에도 없어야 한다
 
 
+NOT_SENT = ("call_card", "go_1372")  # 업체에 보내는 글이 아니라 사용자가 보는 메모와 상담 신청 내용이다. 다듬지 않는다
+
+
 def _same_claims(out: str, base: str) -> bool:
     """다듬은 글이 말투만 바꿨는지 본다. 업체에 그대로 보내는 글이라 새 주장이 끼면 원래 양식을 쓴다."""
     if any(w in out and w not in base for w in THREATS):
@@ -199,7 +202,7 @@ def _same_claims(out: str, base: str) -> bool:
 def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     """고정 양식을 말투만 다듬는다. 숫자가 하나라도 달라지거나 검사를 못 넘으면 원래 양식을 돌려준다."""
     base = render(kind, case)  # 없는 양식이면 KeyError
-    if llm is FAKE:
+    if llm is FAKE or kind in NOT_SENT:
         return base, False
     try:
         out = llm.polish(base, TONES[tone]).strip()
