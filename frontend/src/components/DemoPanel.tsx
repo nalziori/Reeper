@@ -1,4 +1,3 @@
-import { Badge } from '@astryxdesign/core/Badge'
 import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
@@ -15,10 +14,7 @@ export function DemoPanel({ stage, offset, send }: { stage: Case['stage']; offse
   return (
     <Card variant="muted">
       <VStack gap={3}>
-        <HStack gap={2} vAlign="center">
-          <Heading level={3}>시연용 조작</Heading>
-          <Badge label="시연용" />
-        </HStack>
+        <Heading level={3}>시연용 조작</Heading>
         <Text type="supporting">실제 서비스에는 없는 기능입니다. 업체의 답과 날짜 경과를 가상으로 만듭니다.</Text>
         {offset > 0 && <Text as="p">시연 날짜: {isoDate(offset)} (실제보다 {offset}일 뒤)</Text>}
         <HStack gap={2} wrap="wrap">

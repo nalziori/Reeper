@@ -45,7 +45,7 @@ export default function App() {
   )
   if (!saved) {
     return (
-      <VStack gap={4} padding={4} maxWidth={640}>
+      <VStack gap={4} padding={4} maxWidth={640} className="page">
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
         <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
@@ -59,7 +59,7 @@ export default function App() {
   // 1372에 넘긴 뒤에는 상담 결과(합의 금액)만 기록한다. 전략과 날짜 조작은 쓸 일이 없다.
   const handedOff = c.stage === 'handed_off'
   return (
-    <VStack gap={4} padding={4} maxWidth={640}>
+    <VStack gap={4} padding={4} maxWidth={640} className="page">
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 

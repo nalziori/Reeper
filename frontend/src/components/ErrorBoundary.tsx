@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   render() {
     if (!this.state.failed) return this.props.children
     return (
-      <VStack gap={3} padding={4} maxWidth={640} role="alert">
+      <VStack gap={3} padding={4} maxWidth={640} role="alert" className="page">
         <Heading level={2}>화면을 불러오지 못했어요</Heading>
         <Text as="p">이 브라우저에 저장된 사건이 올바르지 않을 수 있어요. 저장된 사건을 지우고 처음부터 다시 시작할 수 있어요.</Text>
         <Button variant="primary" label="저장된 사건 지우고 다시 시작" onClick={this.restart} />

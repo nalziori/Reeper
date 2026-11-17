@@ -1,6 +1,8 @@
 """화면 하니스: 빌드된 화면을 실제 브라우저(headless Chrome)로 열어 종결까지 간다.
 실행: cd frontend && npm run build 후 python harness/ui_flow.py [스크린샷 폴더]
-확인: 흐름 완주와 소요 시간, 깨진 저장값 복구, 모바일 가로 넘침, 내보내기, 콘솔 오류."""
+확인: 흐름 완주와 소요 시간, 깨진 저장값 복구, 모바일 가로 넘침, 내보내기, 콘솔 오류, 호출 상한 소진 때 버튼 종결.
+Chrome 경로는 CHROME 환경변수로 바꾼다(기본 /usr/bin/google-chrome)."""
+import os
 import re
 import sys
 import time
@@ -14,6 +16,8 @@ from lib import ROOT, server
 SHOTS = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/reeper-shots")
 SHOTS.mkdir(parents=True, exist_ok=True)
 results: list[tuple[str, bool, str]] = []
+MUSTS = ("해지 의사", "날짜", "금액", "입금 계좌", "문자 확인")
+CHROME = os.environ.get("CHROME", "/usr/bin/google-chrome")
 
 
 def rec(name, ok, note=""):
@@ -57,6 +61,9 @@ def full_flow(browser, base, tag, viewport):
     link = page.get_by_role("link", name="문자 앱으로 열기").first
     href = link.get_attribute("href") if link.count() else None
     rec(f"{tag}: 문자 앱 링크가 sms: 주소", bool(href) and href.startswith("sms:") and "body=" in href, (href or "없음")[:40])
+    card = page.locator(".draft-section").first.locator("xpath=ancestor::*[self::div][1]").inner_text()
+    musts = [m for m in MUSTS if m not in card]
+    rec(f"{tag}: 통화 카드 꼭 말할 다섯 가지", not musts, "빠짐: " + ", ".join(musts) if musts else "")
     rec(f"{tag}: 통화 카드 구역 제목 굵게", page.locator(".draft-section").count() >= 3, f"{page.locator('.draft-section').count()}개")
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     page.get_by_role("button", name="복사", exact=True).last.click()
@@ -123,6 +130,30 @@ def demo_hidden(browser, base):
     ctx.close()
 
 
+def limit_flow(browser, base):
+    """호출 상한이 0인 서버(가짜 키, 외부 호출 없음). 자동 읽기가 실패해도 고정 문안과 버튼으로 종결한다."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "상한 소진"
+    page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 기준으로 시작").click()
+    btn(page, "문자로 보냈어요").wait_for()
+    rec(f"{tag}: 고정 통화 카드", page.get_by_text("[첫마디]").count() + page.get_by_text("첫마디").count() > 0)
+    rec(f"{tag}: 전략 꺼짐 안내", page.get_by_text("고정 문안과 버튼으로 끝까지 진행할 수 있어요").count() >= 1)
+    btn(page, "문자로 보냈어요").click()
+    page.get_by_text("자동 읽기를 쓸 수 없어요").first.wait_for()
+    rec(f"{tag}: 자동 읽기 꺼짐 안내와 버튼", btn(page, "환불해 준대요").count() == 1)
+    page.get_by_label("업체 답장이나 통화 내용").fill("네 알겠습니다 환불해 드릴게요")
+    btn(page, "답장 읽기").click()
+    page.get_by_text("키워드로 판단했어요").first.wait_for()
+    rec(f"{tag}: 읽기 실패 경고(키워드 대체)", True)
+    btn(page, "입금을 확인했어요").click()
+    page.get_by_text("환불금을 받았습니다").wait_for()
+    rec(f"{tag}: 버튼으로 종결", True)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -139,7 +170,7 @@ def storage_recovery(browser, base):
         page.evaluate("(raw) => localStorage.setItem('reeper.case', raw)", raw)
         page.reload(wait_until="networkidle")
         ok_intro = page.get_by_text("샘플 계약서로 해 보기").count() == 1
-        rec(f"저장값 복구: {label}", ok_intro and not page.locator("[role=alert]").count(), "; ".join(errors)[:120])
+        rec(f"저장값 복구: {label}", ok_intro and not page.locator("[role=alert]").filter(has_text=re.compile(r"\S")).count(), "; ".join(errors)[:120])
         ctx.close()
 
 
@@ -147,12 +178,15 @@ def main() -> int:
     if not (ROOT / "frontend" / "dist" / "index.html").exists():
         print("frontend/dist가 없습니다. 먼저 npm run build 를 하세요.")
         return 2
-    with server() as base, sync_playwright() as pw:
-        browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
-        full_flow(browser, base, "데스크톱", {"width": 1280, "height": 900})
-        full_flow(browser, base, "모바일", {"width": 390, "height": 844})
-        demo_hidden(browser, base)
-        storage_recovery(browser, base)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+        with server() as base:
+            full_flow(browser, base, "데스크톱", {"width": 1280, "height": 900})
+            full_flow(browser, base, "모바일", {"width": 390, "height": 844})
+            demo_hidden(browser, base)
+            storage_recovery(browser, base)
+        with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
+            limit_flow(browser, base)
         browser.close()
     width = max(len(r[0]) for r in results)
     for name, ok, note in results:

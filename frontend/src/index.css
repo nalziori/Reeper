@@ -87,3 +87,8 @@ textarea:focus-visible {
   display: grid;
   gap: 4px;
 }
+
+/* 한 열 화면을 넓은 화면에서 가운데에 둔다 */
+.page {
+  margin-inline: auto;
+}
