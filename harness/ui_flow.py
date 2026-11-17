@@ -255,10 +255,20 @@ def business_fault(browser, base):
         and page.get_by_role("heading", name="협상 기준").count() == 0)
     rec(f"{tag}: 시작 버튼 없음", btn(page, "이 기준으로 시작").count() == 0)
     rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1)
+    page.get_by_label("무슨 일이 있었나요").fill("11월부터 샤워실 운영 중단, 공지만 붙음")
+    summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
+    rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary
+        and "샤워실 운영 중단" in summary, summary.replace(chr(10), " / ")[:80])
+    rec(f"{tag}: 정리에 계산 금액 없음", "위약금" not in summary and "460,000" not in summary)
     page.screenshot(path=SHOTS / "업체잘못.png", full_page=True)
     page.get_by_role("radio", name=re.compile("내 사정")).check()
     btn(page, "이 기준으로 시작").wait_for()
     rec(f"{tag}: 내 사정으로 돌리면 금액 다시 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
+    page.get_by_role("radio", name=re.compile("잘 모르겠어요")).check()
+    rec(f"{tag}: 잘 모르겠어요는 금액·시작 버튼 유지", page.get_by_role("heading", name="예상 환불액").count() == 1
+        and btn(page, "이 기준으로 시작").count() == 1)
+    rec(f"{tag}: 잘 모르겠어요는 전략 안내", page.get_by_text("상황에 맞춘 대응 전략").count() >= 1)
+    page.screenshot(path=SHOTS / "잘모르겠어요.png", full_page=True)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
