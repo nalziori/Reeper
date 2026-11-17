@@ -12,7 +12,7 @@ api = TestClient(app)
 CONTRACT = Contract(gym_name="가상피트니스", total_paid=600_000,
                     start_date=date(2026, 11, 5), end_date=date(2027, 2, 2))
 D = date(2026, 11, 14)
-WAIT, DEPOSIT = POLICY["wait_days"], POLICY["deposit_days"]
+WAIT = POLICY["wait_days"]
 
 
 class Flow:
@@ -62,11 +62,13 @@ def test_reply_deadline_boundaries_through_escalation():
 
 
 def test_deposit_deadline_boundaries():
-    f = Flow()
+    f = Flow()  # D는 토요일
     f.step(type="notice_sent", channel="sms")
     f.step(type="reply_received", text="네 알겠습니다")
     assert f.stage == "agreed"
-    assert f.step(days=DEPOSIT, type="time_passed") == "wait"
+    due = date.fromisoformat(f.res["case"]["deposit_due_on"])
+    assert due == date(2026, 11, 18)  # 월·화·수, 3영업일
+    assert f.step(days=(due - f.today).days, type="time_passed") == "wait"  # 기한 당일은 기다린다
     assert f.step(days=1, type="time_passed") == "remind_deposit"
     assert f.step(type="deposit_confirmed") == "close" and f.stage == "closed"
 
@@ -149,3 +151,15 @@ def test_closed_rejects_everything_but_time_passed():
 def test_negative_amount_rejected(event):
     f = negotiating(450_000, 400_000)
     assert f.raw(**event).status_code == 409
+
+
+@pytest.mark.parametrize("agreed_on, due", [
+    (date(2026, 11, 16), date(2026, 11, 19)),  # 월 → 목
+    (date(2026, 11, 18), date(2026, 11, 23)),  # 수 → 다음 월(주말 뺌)
+    (date(2026, 11, 20), date(2026, 11, 25)),  # 금 → 다음 수
+    (date(2026, 11, 22), date(2026, 11, 25)),  # 일 → 수
+])
+def test_deposit_due_counts_business_days(agreed_on, due):
+    from app.engine import add_business_days
+    assert POLICY["deposit_days"] == 3
+    assert add_business_days(agreed_on, 3) == due
