@@ -241,6 +241,28 @@ def not_sent_drafts(browser, base):
     ctx.close()
 
 
+def business_fault(browser, base):
+    """업체 잘못으로 해지하면 위약금을 뺀 금액·시작 버튼 대신 1372 안내가 나오고, 내 사정으로 돌리면 금액이 다시 보인다."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "업체 잘못"
+    page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 기준으로 시작").wait_for()
+    rec(f"{tag}: 기본은 내 사정", page.get_by_role("radio", name=re.compile("내 사정")).is_checked())
+    page.get_by_role("radio", name=re.compile("업체 잘못")).check()
+    page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
+    rec(f"{tag}: 금액·협상 기준 숨김", page.get_by_role("heading", name="예상 환불액").count() == 0
+        and page.get_by_role("heading", name="협상 기준").count() == 0)
+    rec(f"{tag}: 시작 버튼 없음", btn(page, "이 기준으로 시작").count() == 0)
+    rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1)
+    page.screenshot(path=SHOTS / "업체잘못.png", full_page=True)
+    page.get_by_role("radio", name=re.compile("내 사정")).check()
+    btn(page, "이 기준으로 시작").wait_for()
+    rec(f"{tag}: 내 사정으로 돌리면 금액 다시 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -273,6 +295,7 @@ def main() -> int:
             demo_hidden(browser, base)
             photo_fill(browser, base)
             not_sent_drafts(browser, base)
+            business_fault(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
             limit_flow(browser, base)
