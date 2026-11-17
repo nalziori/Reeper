@@ -186,6 +186,7 @@ def photo_fill(browser, base):
     rec(f"{tag}: 총 횟수·부가상품", page.get_by_label("총 횟수").input_value() == "30"
         and page.get_by_label("부가상품 가액(원, 선택)").input_value() == "50000")
     rec(f"{tag}: 보증금 없음은 빈칸", page.get_by_label("보증금(원, 선택)").input_value() == "")
+    rec(f"{tag}: 비어 온 금액 칸 안내", page.get_by_text("보증금이 계약서에 적혀 있으면 직접 적어 주세요").count() == 1)
     # 화면 낭독용 알림 영역에도 같은 글이 남으므로 칸 아래 상태 표시만 센다
     warn = page.locator(".astryx-field-status", has_text="사진에서 읽은 값이에요")
     rec(f"{tag}: 확인 표시는 check이고 값 있는 칸만", warn.count() == 1, f"{warn.count()}개")
