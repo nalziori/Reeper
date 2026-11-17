@@ -1,0 +1,18 @@
+{"id": "v01", "text": "네 회원님, 말씀하신 대로 이번 달 25일까지 계좌로 보내 드릴게요.", "reply_type": "accept", "amount": null, "note": "금액 숫자 없이 수용 + 입금일"}
+{"id": "v02", "text": "환불 신청 접수 완료됐습니다. 영업일 기준 사흘 안에 들어갑니다.", "reply_type": "accept", "amount": null, "note": "접수 완료 통보. '환불'은 있지만 금액 없음"}
+{"id": "v03", "text": "남은 금액에서 수수료 10% 빼면 31만 2천원이고, 이걸로 진행하겠습니다.", "reply_type": "low_offer", "amount": 312000, "note": "비율과 금액이 함께. 제시액은 31만 2천원"}
+{"id": "v04", "text": "₩450,000 환불 가능합니다.", "reply_type": "low_offer", "amount": 450000, "note": "통화 기호 표기"}
+{"id": "v05", "text": "삼십만 원도 많이 드리는 건데, 이십오만 원 선에서 마무리하시죠.", "reply_type": "low_offer", "amount": 250000, "note": "금액이 둘(비교 기준 30만, 최종 25만). 최종 제시액만 amount. 한글 숫자"}
+{"id": "v06", "text": "1년 회원권 정가가 120만원이라 그 기준으로 쓰신 기간 빼고 드려야 합니다.", "reply_type": "list_price", "amount": null, "note": "정가 기준 주장. 120만원은 기준 가격이지 제시액이 아니다"}
+{"id": "v07", "text": "환불은 어렵고 대신 3개월 무료로 연장해 드릴게요.", "reply_type": "refuse", "amount": null, "note": "기간 연장 제안 (판정 기준 표)"}
+{"id": "v08", "text": "다른 분께 회원권 넘기시는 건 됩니다. 명의 변경 비용은 안 받아요.", "reply_type": "refuse", "amount": null, "note": "양도 제안 (판정 기준 표)"}
+{"id": "v09", "text": "본사 방침상 중도 환불은 불가합니다.", "reply_type": "refuse", "amount": null, "note": "직접 거절"}
+{"id": "v10", "text": "PT 남은 8회는 다른 지점에서 쓰실 수 있게 옮겨 드릴게요.", "reply_type": "refuse", "amount": null, "note": "현금 환불이 아닌 서비스 이전 제안. C 판정: 적립금·연장·홀딩·양도처럼 현금이 아닌 대체 제안으로 보고 refuse(기준표에는 #54 병합 뒤 추가)"}
+{"id": "v11", "text": "소비자원이든 어디든 알아서 하세요.", "reply_type": "refuse", "amount": null, "note": "신고하라는 답의 변형"}
+{"id": "v12", "text": "해지 신청서 양식 작성해서 이메일로 보내 주셔야 합니다.", "reply_type": "visit", "amount": null, "note": "서류 요구 (판정 기준 표)"}
+{"id": "v13", "text": "센터 말고 앱 고객센터 1:1 문의로 남겨 주셔야 처리돼요.", "reply_type": "visit", "amount": null, "note": "다른 창구로 돌리기"}
+{"id": "v14", "text": "점장님이 출장 중이셔서 복귀하시면 연락드릴게요.", "reply_type": "callback", "amount": null, "note": "미루는 답"}
+{"id": "v15", "text": "환불 금액은 저희가 계산해서 다시 알려 드릴게요.", "reply_type": "callback", "amount": null, "note": "'환불'이 있지만 금액 없이 미룸. accept와 헷갈리기 쉬움"}
+{"id": "v16", "text": "확인해 보고 연락드리겠습니다.", "reply_type": "callback", "amount": null, "note": "짧은 미루기"}
+{"id": "v17", "text": "점심이랑 저녁에 걸어 봤는데 자동응답만 나오고 아무도 안 받음", "reply_type": "no_answer", "amount": null, "note": "통화 메모. no_answer는 전화를 받지 않은 경우만(agent.py, 계약.md '통화 결과용')"}
+{"id": "v18", "text": "위약금은 계약서대로 총 결제금액의 10%예요.", "reply_type": "unknown", "amount": null, "note": "금액 없이 위약금 비율만 (판정 기준 표)"}
