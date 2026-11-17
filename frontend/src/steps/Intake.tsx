@@ -9,6 +9,8 @@ import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
+import { ContractExtras } from '../components/ContractExtras'
+import { extrasProblem } from '../contractCheck'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
@@ -180,13 +182,10 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           {checks.has('start_date') && <Text type="supporting">{CHECK.message}</Text>}
           <label>이용 종료일 <input type="date" value={c.end_date} onChange={(e) => edit('end_date', { ...c, end_date: e.target.value })} /></label>
           {checks.has('end_date') && <Text type="supporting">{CHECK.message}</Text>}
-          {(upload || c.special_terms) && (
-            <TextArea label="특약" description="계약서의 특약 칸 내용이에요. 없으면 비워 두세요" value={c.special_terms ?? ''}
-              onChange={(v) => edit('special_terms', { ...c, special_terms: v || undefined })}
-              status={checks.has('special_terms') ? CHECK : undefined} />
-          )}
+          <ContractExtras c={c} isDisabled={busy} termsStatus={checks.has('special_terms') ? CHECK : undefined}
+            onChange={(next) => next.special_terms !== c.special_terms ? edit('special_terms', next) : setC(next)} />
           <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 환불액 계산' : '환불액 계산'}
-            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date} onClick={() => review(c)} />
+            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date || Boolean(extrasProblem(c))} onClick={() => review(c)} />
         </VStack>
       </Card>
     </VStack>

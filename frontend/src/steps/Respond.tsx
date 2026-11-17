@@ -2,6 +2,7 @@ import { Banner } from '@astryxdesign/core/Banner'
 import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
+import { Text } from '@astryxdesign/core/Text'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { VStack } from '@astryxdesign/core/VStack'
 import { DraftList } from '../components/Draft'
@@ -19,7 +20,7 @@ type Props = {
   autoReadOff: boolean
 }
 
-// stage가 waiting, negotiating, escalated, handed_off일 때: 문안, 기록 버튼, 답장 입력
+// stage가 waiting, negotiating, escalated일 때: 문안, 기록 버튼, 답장 입력. handed_off일 때: 1372 상담 뒤 합의 금액 기록
 export function Respond({ saved, send, reply, setReply, settlement, setSettlement, autoReadOff }: Props) {
   const { case: c, action, drafts } = saved.step
   const settlementAmount = Number(settlement)
@@ -39,6 +40,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
           )}
           {c.stage === 'handed_off' && (
             <>
+              <Text as="p">1372 상담에서 업체와 금액이 정해지면 아래에 적어 주세요. 입금을 받을 때까지 추적합니다.</Text>
               <label>1372 접수 후 합의 금액(원) <input type="number" min="1" step="1" value={settlement}
                 onChange={(e) => setSettlement(e.target.value)} /></label>
               <Button label="합의 금액 기록" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}

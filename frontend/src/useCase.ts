@@ -145,7 +145,9 @@ export function useCase() {
   const send: Send = (event, patch = {}) => {
     if (pending.current) return Promise.resolve(false)
     const today = isoDate(patch.offset ?? saved!.offset)
-    return run(api.step(saved!.step.case, event, today), today, patch)
+    // 통화 직후 문자는 통화를 기록한 직후에만 쓴다. 날짜만 지날 때는 두고, 다른 기록이 생기면 지운다.
+    const next = event.type === 'time_passed' || 'note' in patch ? patch : { ...patch, note: undefined }
+    return run(api.step(saved!.step.case, event, today), today, next)
   }
 
   // 상황 설명으로 전략을 받는다. 서버는 단계·금액·문안을 바꾸지 않으므로 사건만 바꿔 끼운다.

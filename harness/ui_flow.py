@@ -31,7 +31,7 @@ def new_page(browser, base, viewport, errors):
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
     page.on("response", lambda r: errors.append(f"{r.status} {r.url}") if r.status >= 400 else None)
-    page.goto(base, wait_until="networkidle")
+    page.goto(base + "/?demo", wait_until="networkidle")  # 시연 조작은 ?demo가 있을 때만 보인다
     return ctx, page
 
 
@@ -111,6 +111,18 @@ def full_flow(browser, base, tag, viewport):
     ctx.close()
 
 
+def demo_hidden(browser, base):
+    """?demo 없이 열면 시연 조작이 보이지 않는다(배포 화면)."""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
+    page = ctx.new_page()
+    page.goto(base, wait_until="networkidle")
+    page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 기준으로 시작").click()
+    btn(page, "문자로 보냈어요").wait_for()
+    rec("배포 화면: 시연 조작 숨김", btn(page, "하루 지남").count() == 0 and page.get_by_text("시연용").count() == 0)
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -139,6 +151,7 @@ def main() -> int:
         browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
         full_flow(browser, base, "데스크톱", {"width": 1280, "height": 900})
         full_flow(browser, base, "모바일", {"width": 390, "height": 844})
+        demo_hidden(browser, base)
         storage_recovery(browser, base)
         browser.close()
     width = max(len(r[0]) for r in results)
