@@ -12,6 +12,9 @@ import { PolishContext } from './PolishContext'
 
 type Choice = 'base' | Tone
 
+// 업체에 보내는 글이 아니라 사용자가 보는 메모와 상담 신청 내용이다. 서버(agent.NOT_SENT)도 다듬지 않는다.
+const NOT_SENT = new Set(['call_card', 'go_1372'])
+
 // 문안은 줄바꿈 그대로 보여 주되, [첫마디] 같은 구역 제목 줄은 굵게 해서 훑어볼 수 있게 한다. 복사는 원문 그대로다.
 function DraftText({ text }: { text: string }) {
   const lines = text.split('\n')
@@ -53,7 +56,7 @@ function useTone(kind: string, base: string) {
     }
   }
   const text = choice === 'base' ? base : cache[choice] ?? base
-  return { canPolish: enabled && !!c && kind !== 'call_card', choice, select, text, loading, note }
+  return { canPolish: enabled && !!c && !NOT_SENT.has(kind), choice, select, text, loading, note }
 }
 
 export function Draft({ kind, text: base }: { kind: string; text: string }) {
