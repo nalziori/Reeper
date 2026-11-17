@@ -123,10 +123,21 @@ def _response_wait_stage(case: Case) -> Stage:
     return "waiting"
 
 
+def add_business_days(start: date, days: int) -> date:
+    """start 다음 날부터 주말을 빼고 days 영업일째 되는 날. 환급 지연 기준이 3영업일이다(방문판매법 시행규칙 제22조).
+    ponytail: 공휴일 목록이 없어 공휴일은 빼지 않는다. 공휴일이 끼면 법정 기준보다 하루 이상 이르다."""
+    d = start
+    while days > 0:
+        d += timedelta(days=1)
+        if d.weekday() < 5:
+            days -= 1
+    return d
+
+
 def _agree(c: Case, amount: int | None, today: date) -> None:
     c.stage = "agreed"
     c.agreed_amount = c.refund.refund if amount is None else amount
-    c.deposit_due_on = today + timedelta(days=POLICY["deposit_days"])
+    c.deposit_due_on = add_business_days(today, POLICY["deposit_days"])
 
 
 def next_action(case: Case, today: date) -> Action:

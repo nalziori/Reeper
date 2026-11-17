@@ -68,7 +68,8 @@ def test_happy_path_to_deposit():
     assert f.step(type="notice_sent", channel="sms") == "wait"
     f.step(type="reply_received", text="네 알겠습니다 환불해 드릴게요")
     assert f.stage == "agreed" and f.res["case"]["agreed_amount"] == 473_334
-    assert f.step(days=POLICY["deposit_days"], type="time_passed") == "wait"
+    due = date.fromisoformat(f.res["case"]["deposit_due_on"])  # 주말을 뺀 3영업일
+    assert f.step(days=(due - f.today).days, type="time_passed") == "wait"
     assert f.step(days=1, type="time_passed") == "remind_deposit"  # 입금이 늦으면 독촉
     assert f.step(type="deposit_confirmed") == "close" and f.stage == "closed"
 

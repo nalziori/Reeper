@@ -70,7 +70,8 @@ class OpenAILLM:
     usage = {"day": None, "calls": 0, "tokens": 0}
 
     def __init__(self, key: str, model: str):
-        self.key, self.model = key, model
+        # 배포 화면에 붙여 넣다 줄바꿈·공백·따옴표가 섞이면 헤더가 깨져 모든 호출이 실패한다(LocalProtocolError)
+        self.key, self.model = key.strip().strip("\"'").strip(), model.strip()
 
     def _chat(self, system: str, user, schema: dict) -> dict:
         u = self.usage
@@ -142,7 +143,7 @@ class OpenAILLM:
 
 FAKE = FakeLLM()
 llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6.1-terra"))
-       if os.environ.get("OPENAI_API_KEY") else FAKE)
+       if os.environ.get("OPENAI_API_KEY", "").strip() else FAKE)
 
 
 def upload_enabled() -> bool:
