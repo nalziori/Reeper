@@ -3,11 +3,25 @@
 | 파일 | 무엇 | 담당 |
 |---|---|---|
 | `replies_b.jsonl`, `replies_c.jsonl` | 업체 답장과 정답 유형·제시액 | B, C |
+| `unseen_replies_b.jsonl` | 답장 읽기 프롬프트를 고칠 때 보지 않은 답장 16건. `run.py`의 기본 30건에는 들어가지 않는다 | B |
 | `contracts.jsonl` | 가상 계약서 27건과 정답 필드·금액 (`make_contracts.py`로 생성) | C |
 | `contract_photos/` | 그중 12건의 계약서 이미지(`k01.jpg` 식)와 원본 `print.docx`. 계약서 추출(`agent.extract_contract`) 평가용. `unseen/`에 프롬프트를 고칠 때 보지 않은 10건 | B |
 | `situations_b.jsonl` | 상황 설명과 계약 10건. 전략(`agent.plan`) 평가용 근거 정답 포함 | B |
 
 모두 가상 데이터다. 실제 계약서와 개인정보는 넣지 않는다.
+
+## unseen_replies_b.jsonl (처음 보는 답장 16건)
+
+답장 30/30은 판정 기준을 프롬프트에 넣은 뒤 같은 30건으로 잰 점수다(#41). 그래서 #41 뒤에 새로 쓴 답장 16건을 따로 뒀다. 형식은 `replies_*.jsonl`과 같다. 파일 이름이 `replies_*.jsonl`에 걸리지 않아 기본 실행(30건)에는 섞이지 않는다.
+
+```
+cd backend && .venv/Scripts/python ../eval/run.py --live ../eval/unseen_replies_b.jsonl   # 16회 호출 (유료)
+```
+
+- 유형별: `accept` 2, `low_offer` 3, `refuse` 3, `list_price` 1, `visit` 2, `no_answer` 1, `callback` 2, `unknown` 2.
+- 판정 기준 표의 예시 문장을 그대로 쓰지 않았다. 표에 없는 종류도 넣었다: 현금 대신 PT 이용권(u05), 카카오톡 채널로 다시 접수(u08), "어제 카드 취소 넣었습니다"(u13), "법대로 하세요"(u14).
+- 2026-11-17, 커밋 `96e0f38`(`agent.py`는 `main` `15f67e6`과 같음), `gpt-6.1-terra`, 한 번 실행(실행: B): **유형 16/16, 제시액 3/3**, 대체 0, 16회 호출, 7,511토큰, 약 0.01달러(추정). 가짜 LLM 기준선은 유형 37.5%, 제시액 0.0%다.
+- **한계**: 답장과 정답을 쓴 사람이 프롬프트를 고친 사람(B)과 같다. 프롬프트가 잘 읽을 만한 문장만 떠올렸을 수 있다. 정답은 위 판정 기준 표대로 붙였지만 C가 확인하지 않았다. 16건이고 유형마다 1~3건뿐이며, 한 번만 돌렸다. 실제 업체 답장이 아니라 지어낸 문장이다.
 
 ## situations_b.jsonl (형식은 제안)
 
