@@ -1,0 +1,16 @@
+{"id": "u01", "text": "확인했습니다. 요청하신 대로 처리해 드릴게요. 입금은 이번 주 금요일쯤 될 것 같습니다.", "reply_type": "accept", "amount": null, "note": "금액 없이 수용 + 입금 시점"}
+{"id": "u02", "text": "이용일수 계산해서 28만 5천원 환불로 정리됐습니다.", "reply_type": "low_offer", "amount": 285000, "note": "만·천 단위가 섞인 제시"}
+{"id": "u03", "text": "총 90만원 결제 중 이용료 38만원, 위약금 9만원 제하고 43만원 입금 예정입니다.", "reply_type": "low_offer", "amount": 430000, "note": "숫자 넷 중 환불액"}
+{"id": "u04", "text": "이벤트 회원은 중도 해지 자체가 안 되는 상품이에요.", "reply_type": "refuse", "amount": null, "note": "해지 불가 주장"}
+{"id": "u05", "text": "현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다.", "reply_type": "refuse", "amount": null, "note": "현금이 아닌 대체 제안(판정 기준 예시에 없는 종류)"}
+{"id": "u06", "text": "할인 받으신 거라 쓰신 두 달은 원래 가격 월 18만원으로 다시 계산해야 해요.", "reply_type": "list_price", "amount": null, "note": "'정상가'라는 말 없이 정상가 주장. 월 단가는 제시액이 아니다"}
+{"id": "u07", "text": "해지는 매장에 직접 오셔서 서명하셔야 진행됩니다.", "reply_type": "visit", "amount": null, "note": "방문 요구"}
+{"id": "u08", "text": "카카오톡 채널로 다시 접수해 주세요.", "reply_type": "visit", "amount": null, "note": "다른 창구로 돌리기(판정 기준 예시에 없는 창구)"}
+{"id": "u09", "text": "두 번 전화했는데 신호만 가고 연결 안 됨", "reply_type": "no_answer", "amount": null, "note": "통화 메모"}
+{"id": "u10", "text": "대표님께 여쭤보고 답 드릴게요.", "reply_type": "callback", "amount": null, "note": "미루는 답"}
+{"id": "u11", "text": "지금 정산 담당이 휴가라 다음 주에 다시 말씀드리겠습니다.", "reply_type": "callback", "amount": null, "note": "미루는 답 + 시점"}
+{"id": "u12", "text": "위약금 30%는 무조건 내셔야 해요.", "reply_type": "unknown", "amount": null, "note": "금액 없이 위약금 비율만"}
+{"id": "u13", "text": "어제 카드 취소 넣었습니다.", "reply_type": "accept", "amount": null, "note": "이미 처리했다는 답('환불'이라는 말 없음)"}
+{"id": "u14", "text": "법대로 하세요. 저희는 더 드릴 말씀 없습니다.", "reply_type": "refuse", "amount": null, "note": "응하지 않겠다는 뜻(신고하라는 답의 다른 표현)"}
+{"id": "u15", "text": "오십오만 원 돌려드리는 걸로 하시죠.", "reply_type": "low_offer", "amount": 550000, "note": "한글 숫자"}
+{"id": "u16", "text": "어떤 사유로 해지하시는 건가요?", "reply_type": "unknown", "amount": null, "note": "되묻는 답. 어느 유형에도 들지 않는다"}
