@@ -1,0 +1,27 @@
+// Cloudflare Containers 배포 설정. 저장소 루트의 Dockerfile을 그대로 쓴다.
+// 하루 호출 수를 프로세스 메모리에서 세므로 컨테이너는 1개만 띄운다(max_instances 1, getContainer 단일 인스턴스).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reeper",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // 서버는 사건·계약 내용을 로그로 남기지 않는다. Worker 로그도 끈다.
+  "observability": { "enabled": false },
+  "vars": {
+    "LLM_DAILY_LIMIT": "300",
+    "OPENAI_MODEL": "gpt-6.1-terra"
+  },
+  "containers": [
+    {
+      "class_name": "ReeperContainer",
+      "image": "../../Dockerfile",
+      "image_build_context": "../..",
+      "max_instances": 1,
+      "instance_type": "basic"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "REEPER", "class_name": "ReeperContainer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReeperContainer"] }]
+}
