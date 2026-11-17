@@ -263,3 +263,34 @@ def test_plan_is_empty_without_a_real_llm_and_survives_bad_output(real, monkeypa
     assert strategy(real, RuntimeError("down")) == {**NO_PLAN, "fallback": True}
     monkeypatch.setattr(agent, "llm", agent.FAKE)
     assert strategy(real, good_plan()) == NO_PLAN
+
+
+@pytest.mark.parametrize("broken", ["down", "limit"])
+def test_case_closes_with_templates_when_the_llm_is_down_or_over_the_limit(real, monkeypatch, broken):
+    """LLM이 내내 실패하거나 하루 상한을 넘어도, 접수부터 입금 확인까지 고정 양식과 키워드 판단으로 끝난다."""
+    if broken == "limit":
+        monkeypatch.setattr(agent, "DAILY_LIMIT", 0)
+        monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("상한을 넘었는데 호출했다"))
+    else:
+        real(httpx.ConnectError("down"))
+
+    def step(case, **event):
+        res = api.post("/api/cases/step", json={"case": case, "today": str(D), "event": event})
+        assert res.status_code == 200
+        return res.json()
+
+    case = open_case(CONTRACT, D).model_dump(mode="json")
+    plan = api.post("/api/cases/strategy", json={"case": case, "situation": "이사를 가요", "today": str(D)}).json()
+    assert plan["llm_fallback"] and plan["case"]["strategy"] is None  # 전략은 비지만 사건은 그대로 간다
+    res = step(plan["case"], type="notice_sent", channel="sms")
+    tone = api.post("/api/drafts/polish", json={"case": res["case"], "kind": "follow_up", "tone": "polite"}).json()
+    assert not tone["polished"] and agent.validate(tone["text"], agent.Case.model_validate(res["case"]))  # 원래 양식 그대로
+    res = step(res["case"], type="reply_received", text="20만원만 드릴게요")
+    assert res["llm_fallback"] and res["analysis"] is None
+    assert res["case"]["stage"] == "negotiating" and res["case"]["offered"] == 200_000 and res["action"]["warn"]
+    assert all(agent.validate(text, agent.Case.model_validate(res["case"])) for text in res["drafts"].values())
+    res = step(res["case"], type="counter_sent")
+    res = step(res["case"], type="reply_received", text="네 알겠습니다 환불해 드릴게요")
+    assert res["llm_fallback"] and res["case"]["stage"] == "agreed" and res["case"]["agreed_amount"] == 473_334
+    res = step(res["case"], type="deposit_confirmed")
+    assert res["case"]["stage"] == "closed" and res["action"]["type"] == "close"
