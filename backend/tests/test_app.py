@@ -218,3 +218,29 @@ def test_refreshing_action_does_not_add_a_timeline_entry():
     case = f.res["case"]
     assert f.step(days=4, type="time_passed") == "follow_up"
     assert f.res["case"] == case
+
+
+def test_read_reply_does_not_touch_the_case_and_step_uses_the_confirmed_type():
+    """답장 읽기는 사건 없이 결과만 준다. 단계는 사용자가 확정한 유형으로만 바뀐다."""
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    text = "환불해 드릴게요. 위약금 30% 빼고요"
+    read = api.post("/api/replies/read", json={"text": text}).json()
+    assert set(read) == {"reply_type", "amount", "llm_fallback"}
+    assert f.stage == "waiting"  # 읽기만으로는 아무 일도 없다
+    # 사용자가 "수용"이 아니라 "잘 모르겠어요"로 고쳐 확정하면 합의로 가지 않는다
+    assert f.step(type="reply_received", text=text, reply_type="unknown") == "counter"
+    assert f.stage == "negotiating" and f.res["case"]["agreed_amount"] is None
+    assert f.res["case"]["timeline"][-1]["text"] == text  # 원문은 기록에 남는다
+
+
+def test_read_reply_rejects_empty_text():
+    assert api.post("/api/replies/read", json={"text": ""}).status_code == 422
+
+
+def test_confirmed_step_with_analyze_flag_still_moves_by_the_confirmed_type():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    res = api.post("/api/cases/step", json={"case": f.res["case"], "today": str(f.today), "analyze": True,
+                                            "event": {"type": "reply_received", "text": "네 알겠습니다", "reply_type": "accept"}})
+    assert res.status_code == 200 and res.json()["case"]["stage"] == "agreed"
