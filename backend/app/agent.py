@@ -12,11 +12,13 @@ from datetime import date
 import httpx
 
 from .models import Action, Case, Extracted, ReplyType
-from .rules import DATA, RULES
+from .rules import DATA, POLICY, RULES
 
 log = logging.getLogger("reeper.agent")  # 계약 내용과 답장 원문은 로그에 남기지 않는다
 MAX_REPLY = 500  # 답장·통화 메모 입력 길이
 MAX_IMAGE = 5_500_000  # data URL 글자 수. 약 4MB
+MAX_NAME, MAX_TERMS = 60, 1000  # 모델에 보내거나 사진에서 받아들이는 상호·특약 길이
+MAX_PAID = 100_000_000  # 사진에서 읽은 금액이 이보다 크면 잘못 읽은 것으로 본다
 CHECK_BELOW = 0.8  # 확신도가 이보다 낮으면 사람이 확인한다
 DAILY_LIMIT = int(os.environ.get("LLM_DAILY_LIMIT", "300"))
 TONES = {"polite": "정중하고 부드럽게", "firm": "단호하고 간결하게"}
@@ -37,7 +39,9 @@ class FakeLLM:
 
     # ponytail: 낱말 목록이다. 실제 LLM이 실패하거나 상한을 넘었을 때도 이 판정을 쓴다. 놓치는 표현은 평가셋으로 보강한다.
     DEFER = ("검토", "확인 후", "확인해 보", "확인하고", "알아보", "전달", "연락드리", "연락 드리", "전화드리", "나중에")
-    CONDITION = ("빼고", "제하고", "제외", "공제", "차감", "위약금", "수수료", "%", "퍼센트", "대신", "다만", "근데", "그런데", "하지만")
+    CONDITION = ("빼고", "제하고", "제외", "공제", "차감", "위약금", "수수료", "%", "퍼센트", "대신", "다만", "근데", "그런데", "하지만",
+                 "단,", "따로", "별도")
+    NOT_CASH = ("적립금", "포인트", "양도", "연장", "홀딩", "이용권", "쿠폰")  # 현금 환불이 아닌 제안은 거절로 본다(eval/README.md 판정 기준)
 
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
@@ -52,6 +56,8 @@ class FakeLLM:
                             (("알겠", "해드릴", "환불해", "처리해"), "accept")):
             if any(w in text for w in words):
                 # 수용은 바로 합의로 이어진다. 미루는 말이나 조건이 섞이면 수용으로 보지 않는다
+                if kind == "accept" and any(w in text for w in self.NOT_CASH):
+                    return "refuse", None
                 if kind == "accept" and any(w in text for w in self.DEFER):
                     return "callback", None
                 if kind == "accept" and any(w in text for w in self.CONDITION):
@@ -200,13 +206,29 @@ THREATS = ("무효", "위법", "불법", "소송", "고소", "고발", "법적",
 NOT_SENT = ("call_card", "go_1372")  # 업체에 보내는 글이 아니라 사용자가 보는 메모와 상담 신청 내용이다. 다듬지 않는다
 
 
+KEEP = ("오늘", "내일", "어제", "해지", "개인", "업체", "방문", "내용증명")  # 다듬어도 횟수가 그대로여야 하는 말
+ASK = ("요청", "부탁", "주십시오", "주시기 바랍", "주세요", "주시면")
+
+
+def _sentences(text: str) -> int:
+    return len(re.findall(r"[.?!](?=\s|$)", text))
+
+
 def _same_claims(out: str, base: str) -> bool:
     """다듬은 글이 말투만 바꿨는지 본다. 업체에 그대로 보내는 글이라 새 주장이 끼면 원래 양식을 쓴다."""
     if any(w in out and w not in base for w in THREATS):
         return False  # 양식에 없던 압박 표현
     if sorted(LAWISH.findall(out)) != sorted(LAWISH.findall(base)):
         return False  # 법령·조문 언급이 늘거나 줄었다
-    return len(out) <= len(base) * 1.3 + 20  # 문장을 덧붙여 길어졌다
+    if not len(base) * 0.85 <= len(out) <= len(base) * 1.3 + 20:
+        return False  # 문장을 덧붙이거나 빼서 길이가 달라졌다
+    if _sentences(out) != _sentences(base):
+        return False  # 문장 수가 달라졌다. 양보나 기한을 덧붙이거나 요청 문장을 뺀 경우다
+    if any(out.count(w) != base.count(w) for w in KEEP):
+        return False  # 날짜, 해지, 누구 사정인지 같은 사실이 달라졌다
+    if out.count("문의") > base.count("문의"):
+        return False  # 요청을 문의로 바꿨다
+    return not any(w in base for w in ASK) or any(w in out for w in ASK)  # 요청하는 글은 다듬어도 요청이어야 한다
 
 
 def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
@@ -219,7 +241,9 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     except Exception as e:
         _fallback(e)
         return base, False
-    ok = bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
+    gym = facts(case)["gym"]  # 상호를 바꾸거나 빼면 쓰지 않는다
+    ok = (bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
+          and out.count(gym) == base.count(gym))
     return (out, True) if ok else (base, False)
 
 
@@ -247,6 +271,12 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
                 date.fromisoformat(value)
             if kind == "integer" and value is not None and value <= 0:  # 금액·횟수는 0 이하면 못 읽은 것으로 본다
                 value = None
+            if kind == "integer" and value is not None and value > (10_000 if name == "total_count" else MAX_PAID):
+                value = None  # 터무니없이 큰 값
+            if name == "gym_name" and value is not None:
+                value = " ".join(str(value).split())[:MAX_NAME]  # 한 줄로, 짧게. 이 값은 보내는 문안에 들어간다
+            if name == "special_terms" and value is not None:
+                value = str(value)[:MAX_TERMS]
             if name == "unit" and value not in ("day", "month", "count"):
                 value = None
             conf = min(max(float(conf), 0.0), 1.0)
@@ -322,10 +352,15 @@ def drafts_for(case: Case, action: Action) -> dict[str, str]:
 # ponytail: 출력이 dict다. 계약(docs/계약.md의 제안 절)이 합의되면 models.py로 옮기고 step에 연결한다.
 # ponytail: 법령처럼 보이는 말을 정규식으로 잡는다. 놓치는 표현이 나오면 평가셋으로 보강한다.
 # "산정기준"만으로는 잡지 않는다. 근거 표(G6)가 "가액과 산정기준"이라는 보통 말로 쓴다.
-LAWISH = re.compile(r"제\s*\d+\s*조|법률|고시|(?:위약금|환급에 관한)\s*산정기준|분쟁해결기준|판례"
+LAWISH = re.compile(r"제\s*\d+\s*조|법률|고시|(?:위약금|환급에 관한)\s*산정기준|분쟁해결기준|판례|판결"
+                    r"|시행규칙|시행령|표준약관|약관규제"
                     r"|\S*(?<!방)법(?=[\s에은는이을상과와의,.]|$)")
-BANNED = ("무효", "위법", "불법", "소송", "고소")
-MONEY = re.compile(r"(\d[\d,]*)\s*(만|천)?\s*원")
+BANNED = ("무효", "위법", "불법", "소송", "고소", "고발", "법적", "손해배상", "형사", "처벌", "경찰")  # 압박 표현
+ALLOWED = "법적 조치를 예고하는 표현"  # 전략이 "넣지 않는다"고 알릴 때 쓰는 말(PLAN_SYSTEM)이라 검사에서 뺀다
+# 금액: "473,334원", "45만 원", "45만", 쉼표가 든 숫자("450,000"). 원이 없어도 금액으로 본다
+MONEY = re.compile(r"(\d[\d,]*)\s*(만|천)?\s*원|(\d[\d,]*)\s*(만|천)(?!\s*[명번개회일년큼])|(\d{1,3}(?:,\d{3})+)")
+PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|퍼센트|프로)")
+CONTACT = re.compile(r"\d{2,4}-\d{3,4}-\d{4}|https?://\S+|www\.\S+")
 _S = {"type": "string"}
 
 
@@ -334,8 +369,8 @@ def _obj(**props) -> dict:
 
 
 def _money(text: str) -> set[int]:
-    return {int(n.replace(",", "")) * {"만": 10_000, "천": 1_000, "": 1}[u] for n, u in MONEY.findall(text)
-            if n.strip(",")}
+    found = [(a or c or e, b or d) for a, b, c, d, e in MONEY.findall(text)]
+    return {int(n.replace(",", "")) * {"만": 10_000, "천": 1_000, "": 1}[u] for n, u in found if n.strip(",")}
 
 
 def _squash(text: str) -> str:
@@ -351,8 +386,9 @@ def _brief(case: Case, today: date) -> dict:
     return {
         "오늘": str(today),
         "해지 의사 도달일": str(case.notified_on) if case.notified_on else "아직 알리지 않음",
-        "계약": {"상호": c.gym_name, "결제금액": c.total_paid, "개시일": str(c.start_date),
-               "종료일": str(c.end_date), "특약 원문": c.special_terms},
+        # 화면은 특약을 1,000자까지 받는다. API로 더 긴 글이 와도 모델에는 그만큼만 보낸다(호출당 비용)
+        "계약": {"상호": c.gym_name[:MAX_NAME], "결제금액": c.total_paid, "개시일": str(c.start_date),
+               "종료일": str(c.end_date), "특약 원문": c.special_terms[:MAX_TERMS]},
         "계산 결과": {"단위": r.unit_label, "총 단위 수": r.total_days, "이용 단위 수": r.used_days,
                   "이용분": r.used_amount, "위약금": r.penalty, "부가상품 공제": r.addon,
                   "보증금": r.security_deposit, "환불 요청액": r.refund},
@@ -363,6 +399,7 @@ def _brief(case: Case, today: date) -> dict:
 def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]:
     """LLM이 쓴 글이 자료 밖으로 나갔는지 본다. 빈 목록이면 통과다. source는 금액을 인용해도 되는 원문이다."""
     out = []
+    text = text.replace(ALLOWED, "")
     if m := LAWISH.search(text):
         out.append(f"근거를 rule_id로 가리키지 않고 직접 썼다: '{m.group()}'")
     out += [f"쓰면 안 되는 표현 '{w}'" for w in BANNED if w in text]
@@ -372,8 +409,12 @@ def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]
     out += [f"자료에 없는 금액 {v:,}원" for v in _money(text) - known]
     days = {(d.month, d.day) for d in (today, c.start_date, c.end_date, case.notified_on,
                                        case.deadline_on, case.deposit_due_on) if d}
-    out += [f"자료에 없는 날짜 {m}월 {d}일" for m, d in re.findall(r"(\d{1,2})월\s*(\d{1,2})일", text)
-            if (int(m), int(d)) not in days]
+    dated = re.findall(r"(\d{1,2})월\s*(\d{1,2})일|\d{4}-(\d{1,2})-(\d{1,2})|(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])", text)
+    out += [f"자료에 없는 날짜 {m}월 {d}일" for m, d in ((int(a or c or e), int(b or d or f)) for a, b, c, d, e, f in dated)
+            if (m, d) not in days]
+    rates = {float(POLICY["penalty_percent"])} | {float(x) for x in PERCENT.findall(source + c.special_terms)}
+    out += [f"자료에 없는 비율 {x}%" for x in PERCENT.findall(text) if float(x) not in rates]
+    out += [f"자료에 없는 연락처 '{x}'" for x in CONTACT.findall(text) if "1372.go.kr" not in x]
     return out
 
 
