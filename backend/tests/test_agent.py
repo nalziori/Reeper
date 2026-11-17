@@ -122,6 +122,10 @@ def test_polish_keeps_only_text_with_the_same_numbers(real):
     assert agent.polished("notice_sms", case, "firm") == ("확인 부탁드립니다. " + base, True)
     real(RuntimeError("down"))
     assert agent.polished("notice_sms", case, "firm") == (base, False)
+    # 업체에 보내는 글이 아닌 양식(통화 카드, 1372 상담 신청 내용)은 모델을 부르지 않고 그대로 둔다
+    agent.llm.polish = lambda *_: pytest.fail("보내지 않는 양식인데 모델을 불렀다")
+    for kind in agent.NOT_SENT:
+        assert agent.polished(kind, case, "firm") == (agent.render(kind, case), False)
 
 
 def test_extract_is_off_by_default_and_never_invents_values(real, monkeypatch):
