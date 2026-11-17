@@ -103,9 +103,7 @@ def test_chat_sends_strict_schema_and_counts_tokens(real, monkeypatch):
     assert seen["response_format"]["json_schema"]["strict"]
     assert agent.OpenAILLM.usage["calls"] == 1 and agent.OpenAILLM.usage["tokens"] == 42
     # 붙여 넣다 섞인 줄바꿈·공백·따옴표는 떼고 보낸다
-    monkeypatch.setattr(agent, "llm", agent.OpenAILLM(' "test-key"
-', " test-model
-"))
+    monkeypatch.setattr(agent, "llm", agent.OpenAILLM(' "test-key"\r\n', " test-model\n"))
     assert agent.read_reply("오셔야 해요") == ("visit", None, False)
     assert seen["model"] == "test-model" and seen["auth"] == "Bearer test-key"
 
