@@ -142,6 +142,17 @@ def test_extract_is_off_by_default_and_never_invents_values(real, monkeypatch):
     assert f["total_paid"].value == 600000 and f["total_paid"].check  # 확신도가 낮으면 확인받는다
     for name in ("start_date", "end_date", "special_terms"):  # 형식이 틀리거나 없는 값은 비운다
         assert f[name].value is None and f[name].check
+    assert all(f[name].value is None for name in agent.MORE_FIELDS)  # 응답에 없는 값도 비운다
+
+    real({"unit": {"value": "count", "confidence": 0.9, "quote": "총 30회"},
+          "total_count": {"value": 30, "confidence": 0.9, "quote": "총 30회"},
+          "addon_value": {"value": 0, "confidence": 0.9, "quote": ""},
+          "security_deposit": {"value": 50000, "confidence": 0.5, "quote": "보증금 50,000원"}})
+    f, _ = agent.extract_contract(IMAGE)
+    assert (f["unit"].value, f["total_count"].value, f["addon_value"].value) == ("count", 30, None)
+    assert f["security_deposit"].value == 50000 and f["security_deposit"].check
+    real({"unit": {"value": "week", "confidence": 1, "quote": ""}})  # 정해진 단위가 아니면 비운다
+    assert agent.extract_contract(IMAGE)[0]["unit"].value is None
 
     real(RuntimeError("down"))
     f, failed = agent.extract_contract(IMAGE)
