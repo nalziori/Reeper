@@ -19,6 +19,9 @@ import { shrinkPhoto } from '../photo'
 type Iso = NonNullable<ComponentProps<typeof DateInput>['value']>
 const asIso = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? (v as Iso) : undefined)
 
+// 직접 입력 기본 네 칸 밖에서 사진으로 읽는 칸
+const EXTRAS = ['unit', 'total_count', 'special_terms', 'addon_value', 'security_deposit'] as const
+
 const CHECK = { type: 'warning' as const, message: '사진에서 읽은 값이에요. 계약서와 같은지 확인해 주세요' }
 
 type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
@@ -42,13 +45,21 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     setPhotoNote('')
     const { fields, llm_fallback } = await api.extract(await shrinkPhoto(file))
     const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
-    const paid = fields.total_paid?.value
+    const num = (f: ExtractField) => typeof fields[f]?.value === 'number' ? fields[f]!.value as number : undefined
+    const read = fields.unit?.value
+    // 계약서에 단위가 없으면 null이 온다. 그때는 기간(일) 단위로 둔다
+    const unit = read === 'month' || read === 'count' ? read : 'day'
     setC({
       gym_name: str('gym_name'),
-      total_paid: typeof paid === 'number' ? paid : 0,
+      total_paid: num('total_paid') ?? 0,
       start_date: str('start_date'),
       end_date: str('end_date'),
       special_terms: str('special_terms') || undefined,
+      unit,
+      total_count: unit === 'day' ? undefined : num('total_count'),
+      used_count: undefined, // 계약서에 없는 값이라 사람이 적는다
+      addon_value: num('addon_value') ?? 0,
+      security_deposit: num('security_deposit') ?? 0,
     })
     setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) => fields[f]?.check && fields[f]?.value != null)))
     setPhotoNote(llm_fallback
@@ -188,8 +199,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)}
             onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })}
             status={checks.has('end_date') ? CHECK : undefined} />
-          <ContractExtras c={c} isDisabled={busy} termsStatus={checks.has('special_terms') ? CHECK : undefined}
-            onChange={(next) => next.special_terms !== c.special_terms ? edit('special_terms', next) : setC(next)} />
+          <ContractExtras c={c} isDisabled={busy} statusOf={(f) => checks.has(f) ? CHECK : undefined}
+            onChange={(next) => {
+              setC(next)
+              setChecks((prev) => { const s = new Set(prev); for (const f of EXTRAS) if (next[f] !== c[f]) s.delete(f); return s })
+            }} />
           <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 환불액 계산' : '환불액 계산'}
             isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date || Boolean(extrasProblem(c))} onClick={() => review(c)} />
         </VStack>

@@ -25,7 +25,7 @@ export function Evidence({ c, rules }: { c: Case; rules: Rules }) {
         {c.stage === 'ready' && r.per_day_loss > 0 && <Text weight="semibold">하루 미루면 약 {won(r.per_day_loss)}씩 줄어듭니다.</Text>}
         <Divider />
         <Text type="supporting">근거: {r.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
-        {r.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액이며, 계산식은 원문 확인 전 임시입니다. 다툼이 있으면 1372 소비자상담센터에 문의하세요.</Text>}
+        {r.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액입니다. 해지 통보가 닿은 날의 포함 여부, 원 단위 끝전, 월 단위 개월 수는 아직 확인 중입니다. 다툼이 있으면 1372 소비자상담센터에 문의하세요.</Text>}
       </VStack>
     </Card>
   )

@@ -2,6 +2,8 @@
 실행: cd frontend && npm run build 후 python harness/ui_flow.py [스크린샷 폴더]
 확인: 흐름 완주와 소요 시간, 깨진 저장값 복구, 모바일 가로 넘침, 내보내기, 콘솔 오류, 호출 상한 소진 때 버튼 종결.
 Chrome 경로는 CHROME 환경변수로 바꾼다(기본 /usr/bin/google-chrome)."""
+import base64
+import json
 import os
 import re
 import sys
@@ -154,6 +156,52 @@ def limit_flow(browser, base):
     ctx.close()
 
 
+def photo_fill(browser, base):
+    """사진 읽기 결과(서버 응답을 가짜로 바꿈)가 직접 입력 칸에 들어간다. 계약서에 없는 값(null)은 확인 표시 없이 기본값."""
+    errors: list[str] = []
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
+    page = ctx.new_page()
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    real_health = {}
+
+    def health(route):
+        body = route.fetch().json()
+        real_health.update(body)
+        route.fulfill(json={**body, "upload": True})
+
+    def f(value, check):
+        return {"value": value, "confidence": 0.5 if check else 0.95, "quote": "", "check": check}
+
+    fields = {"gym_name": f("가상필라테스", False), "total_paid": f(900000, False), "start_date": f("2026-11-01", False),
+              "end_date": f("2027-04-30", False), "special_terms": f(None, True), "unit": f("count", False),
+              "total_count": f(30, False), "addon_value": f(50000, True), "security_deposit": f(None, True)}
+    page.route("**/api/health", health)
+    page.route("**/api/contracts/extract", lambda r: r.fulfill(json={"fields": fields, "llm_fallback": False}))
+    page.goto(base, wait_until="networkidle")
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    page.locator("input[type=file]").set_input_files({"name": "c.png", "mimeType": "image/png", "buffer": png})
+    page.get_by_text("사진에서 읽은 값을 아래 칸에 채웠어요").wait_for()
+    tag = "사진 채우기"
+    rec(f"{tag}: 단위가 횟수", page.get_by_role("radio", name="횟수(PT·레슨)").is_checked())
+    rec(f"{tag}: 총 횟수·부가상품", page.get_by_label("총 횟수").input_value() == "30"
+        and page.get_by_label("부가상품 가액(원, 선택)").input_value() == "50000")
+    rec(f"{tag}: 보증금 없음은 빈칸", page.get_by_label("보증금(원, 선택)").input_value() == "")
+    # 화면 낭독용 알림 영역에도 같은 글이 남으므로 칸 아래 상태 표시만 센다
+    warn = page.locator(".astryx-field-status", has_text="사진에서 읽은 값이에요")
+    rec(f"{tag}: 확인 표시는 check이고 값 있는 칸만", warn.count() == 1, f"{warn.count()}개")
+    calc = btn(page, "확인했어요, 환불액 계산")
+    rec(f"{tag}: 이미 쓴 횟수 없으면 계산 막힘", calc.is_disabled())
+    page.get_by_label("이미 쓴 횟수").fill("5")
+    page.get_by_label("부가상품 가액(원, 선택)").fill("40000")
+    rec(f"{tag}: 고친 칸은 확인 표시 사라짐", page.locator(".astryx-field-status", has_text="사진에서 읽은 값이에요").count() == 0)
+    btn(page, "환불액 계산").click()
+    page.get_by_text("예상 환불액").first.wait_for()
+    rec(f"{tag}: 회 단위로 계산", page.get_by_text(re.compile(r"이용분 .*원")).count() >= 1)
+    rec(f"{tag}: 실제 서버는 사진 읽기 꺼짐", real_health.get("upload") is False)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -184,6 +232,7 @@ def main() -> int:
             full_flow(browser, base, "데스크톱", {"width": 1280, "height": 900})
             full_flow(browser, base, "모바일", {"width": 390, "height": 844})
             demo_hidden(browser, base)
+            photo_fill(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
             limit_flow(browser, base)

@@ -77,6 +77,7 @@ export type Polished = { text: string; polished: boolean }
 // 계약서 사진에서 읽은 값 하나. check가 참이면 사람이 계약서와 대조해 확인한다.
 export type Extracted = { value: string | number | null; confidence: number; quote: string; check: boolean }
 export type ExtractField = 'gym_name' | 'total_paid' | 'start_date' | 'end_date' | 'special_terms'
+  | 'unit' | 'total_count' | 'addon_value' | 'security_deposit'
 export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
