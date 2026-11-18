@@ -1,7 +1,10 @@
+import { Collapsible } from '@astryxdesign/core/Collapsible'
 import { RadioList, RadioListItem } from '@astryxdesign/core/RadioList'
 import { Text } from '@astryxdesign/core/Text'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { TextInput } from '@astryxdesign/core/TextInput'
+import { VStack } from '@astryxdesign/core/VStack'
+import { useState } from 'react'
 import type { Contract } from '../api'
 import { extrasProblem } from '../contractCheck'
 
@@ -30,11 +33,15 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
   }
   const problem = extrasProblem(c)
   const usedTooMany = unit === 'count' && c.used_count != null && c.total_count != null && c.used_count > c.total_count
+  // 특약·부가상품·보증금은 계약서에 있을 때만 적는 칸이라 접어 둔다. 값이 있거나 사진에서 읽어 확인할 칸이면 펼쳐 둔다
+  const [open, setOpen] = useState(false)
+  const filled = Boolean(c.special_terms || c.addon_value || c.security_deposit
+    || statusOf('special_terms') || statusOf('addon_value') || statusOf('security_deposit'))
   return (
     <>
-      <RadioList label="이용 단위" value={unit} onChange={setUnit} isDisabled={isDisabled}
-        description="계약서에 횟수나 개월 수로 적혀 있으면 그 단위를 고르세요.">
-        <RadioListItem value="day" label="기간(시작일~종료일)" />
+      <RadioList label="이용 단위" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
+        description="계약서에 횟수나 개월 수로 적혀 있으면 바꾸세요">
+        <RadioListItem value="day" label="기간" />
         <RadioListItem value="month" label="개월 수" />
         <RadioListItem value="count" label="횟수(PT·레슨)" />
       </RadioList>
@@ -50,6 +57,9 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
           status={usedTooMany ? { type: 'error', message: problem } : undefined} />
       )}
       {problem && !usedTooMany && <Text type="supporting">{problem}</Text>}
+      <Collapsible isOpen={open || filled} onOpenChange={setOpen}
+        trigger={<VStack gap={1}><Text weight="semibold">특약·부가상품·보증금(선택)</Text><Text type="supporting">계약서에 적혀 있을 때만 적어요</Text></VStack>}>
+      <VStack gap={3}>
       <TextArea label="특약사항(선택)" isDisabled={isDisabled} maxLength={1000}
         description="계약서의 특약이나 비고 칸을 그대로 옮겨 적어 주세요."
         value={c.special_terms ?? ''} onChange={(v) => onChange({ ...c, special_terms: v || undefined })} status={statusOf('special_terms')} />
@@ -61,6 +71,8 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
         description="락커 보증금처럼 결제 금액과 따로 낸 돈입니다. 돌려받을 금액에 더합니다."
         value={shown(c.security_deposit)} onChange={(v) => onChange({ ...c, security_deposit: digits(v) })}
         status={statusOf('security_deposit')} />
+      </VStack>
+      </Collapsible>
     </>
   )
 }

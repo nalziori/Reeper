@@ -1,6 +1,5 @@
 import { Badge } from '@astryxdesign/core/Badge'
 import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
 import { Divider } from '@astryxdesign/core/Divider'
 import { Heading } from '@astryxdesign/core/Heading'
 import { Text } from '@astryxdesign/core/Text'
@@ -8,6 +7,7 @@ import { TextArea } from '@astryxdesign/core/TextArea'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useState, type ReactNode } from 'react'
 import type { Case, Rules } from '../api'
+import { Fold } from './Fold'
 
 const LIMIT = 1000 // docs/계약.md: 상황 설명은 1000자까지
 
@@ -36,13 +36,12 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
   const tooLong = [...situation].length > LIMIT
 
   return (
-    <Card>
+    // 지금 할 일이 아니라 참고용이라 접어 둔다. 받은 전략이 있으면 펼쳐 둔다
+    <Fold title="상황에 맞춘 대응 전략" defaultOpen={Boolean(s)}
+      summary={autoReadOff ? '자동 전략을 쓸 수 없어요. 고정 문안과 버튼으로 끝까지 진행할 수 있어요'
+        : '참고용 전략이에요. 업체에 보낼 문장은 위의 고정 문안을 쓰세요'}>
       <div className="strategy">
       <VStack gap={4}>
-        <VStack gap={1}>
-          <Heading level={3}>상황에 맞춘 대응 전략</Heading>
-          <Text type="supporting">참고용 전략이에요. 업체에 보낼 문장은 위의 고정 문안을 쓰세요</Text>
-        </VStack>
 
         <TextArea label="내 상황" maxLength={LIMIT}
           description="개인 사정, 업체가 한 말, 계약서 특약을 적어 주세요. 이 내용은 서버에 저장되지 않아요"
@@ -52,7 +51,6 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
           <Button label={s ? '전략 다시 받기' : '전략 받기'} isDisabled={autoReadOff || !text || tooLong}
             onClick={async () => setEmpty(await plan(text) === 'empty')} />
         </div>
-        {autoReadOff && <Text type="supporting">자동 전략을 쓸 수 없어요. 고정 문안과 버튼으로 끝까지 진행할 수 있어요</Text>}
         {!autoReadOff && empty && !s && (
           <Text type="supporting">이번에는 전략을 만들지 못했어요. 고정 문안과 버튼으로 계속 진행하면 돼요</Text>
         )}
@@ -114,6 +112,6 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
         )}
       </VStack>
       </div>
-    </Card>
+    </Fold>
   )
 }

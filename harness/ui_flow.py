@@ -59,10 +59,16 @@ def full_flow(browser, base, tag, viewport):
     btn(page, "이 기준으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
     page.screenshot(path=SHOTS / f"{tag}-3-prepare.png", full_page=True)
-    rec(f"{tag}: 통화 준비 카드와 문자 문안", page.get_by_text("통화 준비 카드").count() > 0 and page.get_by_text("문자로 보낼 문안").count() > 0)
+    # 알리는 방법은 문자가 기본이고, 고른 쪽 문안과 기록 버튼만 보인다
+    call_heading = page.get_by_role("heading", name="전화로 말할 때: 통화 준비 카드")  # 안내 카드에도 '통화 준비 카드' 낱말이 있어 제목으로 찾는다
+    rec(f"{tag}: 기본은 문자 문안만", page.get_by_role("heading", name="문자로 보낼 문안").count() == 1 and call_heading.count() == 0)
     link = page.get_by_role("link", name="문자 앱으로 열기").first
     href = link.get_attribute("href") if link.count() else None
     rec(f"{tag}: 문자 앱 링크가 sms: 주소", bool(href) and href.startswith("sms:") and "body=" in href, (href or "없음")[:40])
+    page.get_by_role("radio", name="전화로").check()
+    call_heading.wait_for()
+    rec(f"{tag}: 전화로 고르면 통화 카드와 전화 기록 버튼", page.get_by_role("heading", name="문자로 보낼 문안").count() == 0
+        and btn(page, "전화로 말했어요").count() == 1 and btn(page, "문자로 보냈어요").count() == 0)
     card = page.locator(".draft-section").first.locator("xpath=ancestor::*[self::div][1]").inner_text()
     musts = [m for m in MUSTS if m not in card]
     rec(f"{tag}: 통화 카드 꼭 말할 다섯 가지", not musts, "빠짐: " + ", ".join(musts) if musts else "")
@@ -74,7 +80,9 @@ def full_flow(browser, base, tag, viewport):
     page.keyboard.press("Tab")
     rec(f"{tag}: 키보드 포커스 이동", page.evaluate("document.activeElement && document.activeElement !== document.body"))
     rec(f"{tag}: 시연 패널에 날짜 버튼(ready)", btn(page, "하루 지남").count() == 1 and btn(page, "사장:").count() == 0)
+    page.get_by_role("radio", name="문자로").check()
     btn(page, "문자로 보냈어요").click()
+    rec(f"{tag}: 단계가 바뀌면 맨 위에서 시작", page.evaluate("window.scrollY") == 0)
     page.get_by_text("답변 기한").first.wait_for()
     rec(f"{tag}: 답변 기한과 남은 날", page.get_by_text(re.compile(r"답변 기한 .*3일 남음")).count() >= 1,
         page.get_by_text(re.compile("답변 기한 ")).first.inner_text())
@@ -105,7 +113,8 @@ def full_flow(browser, base, tag, viewport):
     btn(page, "입금을 확인했어요").wait_for()
     rec(f"{tag}: 입금 기한 표시", page.get_by_text(re.compile("입금 기한 ")).count() >= 1)
     page.screenshot(path=SHOTS / f"{tag}-6-agreed.png", full_page=True)
-    # 내보내기
+    # 내보내기(접혀 있어 먼저 펼친다)
+    page.get_by_text("사건 파일 내보내기").first.click()
     with page.expect_download() as dl:
         btn(page, "요약 파일 저장").click()
     name = dl.value.suggested_filename
@@ -151,7 +160,9 @@ def limit_flow(browser, base):
     page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
     btn(page, "이 기준으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
+    page.get_by_role("radio", name="전화로").check()
     rec(f"{tag}: 고정 통화 카드", page.get_by_text("[첫마디]").count() + page.get_by_text("첫마디").count() > 0)
+    page.get_by_role("radio", name="문자로").check()
     rec(f"{tag}: 전략 꺼짐 안내", page.get_by_text("고정 문안과 버튼으로 끝까지 진행할 수 있어요").count() >= 1)
     btn(page, "문자로 보냈어요").click()
     page.get_by_text("자동 읽기를 쓸 수 없어요").first.wait_for()
