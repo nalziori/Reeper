@@ -40,8 +40,8 @@ function ReadConfirm({ read, onConfirm, onReject }: { read: ReadReply & { text: 
         <VStack gap={2}>
           <Heading level={4}>이렇게 읽었어요. 맞나요?</Heading>
           <Text type="supporting">“{quote}”</Text>
-          <Text weight="semibold">{REPLY_LABEL[read.reply_type]}{read.amount != null ? ` · 제시 금액 ${won(read.amount)}` : ''}</Text>
-          {read.llm_fallback && <Text type="supporting">자동으로 읽지 못해 키워드로 판단했어요. 틀리기 쉬우니 꼭 확인해 주세요</Text>}
+          <Text weight="semibold">{REPLY_LABEL[read.reply_type]}{read.amount != null ? ` · ${won(read.amount)}` : ''}</Text>
+          {read.llm_fallback && <Text type="supporting">자동으로 못 읽어 낱말로 짐작했어요. 틀리기 쉬우니 꼭 봐 주세요</Text>}
           <HStack gap={2} wrap="wrap">
             <Button variant="primary" label="맞아요, 기록할게요" onClick={onConfirm} />
             <Button label="아니에요, 직접 고를게요" onClick={onReject} />
@@ -68,8 +68,8 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       <Card>
         <VStack gap={3}>
           <Heading level={3}>기록하기</Heading>
-          {action.type === 'follow_up' && <HStack><Button variant="primary" label="재요청을 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} /></HStack>}
-          {action.type === 'counter' && <HStack><Button label="반박 문안을 보냈어요" onClick={() => send({ type: 'counter_sent' })} /></HStack>}
+          {action.type === 'follow_up' && <HStack><Button variant="primary" label="다시 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} /></HStack>}
+          {action.type === 'counter' && <HStack><Button label="이 문자를 보냈어요" onClick={() => send({ type: 'counter_sent' })} /></HStack>}
           {action.type === 'certified_mail' && <HStack><Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} /></HStack>}
           {action.type === 'go_1372' && c.stage !== 'handed_off' && <HStack><Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} /></HStack>}
           {/* 합의 금액은 0원보다 커야 한다(서버가 0원 이하는 409로 거절) */}
@@ -78,10 +78,10 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
           )}
           {c.stage === 'handed_off' && (
             <>
-              <Text as="p">1372 상담에서 업체와 금액이 정해지면 아래에 적어 주세요. 입금을 받을 때까지 추적합니다.</Text>
-              <TextInput label="1372 접수 후 합의 금액(원)" inputMode="numeric" value={settlement}
+              <Text as="p">1372 상담으로 금액이 정해지면 적어 주세요. 입금될 때까지 챙겨 드려요</Text>
+              <TextInput label="정해진 금액(원)" inputMode="numeric" value={settlement}
                 onChange={(v) => setSettlement(v.replace(/\D/g, ''))} />
-              <HStack><Button label="합의 금액 기록" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}
+              <HStack><Button label="금액 저장" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}
                 onClick={async () => {
                   if (await send({ type: 'agreement_recorded', amount: settlementAmount })) setSettlement('')
                 }} /></HStack>
@@ -91,11 +91,11 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
             <>
               {autoReadOff && (
                 <>
-                  <Banner status="info" collapsible={false} title="자동 읽기를 쓸 수 없어요. 아래 버튼으로 골라 주세요" />
+                  <Banner status="info" collapsible={false} title="지금은 버튼으로 골라 주세요" />
                   <ReplyButtons send={sendReply} text={reply} />
                 </>
               )}
-              <TextArea label="업체 답장이나 통화 내용" description="받은 문자를 붙여넣거나, 통화에서 들은 말을 적어 주세요."
+              <TextArea label="받은 답장" description="문자를 붙여넣거나 통화로 들은 말을 적어요"
                 value={reply} onChange={setReply} maxLength={500} />
               <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isDisabled={!reply.trim() || reading}
                 onClick={() => void readReply(reply)} /></HStack>

@@ -39,8 +39,8 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
     || statusOf('special_terms') || statusOf('addon_value') || statusOf('security_deposit'))
   return (
     <>
-      <RadioList label="이용 단위" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
-        description="계약서에 횟수나 개월 수로 적혀 있으면 바꾸세요">
+      <RadioList label="어떻게 세나요" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
+        description="계약서에 적힌 대로 골라요">
         <RadioListItem value="day" label="기간" />
         <RadioListItem value="month" label="개월 수" />
         <RadioListItem value="count" label="횟수(PT·레슨)" />
@@ -58,17 +58,17 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
       )}
       {problem && !usedTooMany && <Text type="supporting">{problem}</Text>}
       <Collapsible isOpen={open || filled} onOpenChange={setOpen}
-        trigger={<VStack gap={1}><Text weight="semibold">특약·부가상품·보증금(선택)</Text><Text type="supporting">계약서에 적혀 있을 때만 적어요</Text></VStack>}>
+        trigger={<VStack gap={1}><Text weight="semibold">특약·사은품·보증금(선택)</Text><Text type="supporting">계약서에 적혀 있을 때만 적어요</Text></VStack>}>
       <VStack gap={3}>
-      <TextArea label="특약사항(선택)" isDisabled={isDisabled} maxLength={1000}
-        description="계약서의 특약이나 비고 칸을 그대로 옮겨 적어 주세요."
+      <TextArea label="계약서 특약(선택)" isDisabled={isDisabled} maxLength={1000}
+        description="특약이나 비고 칸을 그대로 옮겨 적어요"
         value={c.special_terms ?? ''} onChange={(v) => onChange({ ...c, special_terms: v || undefined })} status={statusOf('special_terms')} />
-      <TextInput label="부가상품 가액(원, 선택)" inputMode="numeric" isDisabled={isDisabled}
-        description="운동복·사은품처럼 계약서에 금액이 적힌 것만 적습니다."
+      <TextInput label="사은품 금액(원, 선택)" inputMode="numeric" isDisabled={isDisabled}
+        description="운동복처럼 계약서에 금액이 적힌 것만"
         value={shown(c.addon_value)} onChange={(v) => onChange({ ...c, addon_value: digits(v) })}
         status={statusOf('addon_value')} />
       <TextInput label="보증금(원, 선택)" inputMode="numeric" isDisabled={isDisabled}
-        description="락커 보증금처럼 결제 금액과 따로 낸 돈입니다. 돌려받을 금액에 더합니다."
+        description="락커처럼 따로 낸 돈. 돌려받을 돈에 더해요"
         value={shown(c.security_deposit)} onChange={(v) => onChange({ ...c, security_deposit: digits(v) })}
         status={statusOf('security_deposit')} />
       </VStack>

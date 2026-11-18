@@ -48,9 +48,9 @@ function useTone(kind: string, base: string) {
       const res = await api.polish(c, kind, next)
       if (ticket !== asked.current) return
       if (res.polished) setCache((prev) => ({ ...prev, [next]: res.text }))
-      else { setChoice('base'); setNote('이번에는 말투를 바꾸지 못했어요. 기본 문안을 그대로 쓰세요') }
+      else { setChoice('base'); setNote('이번에는 말투를 못 바꿨어요. 기본 문자를 쓰세요') }
     } catch {
-      if (ticket === asked.current) { setChoice('base'); setNote('말투를 바꾸지 못했어요. 기본 문안을 그대로 쓰세요') }
+      if (ticket === asked.current) { setChoice('base'); setNote('말투를 못 바꿨어요. 기본 문자를 쓰세요') }
     } finally {
       if (ticket === asked.current) setLoading(false)
     }
@@ -69,7 +69,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
       <VStack gap={3}>
         <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
         {tone.canPolish && (
-          <SegmentedControl label="문안 말투" size="sm" value={tone.choice} isDisabled={tone.loading}
+          <SegmentedControl label="말투" size="sm" value={tone.choice} isDisabled={tone.loading}
             onChange={(v) => { setCopied(false); void tone.select(v as Choice) }}>
             <SegmentedControlItem value="base" label="기본" />
             <SegmentedControlItem value="polite" label="정중하게" />
@@ -77,7 +77,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
           </SegmentedControl>
         )}
         <DraftText text={text} />
-        {tone.choice !== 'base' && <Text type="supporting">말투만 바꾼 문안이에요. 금액과 근거는 기본 문안과 같아요</Text>}
+        {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
         {tone.note && <Text type="supporting" role="status">{tone.note}</Text>}
         <HStack gap={2} wrap="wrap">
           <Button label={copied ? '복사됨' : '복사'} onClick={async () => {
@@ -86,7 +86,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
               setCopied(true)
               setCopyError('')
             } catch {
-              setCopyError('복사하지 못했습니다. 문안을 직접 선택해 복사해 주세요.')
+              setCopyError('복사하지 못했어요. 글을 길게 눌러 복사해 주세요')
             }
           }} />
           {!NOT_SENT.has(kind) && <Button label="문자 앱으로 열기" href={`sms:?&body=${encodeURIComponent(text)}`} />}

@@ -63,16 +63,16 @@ export default function App() {
     <VStack gap={3}>
       <HStack hAlign="between" vAlign="center">
         <Heading level={1}>Reeper</Heading>
-        {saved && <Button variant="ghost" label="새 사건 시작" isDisabled={busy}
+        {saved && <Button variant="ghost" label="새로 시작" isDisabled={busy}
           onClick={() => saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
       </HStack>
       {saved && confirmReset && (
         <Card>
           <VStack gap={3}>
-            <Heading level={2}>지금 사건을 지울까요?</Heading>
-            <Text as="p">기록은 이 브라우저에만 있어서 지우면 되돌릴 수 없어요. 남겨 두려면 아래 '사건 파일 내보내기'에서 먼저 저장하세요.</Text>
+            <Heading level={2}>지금 기록을 지울까요?</Heading>
+            <Text as="p">이 브라우저에만 있어서 되돌릴 수 없어요. 남기려면 아래 '기록 저장'을 먼저 하세요</Text>
             <HStack gap={2} wrap="wrap">
-              <Button label="계속 진행" variant="primary" onClick={() => setConfirmReset(false)} />
+              <Button label="계속하기" variant="primary" onClick={() => setConfirmReset(false)} />
               <Button label="지우고 새로 시작" onClick={reset} />
             </HStack>
           </VStack>
@@ -104,26 +104,27 @@ export default function App() {
       {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
       <JourneyProgress current={handedOff && c.agreed_amount != null ? 5 : phase} />
       <HStack gap={2} wrap="wrap">
-        <Button label="계산 근거 보기" variant={showEvidence ? 'primary' : 'ghost'}
+        <Button label="계산 근거" variant={showEvidence ? 'primary' : 'ghost'}
           isDisabled={busy} onClick={() => setEvidenceStage(c.stage)} />
-        <Button label={phase === 3 ? '말할 준비' : phase === 5 ? '입금 추적' : handedOff ? '1372 상담' : '답변 대응'}
+        <Button label={phase === 3 ? '알리기' : phase === 5 ? '입금' : handedOff ? '1372 상담' : '답장'}
           variant={showEvidence ? 'ghost' : 'primary'} isDisabled={busy} onClick={() => setEvidenceStage(null)} />
       </HStack>
 
       {showEvidence && <Evidence c={c} rules={rules} />}
 
       {!showEvidence && <>
+      {/* 지금 할 일 한 문장과 받을 돈을 한 카드에 둔다. 따로 있던 요약 카드·안내 배너·기한 줄을 합쳤다 */}
       <Card>
-        <HStack hAlign="between" vAlign="center" wrap="wrap">
-          <Text weight="semibold">{c.contract.gym_name || '내 회원권'} · {STAGE[c.stage]}</Text>
-          <Text weight="semibold">{won(c.agreed_amount ?? c.refund.refund)}</Text>
-        </HStack>
+        <VStack gap={2}>
+          <Text type="supporting">{c.contract.gym_name || '내 회원권'} · {STAGE[c.stage]}</Text>
+          <Heading level={2}>{action.reason}</Heading>
+          <Text type="display-3">{won(c.agreed_amount ?? c.refund.refund)}</Text>
+          <DeadlineLine c={c} offset={saved.offset} />
+        </VStack>
       </Card>
-      <Banner status={action.warn ? 'warning' : c.stage === 'closed' ? 'success' : 'info'} collapsible={false}
-        title={action.warn ? `제시액 ${won(c.offered ?? 0)}은 최저 수용선 ${won(c.floor)}보다 적습니다` : action.reason}
-        description={action.warn ? action.reason : undefined} />
-
-      <DeadlineLine c={c} offset={saved.offset} />
+      {action.warn && (
+        <Banner status="warning" collapsible={false} title={`업체가 말한 ${won(c.offered ?? 0)}은 거절 기준 ${won(c.floor)}보다 적어요`} />
+      )}
 
       <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>

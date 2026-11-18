@@ -12,8 +12,8 @@ export function DeadlineLine({ c, offset }: { c: Case; offset: number }) {
   const rest = left > 0 ? `${left}일 남음` : left === 0 ? '오늘까지' : `기한이 ${-left}일 지났어요`
   return (
     <VStack gap={1}>
-      <Text weight="semibold">{waiting ? '답변 기한' : '입금 기한'} {koDate(date)} · {rest}</Text>
-      <Text type="supporting">서비스가 정한 기다림 기준이에요. 법정 기한이 아니에요.</Text>
+      <Text weight="semibold">{waiting ? '답장 기한' : '입금 기한'} {koDate(date)} · {rest}</Text>
+      <Text type="supporting">Reeper가 정한 기한이에요(법정 기한 아님)</Text>
     </VStack>
   )
 }

@@ -7,11 +7,11 @@ export function RealityNote({ demo }: { demo: boolean }) {
   return (
     <Card variant="muted">
       <VStack gap={2}>
-        <Heading level={3}>{demo ? '이 화면에서 실제로 되는 것과 시연용인 것' : '이 화면이 하는 일과 하지 않는 일'}</Heading>
-        <Text as="p"><b>실제로 되는 것</b> · 환불액 계산(해지 통보가 닿은 날의 포함 여부, 원 단위 끝전, 월 단위 개월 수는 아직 확인 중), 보낼 문안과 통화 준비 카드 만들기, 기한 추적, 사건 파일 내보내기</Text>
-        {demo && <Text as="p"><b>시연용</b> · 사장 답 버튼, 날짜 건너뛰기</Text>}
-        <Text as="p"><b>하지 않는 일</b> · 문자 발송, 전화, 통화 듣기. 보내고 말하는 건 사용자가 해요.</Text>
-        <Text type="supporting">데이터는 이 브라우저에만 저장돼요.</Text>
+        <Heading level={3}>{demo ? 'Reeper가 하는 일과 시연용' : 'Reeper가 하는 일'}</Heading>
+        <Text as="p"><b>하는 일</b> · 환불액 계산, 보낼 문자와 통화 대본, 기한 알림, 기록 저장</Text>
+        {demo && <Text as="p"><b>시연용</b> · 사장 답 버튼, 날짜 넘기기</Text>}
+        <Text as="p"><b>안 하는 일</b> · 문자 보내기, 전화 걸기. 보내고 말하는 건 직접 해요</Text>
+        <Text type="supporting">계산 일부(통보한 날 포함 여부, 끝전, 개월 수)는 아직 확인 중이에요. 기록은 이 브라우저에만 있고 서버로 보내지 않아요</Text>
       </VStack>
     </Card>
   )

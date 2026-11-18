@@ -1,7 +1,6 @@
 import { Button } from '@astryxdesign/core/Button'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
-import { Text } from '@astryxdesign/core/Text'
 import { TextInput } from '@astryxdesign/core/TextInput'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useState } from 'react'
@@ -32,19 +31,18 @@ export function ReplyButtons({ send, text = '' }: { send: Send; text?: string })
   const invalid = amount !== '' && parsed === null
   return (
     <VStack gap={2}>
-      <Heading level={4}>버튼으로 고르기</Heading>
+      <Heading level={4}>업체가 뭐라고 했나요?</Heading>
       <HStack gap={2} wrap="wrap">
         {CHOICES.map(({ type, label }) => (
           <Button key={type} label={label} onClick={() => send({ type: 'reply_received', reply_type: type, text: text.trim() || label })} />
         ))}
       </HStack>
-      <TextInput label="제시한 금액(원)" value={amount} onChange={setAmount} inputMode="numeric"
-        status={invalid ? { type: 'error', message: '0보다 큰 정수만 적어 주세요.' } : undefined} />
-      <HStack><Button label="금액을 제시했어요" isDisabled={parsed === null}
+      <TextInput label="업체가 말한 금액(원)" value={amount} onChange={setAmount} inputMode="numeric"
+        status={invalid ? { type: 'error', message: '0보다 큰 숫자만 적어 주세요' } : undefined} />
+      <HStack><Button label="금액을 말했어요" isDisabled={parsed === null}
         onClick={async () => {
           if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: text.trim() || '금액을 제시했어요' })) setAmount('')
         }} /></HStack>
-      {parsed === null && !invalid && <Text type="supporting">금액을 제시했다면 위 칸에 숫자만 적어 주세요.</Text>}
     </VStack>
   )
 }

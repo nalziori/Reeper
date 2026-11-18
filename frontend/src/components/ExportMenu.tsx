@@ -22,7 +22,7 @@ export function ExportMenu({ c, rules }: { c: Case; rules: Rules }) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   return (
-    <Fold title="사건 파일 내보내기" summary="요약이나 보관용 파일로 저장해요. 서버로 보내지 않아요">
+    <Fold title="기록 저장" summary="지금까지 한 일을 글이나 파일로 남겨요">
       <VStack gap={3}>
         <HStack gap={2} wrap="wrap">
           <Button label={copied ? '복사됨' : '요약 복사'} onClick={async () => {
@@ -32,12 +32,12 @@ export function ExportMenu({ c, rules }: { c: Case; rules: Rules }) {
               setCopyError('')
             } catch {
               setCopied(false)
-              setCopyError('복사하지 못했습니다. 요약 파일로 저장해 주세요.')
+              setCopyError('복사하지 못했어요. 파일로 저장해 주세요')
             }
           }} />
-          <Button label="요약 파일 저장(.txt)" onClick={() =>
+          <Button label="글 파일로 저장(.txt)" onClick={() =>
             save(buildSummary(c, rules), fileName(c, 'txt'), 'text/plain;charset=utf-8')} />
-          <Button label="보관용 파일 저장(.json)" onClick={() =>
+          <Button label="백업 파일로 저장(.json)" onClick={() =>
             save(buildJson(c), fileName(c, 'json'), 'application/json;charset=utf-8')} />
         </HStack>
         {copyError && <Text as="p" role="alert">{copyError}</Text>}
