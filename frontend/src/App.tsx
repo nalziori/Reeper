@@ -56,6 +56,9 @@ export default function App() {
   // 사건은 이 브라우저에만 있어서 지우면 되돌릴 수 없다. 끝나지 않은 사건은 한 번 더 묻는다
   const [confirmReset, setConfirmReset] = useState(false)
   const reset = () => { setConfirmReset(false); setSettlement(''); setEvidenceStage(null); keep(null) }
+  // 단계가 바뀌거나 근거 보기를 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 진행 표시와 새 단계 안내가 가려진다
+  const view = saved ? `${journeyPhase(saved.step.case.stage)}:${evidenceStage === saved.step.case.stage}` : 'intake'
+  useEffect(() => { window.scrollTo({ top: 0 }) }, [view])
   const header = (
     <VStack gap={3}>
       <HStack hAlign="between" vAlign="center">

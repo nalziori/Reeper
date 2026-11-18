@@ -1,12 +1,11 @@
 import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useState } from 'react'
 import type { Case, Rules } from '../api'
 import { buildJson, buildSummary, fileName } from '../exportCase'
+import { Fold } from './Fold'
 
 function save(text: string, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }))
@@ -23,10 +22,8 @@ export function ExportMenu({ c, rules }: { c: Case; rules: Rules }) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   return (
-    <Card>
+    <Fold title="사건 파일 내보내기" summary="요약이나 보관용 파일로 저장해요. 서버로 보내지 않아요">
       <VStack gap={3}>
-        <Heading level={3}>사건 파일 내보내기</Heading>
-        <Text as="p">내 브라우저에서만 만들어지고 서버로 보내지 않아요.</Text>
         <HStack gap={2} wrap="wrap">
           <Button label={copied ? '복사됨' : '요약 복사'} onClick={async () => {
             try {
@@ -45,6 +42,6 @@ export function ExportMenu({ c, rules }: { c: Case; rules: Rules }) {
         </HStack>
         {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>
-    </Card>
+    </Fold>
   )
 }
