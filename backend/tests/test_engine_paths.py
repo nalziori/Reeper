@@ -258,3 +258,25 @@ def test_low_offer_after_max_counters_still_warns_and_good_offer_can_be_confirme
     assert f.step(type="reply_received", reply_type="low_offer", amount=floor - 1) == "certified_mail" and f.warn
     target = f.res["case"]["target"]
     assert f.step(type="reply_received", reply_type="low_offer", amount=target) == "confirm_agreement"
+
+
+def test_guidance_is_polite_and_dates_have_no_leading_zero():
+    """다음 행동의 reason은 화면 맨 위 안내로 그대로 보인다. 다른 화면 문구와 같이 해요체로 쓰고, 날짜에 0을 붙이지 않는다."""
+    from app.engine import next_action
+    from app.models import Case
+    seen = []
+    f = Flow()
+    seen.append(f.res["action"]["reason"])
+    f.step(type="notice_sent", channel="sms")
+    seen.append(f.res["action"]["reason"])
+    for days in (WAIT + 1, 0):
+        f.step(days=days, type="time_passed")
+        seen.append(f.res["action"]["reason"])
+    f.step(type="reply_received", reply_type="refuse")
+    seen.append(f.res["action"]["reason"])
+    f.step(type="reply_received", reply_type="low_offer", amount=100_000)
+    seen.append(f.res["action"]["reason"])
+    assert all(not r.endswith("다") for r in seen), seen
+    waiting = Case.model_validate(Flow().res["case"]).model_copy(
+        update={"stage": "waiting", "deadline_on": date(2027, 1, 5), "notified_on": D})
+    assert next_action(waiting, date(2027, 1, 2)).reason.startswith("1월 5일까지")
