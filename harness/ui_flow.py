@@ -118,7 +118,11 @@ def full_flow(browser, base, tag, viewport):
     btn(page, "입금을 확인했어요").wait_for()
     rec(f"{tag}: 입금 기한 표시", page.get_by_text(re.compile("입금 기한 ")).count() >= 1)
     page.screenshot(path=SHOTS / f"{tag}-6-agreed.png", full_page=True)
-    # 내보내기(접혀 있어 먼저 펼친다)
+    # 위 막대는 내려도 붙어 있다
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    rec(f"{tag}: 위 막대 고정", page.evaluate("Math.round(document.querySelector('.app-bar').getBoundingClientRect().top)") == 0)
+    # 내보내기는 '기록' 탭에 있고 접혀 있어 먼저 펼친다
+    page.get_by_role("tab", name="기록").click()
     page.get_by_text("기록 저장", exact=True).first.click()
     with page.expect_download() as dl:
         btn(page, "글 파일로 저장").click()
@@ -130,6 +134,7 @@ def full_flow(browser, base, tag, viewport):
         btn(page, "백업 파일로 저장").click()
     rec(f"{tag}: 보관용 JSON 저장", dj.value.suggested_filename.endswith(".json"), dj.value.suggested_filename)
     rec(f"{tag}: 실제/모의 구분 카드", page.get_by_text("Reeper가 하는 일과 시연용").count() == 1)
+    page.get_by_role("tab", name="진행").click()
     btn(page, "입금을 확인했어요").click()
     page.get_by_text("환불금을 받았어요").wait_for()
     elapsed = time.time() - t0
