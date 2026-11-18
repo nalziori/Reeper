@@ -12,6 +12,7 @@ import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
+import { FaultSummary } from '../components/FaultSummary'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
@@ -36,7 +37,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   // 해지 이유. 위약금 공제는 업체 잘못이 없는 해지가 전제라(docs/환불_규칙.md) 업체 잘못이면 이 계산을 쓰지 않는다
   // 업종. 위약금 기준(총계약대금의 10%)이 고시에서 확인된 것은 헬스·피트니스업과 요가·필라테스업뿐이다(docs/환불_규칙.md)
   const [industry, setIndustry] = useState<'fitness' | 'yoga' | 'other'>('fitness')
-  const [reason, setReason] = useState<'mine' | 'business'>('mine')
+  const [reason, setReason] = useState<'mine' | 'business' | 'unsure'>('mine')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
@@ -158,12 +159,13 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         {industryCard}
         <Card>
           <RadioList label="해지하려는 이유" description="이유에 따라 위약금을 빼는지가 달라져요" value={reason}
-            onChange={(v) => setReason(v as 'mine' | 'business')} isDisabled={busy}>
+            onChange={(v) => setReason(v as 'mine' | 'business' | 'unsure')} isDisabled={busy}>
             <RadioListItem value="mine" label="내 사정이에요(이사, 건강, 마음이 바뀜 등)" />
             <RadioListItem value="business" label="업체 잘못이에요(시설 운영 중단, 약속한 강사·프로그램 불이행 등)" />
+            <RadioListItem value="unsure" label="잘 모르겠어요(강사가 바뀌었는데 계약서에 강사 지정이 없는 경우 등)" />
           </RadioList>
         </Card>
-        {reason === 'business' ? (
+        {reason === 'business' ? (<>
           <Card>
             <VStack gap={2}>
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
@@ -171,7 +173,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담을 신청하세요. 계약서와 업체 잘못을 보여 주는 자료(공지 사진, 문자 등)를 함께 준비하면 좋아요.</Text>
             </VStack>
           </Card>
-        ) : (<>
+          <FaultSummary c={contract} />
+        </>) : (<>
+        {reason === 'unsure' && (
+          <Banner status="info" collapsible={false} title="업체 잘못인지 애매하면 문자를 보내기 전에 '상황에 맞춘 대응 전략'에 상황을 먼저 적어 보세요. 확인할 것과 모을 자료를 알려 줘요. 그래도 애매하면 1372에 문의하세요" />
+        )}
         <Card>
           <VStack gap={2}>
             <Heading level={2}>예상 환불액</Heading>
@@ -202,7 +208,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         </>)}
         <HStack gap={2} wrap="wrap">
           <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-          {reason === 'mine' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
+          {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
         </HStack>
       </VStack>
     )

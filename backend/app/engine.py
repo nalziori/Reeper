@@ -37,9 +37,9 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
     elif event.type == "deposit_confirmed":
         allowed = stage == "agreed"
     elif event.type == "escalation_sent":
-        allowed = stage == "waiting" and next_action(case, today).type == "certified_mail"
+        allowed = stage in ("waiting", "negotiating") and next_action(case, today).type == "certified_mail"
     elif event.type == "handoff_done":
-        allowed = stage in ("waiting", "escalated") and next_action(case, today).type == "go_1372"
+        allowed = stage in ("waiting", "escalated", "negotiating") and next_action(case, today).type == "go_1372"
     else:
         allowed = event.type == "time_passed"
 
@@ -153,6 +153,16 @@ def next_action(case: Case, today: date) -> Action:
             return Action(type="follow_up", reason="답변 기한이 지났다")
         return Action(type="certified_mail", reason="재요청에도 답이 없다")
     if c.stage == "negotiating":
+        if c.last_reply == "low_offer" and c.offered is not None and c.offered >= c.target:
+            return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
+        # 반박을 정한 횟수만큼 보냈는데도 받아들이지 않으면 반박을 되풀이하지 않고 내용증명, 그다음 1372로 간다
+        counters = sum(r.type == "counter_sent" for r in c.timeline)
+        if counters >= POLICY["max_counters"]:
+            # 수용선보다 적은 제시액이면 넘어가는 단계에서도 경고는 그대로 띄운다(완료 기준)
+            low = c.last_reply == "low_offer" and c.offered is not None and c.offered < c.floor
+            if any(r.type == "escalation_sent" for r in c.timeline):
+                return Action(type="go_1372", reason="내용증명 뒤에도 받아들이지 않는다", warn=low)
+            return Action(type="certified_mail", reason=f"반박을 {counters}번 보냈는데도 받아들이지 않는다", warn=low)
         if c.last_reply == "low_offer" and c.offered is not None:
             if c.offered < c.floor:
                 return Action(type="counter", reason="제시액이 최저 수용선보다 적다", warn=True)

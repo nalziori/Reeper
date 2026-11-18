@@ -7,9 +7,11 @@ import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
 import { TextArea } from '@astryxdesign/core/TextArea'
 import { VStack } from '@astryxdesign/core/VStack'
+import { useEffect, useRef } from 'react'
+import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
 import { ReplyButtons } from '../components/ReplyButtons'
-import { won } from '../format'
+import { REPLY_LABEL, won } from '../format'
 import type { Saved, Send } from '../useCase'
 
 type Props = {
@@ -20,11 +22,45 @@ type Props = {
   settlement: string
   setSettlement: (value: string) => void
   autoReadOff: boolean
+  read: (ReadReply & { text: string }) | null
+  readNote: string
+  reading: boolean
+  readReply: (text: string) => Promise<void>
+  clearRead: () => void
+}
+
+// 읽은 결과를 보여 주고 사용자가 확정해야 기록한다. 자동 판단이 곧바로 합의 같은 단계를 만들지 않게 한다
+function ReadConfirm({ read, onConfirm, onReject }: { read: ReadReply & { text: string }; onConfirm: () => void; onReject: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => { ref.current?.scrollIntoView({ block: 'nearest' }) }, [read])
+  const quote = read.text.length > 60 ? `${read.text.slice(0, 60)}…` : read.text
+  return (
+    <div ref={ref}>
+      <Card variant="muted">
+        <VStack gap={2}>
+          <Heading level={4}>이렇게 읽었어요. 맞나요?</Heading>
+          <Text type="supporting">“{quote}”</Text>
+          <Text weight="semibold">{REPLY_LABEL[read.reply_type]}{read.amount != null ? ` · 제시 금액 ${won(read.amount)}` : ''}</Text>
+          {read.llm_fallback && <Text type="supporting">자동으로 읽지 못해 키워드로 판단했어요. 틀리기 쉬우니 꼭 확인해 주세요</Text>}
+          <HStack gap={2} wrap="wrap">
+            <Button variant="primary" label="맞아요, 기록할게요" onClick={onConfirm} />
+            <Button label="아니에요, 직접 고를게요" onClick={onReject} />
+          </HStack>
+        </VStack>
+      </Card>
+    </div>
+  )
 }
 
 // stage가 waiting, negotiating, escalated일 때: 문안, 기록 버튼, 답장 입력. handed_off일 때: 1372 상담 뒤 합의 금액 기록
-export function Respond({ saved, send, reply, setReply, settlement, setSettlement, autoReadOff }: Props) {
+export function Respond({ saved, send, reply, setReply, settlement, setSettlement, autoReadOff, read, readNote, reading, readReply, clearRead }: Props) {
   const { case: c, action, drafts } = saved.step
+  // 답장을 기록하면 붙여넣은 칸과 읽은 결과를 비운다
+  const sendReply: Send = async (event, patch, opts) => {
+    const ok = await send(event, patch, opts)
+    if (ok) { setReply(''); clearRead() }
+    return ok
+  }
   const settlementAmount = Number(settlement)
   return (
     <>
@@ -56,17 +92,21 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
               {autoReadOff && (
                 <>
                   <Banner status="info" collapsible={false} title="자동 읽기를 쓸 수 없어요. 아래 버튼으로 골라 주세요" />
-                  <ReplyButtons send={send} />
+                  <ReplyButtons send={sendReply} text={reply} />
                 </>
               )}
               <TextArea label="업체 답장이나 통화 내용" description="받은 문자를 붙여넣거나, 통화에서 들은 말을 적어 주세요."
                 value={reply} onChange={setReply} maxLength={500} />
-              <HStack><Button label="답장 읽기" isDisabled={!reply.trim()} onClick={async () => {
-                if (await send({ type: 'reply_received', text: reply })) {
-                  setReply((current) => current === reply ? '' : current)
-                }
-              }} /></HStack>
-              {!autoReadOff && <ReplyButtons send={send} />}
+              <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isDisabled={!reply.trim() || reading}
+                onClick={() => void readReply(reply)} /></HStack>
+              {readNote && <Text type="supporting" role="status">{readNote}</Text>}
+              {read && (
+                <ReadConfirm read={read}
+                  onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
+                    ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
+                  onReject={clearRead} />
+              )}
+              {!autoReadOff && <ReplyButtons send={sendReply} text={reply} />}
             </>
           )}
         </VStack>

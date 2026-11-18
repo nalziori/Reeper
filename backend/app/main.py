@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from . import agent
 from .agent import drafts_for
 from .engine import InvalidTransition, apply, next_action, open_case, validate_transition
-from .models import Action, Analysis, Case, Contract, Event, Extracted, Refund, Strategy
+from .models import Action, Analysis, Case, Contract, Event, Extracted, Refund, ReplyType, Strategy
 from .rules import DATA, RULES, calculate
 
 # 요청 본문 상한(바이트). 입력 길이 제한이다. JSON 사건 요청은 이보다 훨씬 작다.
@@ -90,6 +90,20 @@ class StepRequest(BaseModel):
     case: Case
     event: Event
     today: date
+    # 사용자가 확정한 답장 유형(event.reply_type)과 함께 붙여넣은 원문(event.text)을 보낼 때, 원문으로 참고용 분석을 할지.
+    # 확정 전 읽기가 키워드 대체였다면 화면이 거짓으로 보낸다(LLM이 안 될 때 다시 부르지 않는다)
+    analyze: bool = False
+
+
+class ReadRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)  # 서버는 앞 500자만 읽는다(agent.MAX_REPLY)
+
+
+class ReadResponse(BaseModel):
+    """답장을 읽은 결과. 사건을 바꾸지 않는다. 화면이 사용자에게 보여 주고 확정받은 뒤 /api/cases/step으로 보낸다."""
+    reply_type: ReplyType
+    amount: int | None = None
+    llm_fallback: bool = False  # 실제 LLM이 실패하거나 없어서 키워드로 판단했다
 
 
 class StrategyRequest(BaseModel):
@@ -209,6 +223,13 @@ def extract_contract(req: ExtractRequest) -> ExtractResponse:
     return ExtractResponse(fields=fields, llm_fallback=failed)
 
 
+@app.post("/api/replies/read")
+def read_reply(req: ReadRequest) -> ReadResponse:
+    """붙여넣은 답장을 읽기만 한다. 단계는 사용자가 결과를 확정한 뒤에 바뀐다(LLM이 사건 단계를 바꾸지 않는다)."""
+    reply_type, amount, fallback = agent.read_reply(req.text)
+    return ReadResponse(reply_type=reply_type, amount=amount, llm_fallback=fallback)
+
+
 @app.post("/api/cases/step")
 def step(req: StepRequest) -> StepResponse:
     event, fallback, reply = req.event, False, ""
@@ -220,6 +241,8 @@ def step(req: StepRequest) -> StepResponse:
             reply_type, amount, fallback = agent.read_reply(reply)
             event = event.model_copy(update={"reply_type": reply_type,
                                              "amount": amount if event.amount is None else event.amount})
+        elif event.type == "reply_received" and req.analyze and event.text:
+            reply = event.text  # 사용자가 확정한 유형으로 전이하고, 원문은 참고용 분석에만 쓴다
         case = apply(req.case, event, req.today)
     except InvalidTransition as exc:
         raise HTTPException(409, str(exc)) from exc

@@ -1,6 +1,6 @@
 // 사건을 보관하는 브라우저 저장소 키. 사건은 서버가 아니라 이 브라우저에만 있다.
 export const STORAGE_KEY = 'reeper.case'
-import type { Step } from './api'
+import type { ReplyType, Step } from './api'
 
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 export const isoDate = (offset: number) => {
@@ -31,6 +31,12 @@ export const DRAFT: Record<string, string> = {
 // 시연 조작(사장 답, 날짜 건너뛰기)은 개발 서버이거나 주소에 ?demo가 있을 때만 보인다. 실제 사용자에게는 숨긴다.
 export const DEMO = import.meta.env.DEV || new URLSearchParams(window.location.search).has('demo')
 // 시연용: 심사위원이 사장 역할로 던져 볼 답
+// 답장 유형을 사용자에게 보여 줄 이름. 버튼 이름과 같게 둔다
+export const REPLY_LABEL: Record<ReplyType, string> = {
+  accept: '환불해 준대요', low_offer: '금액을 제시했대요', refuse: '환불이 안 된대요', list_price: '정상가로 계산한대요',
+  visit: '방문해야 한대요', no_answer: '전화를 안 받아요', callback: '다시 연락 준대요', unknown: '잘 모르겠어요',
+}
+
 export const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만원만 드릴게요', '이벤트 상품은 환불 불가입니다',
   '정상가 기준으로 차감합니다', '방문하셔야 처리됩니다']
 

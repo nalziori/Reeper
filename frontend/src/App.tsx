@@ -6,7 +6,7 @@ import { HStack } from '@astryxdesign/core/HStack'
 import { Text } from '@astryxdesign/core/Text'
 import { VStack } from '@astryxdesign/core/VStack'
 import { useEffect, useState } from 'react'
-import { api, type Health, type Rules, type Step } from './api'
+import { api, type Health, type ReadReply, type Rules, type Step } from './api'
 import { DeadlineLine } from './components/DeadlineLine'
 import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
@@ -31,6 +31,22 @@ export default function App() {
   const [settlement, setSettlement] = useState('')
   const [evidenceStage, setEvidenceStage] = useState<Step['case']['stage'] | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
+  // 붙여넣은 답장을 읽은 결과. 사용자가 확정하기 전에는 사건을 바꾸지 않는다.
+  // 읽을 때의 사건(step)을 같이 둔다. 사건이 바뀌면(기록, 날짜 경과, 새 사건) 확정 전 결과는 보이지 않는다
+  type Reading = { step: Step | undefined; result: (ReadReply & { text: string }) | null; note: string }
+  const [reading, setReading] = useState<Reading & { busy: boolean }>({ step: undefined, result: null, note: '', busy: false })
+  const readReply = async (text: string) => {
+    const at = saved?.step
+    setReading({ step: at, result: null, note: '', busy: true })
+    try {
+      setReading({ step: at, result: { text, ...(await api.readReply(text)) }, note: '', busy: false })
+    } catch {
+      setReading({ step: at, result: null, note: '답장을 읽지 못했어요. 아래 버튼으로 골라 주세요', busy: false })
+    }
+  }
+  const current = reading.step === saved?.step
+  const read = current ? reading.result : null
+  const readNote = current ? reading.note : ''
   // 근거 이름을 못 불러와도 화면은 id로 계속 쓴다.
   useEffect(() => { api.rules().then(setRules).catch(() => setRules({})) }, [])
   // 상태를 못 불러와도 화면은 그대로 동작한다.
@@ -93,10 +109,13 @@ export default function App() {
       <ReplyReading step={saved.step} rules={rules} />
       {phase === 3 &&<Prepare saved={saved} send={send} />}
       {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
-        settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff} />}
+        settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff}
+        read={read} readNote={readNote} reading={reading.busy} readReply={readReply}
+        clearRead={() => setReading((r) => ({ ...r, result: null }))} />}
       {phase === 5 && <Deposit saved={saved} send={send} />}
       {(phase === 3 || phase === 4) && !handedOff && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
-      {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send} />}
+      {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send}
+        ownerSays={(t) => { setReply(t); void readReply(t) }} />}
       </VStack>
       </fieldset>
       </PolishContext.Provider>

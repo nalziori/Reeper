@@ -25,8 +25,8 @@ const parseAmount = (v: string): number | null => {
   return Number.isSafeInteger(n) && n > 0 ? n : null
 }
 
-// LLM 없이도 답장을 기록하는 버튼 묶음. 서버에는 유형과 라벨만 보낸다.
-export function ReplyButtons({ send }: { send: Send }) {
+// LLM 없이도 답장을 기록하는 버튼 묶음. 서버에는 유형과, 붙여넣은 원문이 있으면 원문(없으면 라벨)을 보낸다.
+export function ReplyButtons({ send, text = '' }: { send: Send; text?: string }) {
   const [amount, setAmount] = useState('')
   const parsed = parseAmount(amount)
   const invalid = amount !== '' && parsed === null
@@ -35,14 +35,14 @@ export function ReplyButtons({ send }: { send: Send }) {
       <Heading level={4}>버튼으로 고르기</Heading>
       <HStack gap={2} wrap="wrap">
         {CHOICES.map(({ type, label }) => (
-          <Button key={type} label={label} onClick={() => send({ type: 'reply_received', reply_type: type, text: label })} />
+          <Button key={type} label={label} onClick={() => send({ type: 'reply_received', reply_type: type, text: text.trim() || label })} />
         ))}
       </HStack>
       <TextInput label="제시한 금액(원)" value={amount} onChange={setAmount} inputMode="numeric"
         status={invalid ? { type: 'error', message: '0보다 큰 정수만 적어 주세요.' } : undefined} />
       <HStack><Button label="금액을 제시했어요" isDisabled={parsed === null}
         onClick={async () => {
-          if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: '금액을 제시했어요' })) setAmount('')
+          if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: text.trim() || '금액을 제시했어요' })) setAmount('')
         }} /></HStack>
       {parsed === null && !invalid && <Text type="supporting">금액을 제시했다면 위 칸에 숫자만 적어 주세요.</Text>}
     </VStack>
