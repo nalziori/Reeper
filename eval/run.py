@@ -33,13 +33,14 @@ def load(paths=None) -> list[dict]:
 
 
 def score(rows: list[dict]) -> dict:
-    """한 건씩 읽혀 유형과 제시액을 정답과 비교한다. 제시액은 정답이 low_offer인 건만 센다."""
+    """한 건씩 읽혀 유형과 제시액을 정답과 비교한다. 제시액은 정답이 low_offer인 건만 센다.
+    `also`가 있으면 그 유형으로 읽어도 맞은 것으로 센다(정답을 하나로 정하기 어려운 답, note에 이유)."""
     misses, fallbacks, by_type = [], 0, Counter()
     type_ok = amount_ok = amount_n = 0
     for r in rows:
         kind, amount, failed = agent.read_reply(r["text"])
         fallbacks += failed
-        ok_t = kind == r["reply_type"]
+        ok_t = kind == r["reply_type"] or kind in r.get("also", [])
         type_ok += ok_t
         by_type[(r["reply_type"], ok_t)] += 1
         ok_a = True
