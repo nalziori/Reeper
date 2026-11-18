@@ -315,11 +315,11 @@ def facts(case: Case) -> dict[str, str]:
         "addon_part": f", 부가상품 {r.addon:,}원" if r.addon else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": f", 보증금 {r.security_deposit:,}원 포함" if r.security_deposit else "",
-        "start": f"{c.start_date:%Y년 %m월 %d일}",
-        "notified": f"{case.notified_on:%Y년 %m월 %d일}" if case.notified_on else "오늘",
+        "start": _ymd(c.start_date),
+        "notified": _ymd(case.notified_on) if case.notified_on else "오늘",
         "offered": f"{case.offered:,}" if case.offered is not None else "",
         "agreed": f"{case.agreed_amount:,}" if case.agreed_amount is not None else "",
-        "due": f"{case.deposit_due_on:%m월 %d일}" if case.deposit_due_on else "",
+        "due": f"{case.deposit_due_on.month}월 {case.deposit_due_on.day}일" if case.deposit_due_on else "",
         # 일부만 들어왔으면 독촉 문자에 받은 금액과 남은 금액을 적는다
         "paid_part": (f"{case.deposited:,}원만 들어왔습니다. 남은 {case.agreed_amount - case.deposited:,}원의"
                       if case.deposited and case.agreed_amount else "아직 확인되지 않습니다."),
@@ -328,6 +328,11 @@ def facts(case: Case) -> dict[str, str]:
         "deposited": f"{case.deposited:,}" if case.deposited else "",
         "left": f"{case.agreed_amount - case.deposited:,}" if case.deposited and case.agreed_amount else "",
     }
+
+
+def _ymd(d: date) -> str:
+    """문안에 쓰는 날짜. %m월 %d일은 "01월 05일"처럼 0이 붙어서 쓰지 않는다."""
+    return f"{d.year}년 {d.month}월 {d.day}일"
 
 
 def _history(case: Case) -> str:
