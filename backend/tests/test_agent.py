@@ -345,6 +345,19 @@ def test_drafts_after_a_partial_deposit_pass_validate():
     assert "아직 확인되지 않습니다" in agent.render("remind_deposit", nothing) and agent.validate(agent.render("remind_deposit", nothing), nothing)
 
 
+def test_draft_dates_have_no_leading_zero():
+    """1~9월, 1~9일도 "2027년 1월 5일", "1월 8일까지"로 쓴다. 날짜가 바뀌어도 검사는 통과한다."""
+    early = date(2027, 1, 5)
+    contract = CONTRACT.model_copy(update={"start_date": date(2027, 1, 2), "end_date": date(2027, 4, 1)})
+    case = open_case(contract, early).model_copy(update={"stage": "agreed", "notified_on": early, "agreed_amount": 500_000,
+                                                          "deposit_due_on": date(2027, 1, 8)})
+    assert agent.facts(case)["start"] == "2027년 1월 2일" and agent.facts(case)["notified"] == "2027년 1월 5일"
+    assert agent.render("remind_deposit", case).startswith("1월 8일까지")
+    for kind in ("remind_deposit", "go_1372", "counter_refuse"):
+        text = agent.render(kind, case)
+        assert "01월" not in text and "05일" not in text and agent.validate(text, case), kind
+
+
 @pytest.mark.parametrize("text", [
     "법적 조치를 하겠다고 말하세요.", "고발하겠다고 하세요.", "손해배상을 청구하세요.", "경찰에 알리세요.",
     "시행규칙에 따라 받아야 합니다.", "대법원 판결에 따르면 됩니다.", "표준약관에 어긋납니다.",
