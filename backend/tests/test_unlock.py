@@ -21,11 +21,11 @@ def test_locked_by_default_and_unlocked_with_the_secret(real, monkeypatch):
     client = TestClient(app)
     assert which(client) == "FakeLLM"  # 비밀값 없이 들어오면 가짜 LLM
 
-    assert client.get("/unlock/s3cret").status_code == 200  # 리다이렉트를 따라가 앱이 뜬다
+    assert client.get("/unlock/s3cret", follow_redirects=False).status_code == 303  # 빌드된 화면이 없는 CI에서는 /가 404라 따라가지 않는다
     assert which(client) == "OpenAILLM"  # 쿠키가 생긴 뒤에는 실제 LLM
 
     wrong = TestClient(app)
-    assert wrong.get("/unlock/nope").status_code == 200
+    assert wrong.get("/unlock/nope", follow_redirects=False).status_code == 303
     assert which(wrong) == "FakeLLM"  # 틀린 값은 쿠키를 심지 않는다
 
 
@@ -37,5 +37,5 @@ def test_no_unlock_key_means_everyone_uses_the_real_llm(real, monkeypatch):
 def test_without_a_real_key_it_stays_fake(monkeypatch):
     monkeypatch.setenv("UNLOCK_KEY", "s3cret")  # 실제 키가 없으면 비밀값이 있어도 가짜 LLM뿐이다
     client = TestClient(app)
-    client.get("/unlock/s3cret")
+    client.get("/unlock/s3cret", follow_redirects=False)
     assert which(client) == "FakeLLM"
