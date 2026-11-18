@@ -397,3 +397,13 @@ def test_extract_blanks_absurd_values_and_keeps_the_name_on_one_line(real, monke
 ])
 def test_keyword_reading_does_not_accept_non_cash_or_caveated_replies(text, kind):
     assert agent.FAKE.read_reply(text) == (kind, None)
+
+
+@pytest.mark.parametrize("text, kind", [
+    ("회원님 이벤트 상품이라 환불은 어렵고 양도만 가능합니다", "refuse"),  # 사용자 흐름 점검에서 unknown으로 읽혀 반박 대신 '확인 후 연락'이 나갔다
+    ("환불해 드리기 어렵습니다", "refuse"), ("본사 규정상 어렵네요", "refuse"), ("법대로 하세요", "refuse"), ("소비자원이든 어디든 알아서 하세요", "refuse"),
+    ("남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다", "refuse"),
+    ("이용권 확인 후 연락드릴게요", "unknown"),  # 알아보겠다는 답은 현금 아닌 낱말이 있어도 거절로 보지 않는다
+])
+def test_keyword_reading_catches_refusals_without_the_word_impossible(text, kind):
+    assert agent.FAKE.read_reply(text) == (kind, None)
