@@ -290,9 +290,21 @@ def test_score_reports_risk_and_interval(monkeypatch):
     s = run.score(rows)
     assert s["risk"] == {"high": 1, "mid": 0, "safe": 1}
     assert s["safe_share"] == 0.5 and abs(s["high_rate"] - 1 / 3) < 1e-9
-    assert s["confusion"]["refuse->accept"] == 1 and s["confusion"]["refuse->refuse"] == 1
+    assert s["confusion"] == {"refuse->accept": 1, "visit->unknown": 1}  # 맞은 건은 세지 않는다
     lo, hi = s["type_ci"]
     assert lo < 1 / 3 < hi
     assert run.wilson(0, 0) == (0.0, 0.0)
     lo, hi = run.wilson(98, 100)
     assert 0.92 < lo < 0.94 and 0.99 < hi < 1.0  # #97 계획의 "약 93~99.5%"
+
+
+def test_amount_on_a_non_offer_and_also_and_perfect(monkeypatch):
+    """A 리뷰(#102): 유형이 맞아도 제시가 아닌 답에 금액이 붙으면 위험 오답, also로 맞은 건은 오답·혼동에 없음, 만점이면 safe_share 없음."""
+    answers = {"r": ("refuse", 200000, False), "m": ("callback", None, False)}
+    monkeypatch.setattr(agent, "read_reply", lambda text: answers[text])
+    s = run.score([{"id": "x1", "text": "r", "reply_type": "refuse", "amount": None},
+                   {"id": "x2", "text": "m", "reply_type": "list_price", "amount": None, "also": ["callback"]}])
+    assert [m["id"] for m in s["misses"]] == ["x1"] and s["misses"][0]["risk"] == "high"
+    assert s["confusion"] == {"refuse->refuse": 1}
+    perfect = run.score([{"id": "x2", "text": "m", "reply_type": "list_price", "amount": None, "also": ["callback"]}])
+    assert perfect["misses"] == [] and perfect["safe_share"] is None and perfect["confusion"] == {}

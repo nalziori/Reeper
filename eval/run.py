@@ -40,7 +40,7 @@ def risk(r: dict, kind: str, amount: int | None) -> str:
     """틀린 한 건의 위험 등급. 위에서부터 처음 걸리는 것을 쓴다(docs/어려운_답장_작업_분담.md C1).
     high: 수용이 아닌데 accept(금액 없는 accept는 예상 환불액으로 합의된다, engine.py),
           제시가 아닌데 금액을 읽음, 금액을 틀리게 읽음(수용선 경고와 반박 금액이 틀어진다)
-    safe: unknown(사용자가 직접 고른다)
+    safe: unknown(합의·수용선 경고를 만들지 않는다. 합의는 accept와 반박 뒤 합의뿐, engine.apply)
     mid:  나머지. 유형끼리 혼동, low_offer인데 금액을 못 읽음(사용자가 금액을 넣는다)"""
     want, allowed = r["reply_type"], {r["reply_type"], *r.get("also", [])}
     if kind == "accept" and "accept" not in allowed:
@@ -73,13 +73,13 @@ def score(rows: list[dict]) -> dict:
         ok_t = kind == r["reply_type"] or kind in r.get("also", [])
         type_ok += ok_t
         by_type[(r["reply_type"], ok_t)] += 1
-        confusion[(r["reply_type"], kind)] += 1
-        ok_a = True
+        ok_a = amount is None  # 제시가 아닌 답에 금액이 붙으면 틀림(위험)
         if r["reply_type"] == "low_offer":
             amount_n += 1
             ok_a = amount == r["amount"]
             amount_ok += ok_a
         if not (ok_t and ok_a):
+            confusion[(r["reply_type"], kind)] += 1
             level = risk(r, kind, amount)
             risks[level] += 1
             misses.append({"id": r["id"], "want": [r["reply_type"], r["amount"]], "got": [kind, amount], "risk": level})
@@ -90,7 +90,7 @@ def score(rows: list[dict]) -> dict:
             "high_rate": risks["high"] / len(rows) if rows else 0.0,
             "high_ci": wilson(risks["high"], len(rows)),
             "safe_share": risks["safe"] / n_miss if n_miss else None,
-            "confusion": {f"{w}->{g}": c for (w, g), c in sorted(confusion.items())},
+            "confusion": {f"{w}->{g}": c for (w, g), c in sorted(confusion.items())},  # 틀린 건만
             "amount_n": amount_n, "amount_acc": amount_ok / amount_n if amount_n else 0.0,
             "fallbacks": fallbacks, "misses": misses,
             "per_type": {t: f"{by_type[(t, True)]}/{by_type[(t, True)] + by_type[(t, False)]}"
@@ -273,10 +273,8 @@ def main(argv=None) -> None:
     lo, hi = s["high_ci"]
     print(f"오류 {len(s['misses'])}건: " + ", ".join(f"{RISK_LABEL[k]} {v}" for k, v in s["risk"].items())
           + f"  위험 오류율 {s['high_rate']:.1%} ({lo:.1%}~{hi:.1%})  안전하게 틀린 비율 {safe}")
-    wrong = sorted(((k, v) for k, v in s["confusion"].items() if k.split("->")[0] != k.split("->")[1]),
-                   key=lambda x: -x[1])
-    if wrong:
-        print("혼동(정답->응답):", ", ".join(f"{k} {v}" for k, v in wrong))
+    if s["confusion"]:
+        print("틀린 건(정답->응답):", ", ".join(f"{k} {v}" for k, v in sorted(s["confusion"].items(), key=lambda x: -x[1])))
     for m in s["misses"]:
         print(f"  틀림 {m['id']} [{RISK_LABEL[m['risk']]}]: 정답 {m['want']} / 응답 {m['got']}")
 
