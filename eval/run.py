@@ -13,6 +13,7 @@ import base64
 import os
 import re
 import json
+import math
 import sys
 from collections import Counter
 from datetime import date
@@ -32,10 +33,39 @@ def load(paths=None) -> list[dict]:
     return rows
 
 
+RISK_LABEL = {"high": "위험", "mid": "중간", "safe": "안전"}
+
+
+def risk(r: dict, kind: str, amount: int | None) -> str:
+    """틀린 한 건의 위험 등급. 위에서부터 처음 걸리는 것을 쓴다(docs/어려운_답장_작업_분담.md C1).
+    high: 수용이 아닌데 accept(금액 없는 accept는 예상 환불액으로 합의된다, engine.py),
+          제시가 아닌데 금액을 읽음, 금액을 틀리게 읽음(수용선 경고와 반박 금액이 틀어진다)
+    safe: unknown(합의·수용선 경고를 만들지 않는다. 합의는 accept와 반박 뒤 합의뿐, engine.apply)
+    mid:  나머지. 유형끼리 혼동, low_offer인데 금액을 못 읽음(사용자가 금액을 넣는다)"""
+    want, allowed = r["reply_type"], {r["reply_type"], *r.get("also", [])}
+    if kind == "accept" and "accept" not in allowed:
+        return "high"
+    if amount is not None and (want != "low_offer" or amount != r["amount"]):
+        return "high"
+    if kind == "unknown":
+        return "safe"
+    return "mid"
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """비율 k/n의 95% Wilson 신뢰구간."""
+    if not n:
+        return 0.0, 0.0
+    p = k / n
+    mid = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return max(0.0, mid - half), min(1.0, mid + half)
+
+
 def score(rows: list[dict]) -> dict:
     """한 건씩 읽혀 유형과 제시액을 정답과 비교한다. 제시액은 정답이 low_offer인 건만 센다.
     `also`가 있으면 그 유형으로 읽어도 맞은 것으로 센다(정답을 하나로 정하기 어려운 답, note에 이유)."""
-    misses, fallbacks, by_type = [], 0, Counter()
+    misses, fallbacks, by_type, confusion, risks = [], 0, Counter(), Counter(), Counter()
     type_ok = amount_ok = amount_n = 0
     for r in rows:
         kind, amount, failed = agent.read_reply(r["text"])
@@ -43,14 +73,24 @@ def score(rows: list[dict]) -> dict:
         ok_t = kind == r["reply_type"] or kind in r.get("also", [])
         type_ok += ok_t
         by_type[(r["reply_type"], ok_t)] += 1
-        ok_a = True
+        ok_a = amount is None  # 제시가 아닌 답에 금액이 붙으면 틀림(위험)
         if r["reply_type"] == "low_offer":
             amount_n += 1
             ok_a = amount == r["amount"]
             amount_ok += ok_a
         if not (ok_t and ok_a):
-            misses.append({"id": r["id"], "want": [r["reply_type"], r["amount"]], "got": [kind, amount]})
+            confusion[(r["reply_type"], kind)] += 1
+            level = risk(r, kind, amount)
+            risks[level] += 1
+            misses.append({"id": r["id"], "want": [r["reply_type"], r["amount"]], "got": [kind, amount], "risk": level})
+    n_miss = len(misses)
     return {"n": len(rows), "type_acc": type_ok / len(rows) if rows else 0.0,
+            "type_ci": wilson(type_ok, len(rows)),
+            "risk": {k: risks[k] for k in RISK_LABEL},
+            "high_rate": risks["high"] / len(rows) if rows else 0.0,
+            "high_ci": wilson(risks["high"], len(rows)),
+            "safe_share": risks["safe"] / n_miss if n_miss else None,
+            "confusion": {f"{w}->{g}": c for (w, g), c in sorted(confusion.items())},  # 틀린 건만
             "amount_n": amount_n, "amount_acc": amount_ok / amount_n if amount_n else 0.0,
             "fallbacks": fallbacks, "misses": misses,
             "per_type": {t: f"{by_type[(t, True)]}/{by_type[(t, True)] + by_type[(t, False)]}"
@@ -227,8 +267,16 @@ def main(argv=None) -> None:
     print(f"모델: {type(agent.llm).__name__}  답장 {s['n']}건")
     print(f"유형 정답률 {s['type_acc']:.1%}  제시액 정답률 {s['amount_acc']:.1%} ({s['amount_n']}건)  대체 {s['fallbacks']}건")
     print("유형별:", ", ".join(f"{t} {v}" for t, v in s["per_type"].items()))
+    lo, hi = s["type_ci"]
+    print(f"유형 정답률 95% 신뢰구간(Wilson) {lo:.1%}~{hi:.1%}")
+    safe = f"{s['safe_share']:.1%}" if s["safe_share"] is not None else "N/A"
+    lo, hi = s["high_ci"]
+    print(f"오류 {len(s['misses'])}건: " + ", ".join(f"{RISK_LABEL[k]} {v}" for k, v in s["risk"].items())
+          + f"  위험 오류율 {s['high_rate']:.1%} ({lo:.1%}~{hi:.1%})  안전하게 틀린 비율 {safe}")
+    if s["confusion"]:
+        print("틀린 건(정답->응답):", ", ".join(f"{k} {v}" for k, v in sorted(s["confusion"].items(), key=lambda x: -x[1])))
     for m in s["misses"]:
-        print(f"  틀림 {m['id']}: 정답 {m['want']} / 응답 {m['got']}")
+        print(f"  틀림 {m['id']} [{RISK_LABEL[m['risk']]}]: 정답 {m['want']} / 응답 {m['got']}")
 
 
 if __name__ == "__main__":

@@ -114,6 +114,7 @@ def full_flow(browser, base, tag, viewport):
     btn(page, "사장: 네 알겠습니다 환불해 드릴게요").click()
     page.get_by_text("이렇게 읽었어요. 맞나요?").wait_for()
     rec(f"{tag}: 사장 답 읽은 결과 표시", page.get_by_text("환불해 준대요", exact=True).count() >= 1)
+    rec(f"{tag}: 수용 확정 전 합의 금액 안내", page.get_by_text(re.compile("기록하면 .+원으로 합의하고")).count() == 1)
     btn(page, "맞아요, 기록할게요").click()
     btn(page, "입금을 확인했어요").wait_for()
     rec(f"{tag}: 입금 기한 표시", page.get_by_text(re.compile("입금 기한 ")).count() >= 1)
@@ -181,7 +182,10 @@ def limit_flow(browser, base):
     btn(page, "답장 읽기").click()
     page.get_by_text("낱말로 짐작했어요").first.wait_for()
     rec(f"{tag}: 읽기 실패 경고(키워드 대체)", True)
-    btn(page, "맞아요, 기록할게요").click()
+    # 키워드로 읽은 수용은 바로 확정하지 못하고, 버튼으로 직접 고른다
+    rec(f"{tag}: 키워드 수용은 확정 버튼 없음", btn(page, "맞아요, 기록할게요").count() == 0
+        and page.get_by_text("환불 여부와 금액은 원문을 보고").count() == 1)
+    btn(page, "환불해 준대요").click()
     btn(page, "입금을 확인했어요").click()
     page.get_by_text("환불금을 받았어요").wait_for()
     rec(f"{tag}: 버튼으로 종결", True)
