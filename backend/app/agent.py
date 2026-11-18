@@ -43,7 +43,9 @@ class FakeLLM:
                  "단,", "따로", "별도")
     NOT_CASH = ("적립금", "포인트", "양도", "연장", "홀딩", "이용권", "쿠폰", "명의 변경", "옮겨 드")  # 현금 환불이 아닌 제안은 거절로 본다(eval/README.md 판정 기준)
     # 환불을 하지 않겠다는 말. "환불해 드리기 어렵습니다"처럼 수용 낱말이 섞여도 거절이 먼저다
-    REFUSE = ("불가", "안 돼", "안돼", "안 됩니다", "어렵", "곤란", "못 돌려", "법대로", "알아서 하", "드릴 말씀 없")
+    REFUSE = ("불가", "안 돼", "안돼", "안 됩니다", "못 돌려", "법대로", "알아서 하", "드릴 말씀 없")
+    # "어렵다"는 환불이나 규정을 두고 한 말일 때만 거절이다. "통화가 어렵습니다", "지금 바로는 어렵고 다음 주에 환불해 드릴게요"는 아니다
+    SOFT_REFUSE = re.compile(r"(?:환불|규정상)[^.,!?\n]{0,12}?(?:어렵|곤란|안 ?되)(?!지 않)")
 
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
@@ -53,10 +55,11 @@ class FakeLLM:
             amount = int(m.group(1).replace(",", ""))
         if amount is not None:
             return "low_offer", amount
-        for words, kind in ((("정상가", "정가"), "list_price"), (("방문", "오셔", "와서"), "visit"),
-                            (self.REFUSE, "refuse"),
-                            (("알겠", "해드릴", "환불해", "처리해"), "accept")):
-            if any(w in text for w in words):
+        has = lambda words: any(w in text for w in words)  # noqa: E731
+        for found, kind in ((has(("정상가", "정가")), "list_price"), (has(("방문", "오셔", "와서")), "visit"),
+                            (has(self.REFUSE) or bool(self.SOFT_REFUSE.search(text)), "refuse"),
+                            (has(("알겠", "해드릴", "환불해", "처리해")), "accept")):
+            if found:
                 # 수용은 바로 합의로 이어진다. 미루는 말이나 조건이 섞이면 수용으로 보지 않는다
                 if kind == "accept" and any(w in text for w in self.NOT_CASH):
                     return "refuse", None
@@ -65,8 +68,9 @@ class FakeLLM:
                 if kind == "accept" and any(w in text for w in self.CONDITION):
                     return "unknown", None
                 return kind, None
-        # "양도만 가능합니다"처럼 수용 낱말 없이 현금 아닌 것만 내놓아도 거절이다. 알아보겠다는 답은 그대로 둔다
-        if any(w in text for w in self.NOT_CASH) and not any(w in text for w in self.DEFER):
+        # "양도만 가능합니다"처럼 환불 얘기 없이 현금 아닌 것만 내놓아도 거절이다.
+        # 환불을 함께 말하거나("환불 처리 기간 연장 양해", "홀딩도 되고 환불도 됩니다") 알아보겠다는 답은 그대로 둔다
+        if has(self.NOT_CASH) and "환불" not in text and not has(self.DEFER):
             return "refuse", None
         return "unknown", None
 

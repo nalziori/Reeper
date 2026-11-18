@@ -401,9 +401,14 @@ def test_keyword_reading_does_not_accept_non_cash_or_caveated_replies(text, kind
 
 @pytest.mark.parametrize("text, kind", [
     ("회원님 이벤트 상품이라 환불은 어렵고 양도만 가능합니다", "refuse"),  # 사용자 흐름 점검에서 unknown으로 읽혀 반박 대신 '확인 후 연락'이 나갔다
-    ("환불해 드리기 어렵습니다", "refuse"), ("본사 규정상 어렵네요", "refuse"), ("법대로 하세요", "refuse"), ("소비자원이든 어디든 알아서 하세요", "refuse"),
+    ("환불해 드리기 어렵습니다", "refuse"), ("본사 규정상 어렵네요", "refuse"), ("중도 환불은 안 되고 다른 분께 양도만 가능합니다", "refuse"), ("법대로 하세요", "refuse"), ("소비자원이든 어디든 알아서 하세요", "refuse"),
     ("남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다", "refuse"),
     ("이용권 확인 후 연락드릴게요", "unknown"),  # 알아보겠다는 답은 현금 아닌 낱말이 있어도 거절로 보지 않는다
+    # "어렵다"가 환불을 두고 한 말이 아니면 거절이 아니다
+    ("오늘은 통화가 어렵습니다", "unknown"), ("확인해 보고 연락드릴게요. 지금은 답하기 어렵네요", "unknown"),
+    ("지금 바로는 어렵고 다음 주에 환불해 드릴게요", "accept"),
+    # 환불을 함께 말하면 현금 아닌 낱말만으로 거절로 보지 않는다
+    ("환불 처리 기간 연장 양해 부탁드립니다", "unknown"), ("홀딩도 되고 환불도 됩니다", "unknown"),
 ])
 def test_keyword_reading_catches_refusals_without_the_word_impossible(text, kind):
     assert agent.FAKE.read_reply(text) == (kind, None)
