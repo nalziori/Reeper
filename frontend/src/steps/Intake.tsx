@@ -245,10 +245,13 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           </Collapsible>
         </Card>
         </>)}
-        <HStack gap={2} wrap="wrap">
-          <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-          {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
-        </HStack>
+        {/* 근거를 다 읽지 않아도 시작할 수 있게 화면 아래에 붙여 둔다 */}
+        <div className="action-dock">
+          <HStack gap={2} wrap="wrap">
+            <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
+            {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
+          </HStack>
+        </div>
       </VStack>
     )
   }

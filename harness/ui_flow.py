@@ -69,6 +69,11 @@ def full_flow(browser, base, tag, viewport):
     call_heading.wait_for()
     rec(f"{tag}: 전화로 고르면 통화 카드와 전화 기록 버튼", page.get_by_role("heading", name="문자로 보낼 문안").count() == 0
         and btn(page, "전화로 말했어요").count() == 1 and btn(page, "문자로 보냈어요").count() == 0)
+    # 긴 통화 카드를 내리지 않아도 기록 버튼이 화면 안에 있다(하단 고정 행동 바)
+    page.evaluate("window.scrollTo(0, 0)")
+    box = btn(page, "전화로 말했어요").bounding_box()
+    rec(f"{tag}: 맨 위에서도 기록 버튼이 화면 안", box is not None and 0 <= box["y"] and box["y"] + box["height"] <= page.viewport_size["height"],
+        f"y={round(box['y']) if box else '없음'} / {page.viewport_size['height']}")
     card = page.locator(".draft-section").first.locator("xpath=ancestor::*[self::div][1]").inner_text()
     musts = [m for m in MUSTS if m not in card]
     rec(f"{tag}: 통화 카드 꼭 말할 다섯 가지", not musts, "빠짐: " + ", ".join(musts) if musts else "")
