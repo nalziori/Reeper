@@ -16,7 +16,7 @@ import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
-import { DEMO, STAGE, journeyPhase, won } from './format'
+import { DEMO, STAGE, isoDate, journeyPhase, won } from './format'
 import { Deposit } from './steps/Deposit'
 import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
@@ -53,11 +53,29 @@ export default function App() {
   useEffect(() => { api.health().then(setHealth).catch(() => setHealth(null)) }, [])
   const autoReadOff = health !== null && (health.llm === 'FakeLLM' || health.calls_left <= 0)
 
+  // 사건은 이 브라우저에만 있어서 지우면 되돌릴 수 없다. 끝나지 않은 사건은 한 번 더 묻는다
+  const [confirmReset, setConfirmReset] = useState(false)
+  const reset = () => { setConfirmReset(false); setSettlement(''); setEvidenceStage(null); keep(null) }
   const header = (
-    <HStack hAlign="between" vAlign="center">
-      <Heading level={1}>Reeper</Heading>
-      {saved && <Button variant="ghost" label="새 사건 시작" onClick={() => { setSettlement(''); setEvidenceStage(null); keep(null) }} />}
-    </HStack>
+    <VStack gap={3}>
+      <HStack hAlign="between" vAlign="center">
+        <Heading level={1}>Reeper</Heading>
+        {saved && <Button variant="ghost" label="새 사건 시작" isDisabled={busy}
+          onClick={() => saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
+      </HStack>
+      {saved && confirmReset && (
+        <Card>
+          <VStack gap={3}>
+            <Heading level={2}>지금 사건을 지울까요?</Heading>
+            <Text as="p">기록은 이 브라우저에만 있어서 지우면 되돌릴 수 없어요. 남겨 두려면 아래 '사건 파일 내보내기'에서 먼저 저장하세요.</Text>
+            <HStack gap={2} wrap="wrap">
+              <Button label="계속 진행" variant="primary" onClick={() => setConfirmReset(false)} />
+              <Button label="지우고 새로 시작" onClick={reset} />
+            </HStack>
+          </VStack>
+        </Card>
+      )}
+    </VStack>
   )
   if (!saved) {
     return (
@@ -80,7 +98,8 @@ export default function App() {
       {error && <Banner status="error" title={error} collapsible={false} />}
 
       {/* 근거를 다시 볼 때도 진행 표시는 지금 단계에 둔다 */}
-      <JourneyProgress current={phase} />
+      {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
+      <JourneyProgress current={handedOff && c.agreed_amount != null ? 5 : phase} />
       <HStack gap={2} wrap="wrap">
         <Button label="계산 근거 보기" variant={showEvidence ? 'primary' : 'ghost'}
           isDisabled={busy} onClick={() => setEvidenceStage(c.stage)} />
@@ -120,7 +139,7 @@ export default function App() {
       </fieldset>
       </PolishContext.Provider>
 
-      <Timeline c={c} />
+      <Timeline c={c} today={isoDate(saved.offset)} />
       <ExportMenu c={c} rules={rules} />
       <RealityNote demo={DEMO} />
       </>}

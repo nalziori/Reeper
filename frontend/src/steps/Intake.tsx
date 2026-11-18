@@ -26,6 +26,15 @@ const EXTRAS = ['unit', 'total_count', 'special_terms', 'addon_value', 'security
 
 const CHECK = { type: 'warning' as const, message: '사진에서 읽은 값이에요. 계약서와 같은지 확인해 주세요' }
 
+// DateInput이 받아들이지 않은 날짜의 안내. 컴포넌트 기본 문구는 영어라 한국어로 바꿔 보여 준다
+type EntryError = Parameters<NonNullable<ComponentProps<typeof DateInput>['onEntryErrorChange']>>[0]
+const entryMessage = (e: EntryError, min?: string) => !e ? undefined : {
+  type: 'error' as const,
+  message: e.kind === 'outOfRange' && min ? `이용 시작일(${min})과 같거나 늦은 날짜를 적어 주세요`
+    : e.kind === 'nonexistent' ? '없는 날짜예요. 다시 확인해 주세요'
+    : '연도-월-일 모양으로 적어 주세요(예: 2026-11-18)',
+}
+
 type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
 
 export function Intake({ onConfirm, rules, upload }: Props) {
@@ -43,6 +52,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [photoNote, setPhotoNote] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
   const [checks, setChecks] = useState<Set<ExtractField>>(new Set())
+  const [startError, setStartError] = useState<EntryError>(null)
+  const [endError, setEndError] = useState<EntryError>(null)
   const edit = (field: ExtractField, next: Contract) => {
     setC(next)
     setChecks((prev) => { const s = new Set(prev); s.delete(field); return s })
@@ -255,11 +266,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             onChange={(v) => edit('total_paid', { ...c, total_paid: Number(v.replace(/\D/g, '')) })}
             status={checks.has('total_paid') ? CHECK : undefined} />
           <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)}
-            onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })}
-            status={checks.has('start_date') ? CHECK : undefined} />
+            onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
+            status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
           <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)}
-            onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })}
-            status={checks.has('end_date') ? CHECK : undefined} />
+            onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
+            status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
           <ContractExtras c={c} isDisabled={busy} statusOf={(f) => checks.has(f) ? CHECK : undefined}
             onChange={(next) => {
               setC(next)
