@@ -15,7 +15,7 @@ body {
 }
 
 .draft-section {
-  display: inline-block;
+  display: block;
   margin-top: 0.25em;
 }
 
