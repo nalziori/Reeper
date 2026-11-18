@@ -88,7 +88,7 @@ def test_objections_get_a_counter():
     for text, kind in (("이벤트 상품은 환불 불가입니다", "counter_refuse"),
                        ("정상가 기준으로 차감합니다", "counter_list_price"),
                        ("방문하셔야 처리됩니다", "counter_visit"),
-                       ("본사 규정상 어렵네요", "counter_unknown")):
+                       ("그 부분은 좀 애매하네요", "counter_unknown")):
         f = Flow()
         f.step(type="notice_sent", channel="sms")
         assert f.step(type="reply_received", text=text) == "counter"

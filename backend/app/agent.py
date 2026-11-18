@@ -41,7 +41,11 @@ class FakeLLM:
     DEFER = ("검토", "확인 후", "확인해 보", "확인하고", "알아보", "전달", "연락드리", "연락 드리", "전화드리", "나중에")
     CONDITION = ("빼고", "제하고", "제외", "공제", "차감", "위약금", "수수료", "%", "퍼센트", "대신", "다만", "근데", "그런데", "하지만",
                  "단,", "따로", "별도")
-    NOT_CASH = ("적립금", "포인트", "양도", "연장", "홀딩", "이용권", "쿠폰")  # 현금 환불이 아닌 제안은 거절로 본다(eval/README.md 판정 기준)
+    NOT_CASH = ("적립금", "포인트", "양도", "연장", "홀딩", "이용권", "쿠폰", "명의 변경", "옮겨 드")  # 현금 환불이 아닌 제안은 거절로 본다(eval/README.md 판정 기준)
+    # 환불을 하지 않겠다는 말. "환불해 드리기 어렵습니다"처럼 수용 낱말이 섞여도 거절이 먼저다
+    REFUSE = ("불가", "안 돼", "안돼", "안 됩니다", "못 돌려", "법대로", "알아서 하", "드릴 말씀 없")
+    # "어렵다"는 환불이나 규정을 두고 한 말일 때만 거절이다. "통화가 어렵습니다", "지금 바로는 어렵고 다음 주에 환불해 드릴게요"는 아니다
+    SOFT_REFUSE = re.compile(r"(?:환불|규정상)[^.,!?\n]{0,12}?(?:어렵|곤란|안 ?되)(?!지 않)")
 
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
@@ -51,10 +55,11 @@ class FakeLLM:
             amount = int(m.group(1).replace(",", ""))
         if amount is not None:
             return "low_offer", amount
-        for words, kind in ((("정상가", "정가"), "list_price"), (("방문", "오셔", "와서"), "visit"),
-                            (("불가", "안 돼", "안돼", "안 됩니다"), "refuse"),
-                            (("알겠", "해드릴", "환불해", "처리해"), "accept")):
-            if any(w in text for w in words):
+        has = lambda words: any(w in text for w in words)  # noqa: E731
+        for found, kind in ((has(("정상가", "정가")), "list_price"), (has(("방문", "오셔", "와서")), "visit"),
+                            (has(self.REFUSE) or bool(self.SOFT_REFUSE.search(text)), "refuse"),
+                            (has(("알겠", "해드릴", "환불해", "처리해")), "accept")):
+            if found:
                 # 수용은 바로 합의로 이어진다. 미루는 말이나 조건이 섞이면 수용으로 보지 않는다
                 if kind == "accept" and any(w in text for w in self.NOT_CASH):
                     return "refuse", None
@@ -63,6 +68,10 @@ class FakeLLM:
                 if kind == "accept" and any(w in text for w in self.CONDITION):
                     return "unknown", None
                 return kind, None
+        # "양도만 가능합니다"처럼 환불 얘기 없이 현금 아닌 것만 내놓아도 거절이다.
+        # 환불을 함께 말하거나("환불 처리 기간 연장 양해", "홀딩도 되고 환불도 됩니다") 알아보겠다는 답은 그대로 둔다
+        if has(self.NOT_CASH) and "환불" not in text and not has(self.DEFER):
+            return "refuse", None
         return "unknown", None
 
     def polish(self, text: str, tone: str) -> str:
@@ -318,7 +327,8 @@ def facts(case: Case) -> dict[str, str]:
 def _history(case: Case) -> str:
     """1372 상담 신청의 경과 한 줄. 실제로 지나온 길만 적는다."""
     sent = {r.type for r in case.timeline}
-    if case.stage == "agreed" and case.agreed_amount is not None:
+    # 합의 뒤 입금이 안 돼 1372에 접수한 뒤에도 같은 경과를 적는다(접수 기록만으로 합의·입금 사실이 빠지지 않게)
+    if case.stage in ("agreed", "handed_off") and case.agreed_amount is not None:
         got = f"{case.deposited:,}원만 받음" if case.deposited else "입금받지 못함"
         return f"{case.agreed_amount:,}원에 합의했으나 입금 기한이 지나도록 {got}"
     if "escalation_sent" in sent:
