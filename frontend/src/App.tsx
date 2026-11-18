@@ -16,7 +16,7 @@ import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
-import { DEMO, STAGE, isoDate, journeyPhase, won } from './format'
+import { DEMO, PAGE_WIDTH, STAGE, isoDate, journeyPhase, won } from './format'
 import { Deposit } from './steps/Deposit'
 import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
@@ -82,7 +82,7 @@ export default function App() {
   )
   if (!saved) {
     return (
-      <VStack gap={4} padding={4} maxWidth={640} className="page">
+      <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page">
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
         <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
@@ -96,7 +96,7 @@ export default function App() {
   // 1372에 넘긴 뒤에는 상담 결과(합의 금액)만 기록한다. 전략과 날짜 조작은 쓸 일이 없다.
   const handedOff = c.stage === 'handed_off'
   return (
-    <VStack gap={4} padding={4} maxWidth={640} className="page">
+    <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page">
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 
