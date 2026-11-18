@@ -29,11 +29,16 @@ type Props = {
   clearRead: () => void
 }
 
-// 읽은 결과를 보여 주고 사용자가 확정해야 기록한다. 자동 판단이 곧바로 합의 같은 단계를 만들지 않게 한다
-function ReadConfirm({ read, onConfirm, onReject }: { read: ReadReply & { text: string }; onConfirm: () => void; onReject: () => void }) {
+// 읽은 결과를 보여 주고 사용자가 확정해야 기록한다. 자동 판단이 곧바로 합의 같은 단계를 만들지 않게 한다.
+// 수용·금액 제시는 잘못 읽으면 합의 금액과 수용선 경고가 틀어지므로 원문을 다 보여 주고, 수용은 확정하면 생기는 일을 적는다.
+// 키워드 판단은 이 둘을 자주 잘못 읽어서(평가에서 틀린 건 대부분이 금액) 미리 고른 값을 확정하지 못하게 하고 버튼으로 고르게 한다
+function ReadConfirm({ read, refund, onConfirm, onReject }:
+  { read: ReadReply & { text: string }; refund: number; onConfirm: () => void; onReject: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.scrollIntoView({ block: 'nearest' }) }, [read])
-  const quote = read.text.length > 60 ? `${read.text.slice(0, 60)}…` : read.text
+  const risky = read.reply_type === 'accept' || read.reply_type === 'low_offer'
+  const quote = !risky && read.text.length > 60 ? `${read.text.slice(0, 60)}…` : read.text
+  const keywordOnly = read.llm_fallback && risky
   return (
     <div ref={ref}>
       <Card variant="muted">
@@ -41,10 +46,15 @@ function ReadConfirm({ read, onConfirm, onReject }: { read: ReadReply & { text: 
           <Heading level={4}>이렇게 읽었어요. 맞나요?</Heading>
           <Text type="supporting">“{quote}”</Text>
           <Text weight="semibold">{REPLY_LABEL[read.reply_type]}{read.amount != null ? ` · 제시 금액 ${won(read.amount)}` : ''}</Text>
-          {read.llm_fallback && <Text type="supporting">자동으로 읽지 못해 키워드로 판단했어요. 틀리기 쉬우니 꼭 확인해 주세요</Text>}
+          {read.reply_type === 'accept' && !keywordOnly && (
+            <Text type="supporting">기록하면 {won(refund)}에 합의한 것으로 보고 입금 기한을 잡아요</Text>
+          )}
+          {keywordOnly
+            ? <Text type="supporting">자동으로 읽지 못해 키워드로 판단했어요. 환불 여부와 금액은 키워드로 정하지 않으니, 원문을 보고 아래 버튼으로 골라 주세요</Text>
+            : read.llm_fallback && <Text type="supporting">자동으로 읽지 못해 키워드로 판단했어요. 틀리기 쉬우니 꼭 확인해 주세요</Text>}
           <HStack gap={2} wrap="wrap">
-            <Button variant="primary" label="맞아요, 기록할게요" onClick={onConfirm} />
-            <Button label="아니에요, 직접 고를게요" onClick={onReject} />
+            {!keywordOnly && <Button variant="primary" label="맞아요, 기록할게요" onClick={onConfirm} />}
+            <Button label={keywordOnly ? '닫기' : '아니에요, 직접 고를게요'} onClick={onReject} />
           </HStack>
         </VStack>
       </Card>
@@ -101,7 +111,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
                 onClick={() => void readReply(reply)} /></HStack>
               {readNote && <Text type="supporting" role="status">{readNote}</Text>}
               {read && (
-                <ReadConfirm read={read}
+                <ReadConfirm read={read} refund={c.refund.refund}
                   onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
                     ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
                   onReject={clearRead} />
