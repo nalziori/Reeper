@@ -45,7 +45,10 @@ class FakeLLM:
     # 환불을 하지 않겠다는 말. "환불해 드리기 어렵습니다"처럼 수용 낱말이 섞여도 거절이 먼저다
     REFUSE = ("불가", "안 돼", "안돼", "안 됩니다", "못 돌려", "법대로", "알아서 하", "드릴 말씀 없")
     # "어렵다"는 환불이나 규정을 두고 한 말일 때만 거절이다. "통화가 어렵습니다", "지금 바로는 어렵고 다음 주에 환불해 드릴게요"는 아니다
-    SOFT_REFUSE = re.compile(r"(?:환불|규정상)[^.,!?\n]{0,12}?(?:어렵|곤란|안 ?되)(?!지 않)")
+    # "환불이 어렵지는 않습니다", "환불이 안 되는 건 아닙니다"처럼 부정하는 말은 뺀다
+    SOFT_REFUSE = re.compile(r"(?:환불|규정상)[^.,!?\n]{0,12}?(?:어렵|곤란|안 ?되)(?!지 ?(?:는|도)? ?않|는 ?(?:건|게) ?아[니닙닌])")
+    # 환불을 해 준다는 말. 이 말이 있으면 현금 아닌 낱말이 섞여도 비현금 대체만 내놓은 답이 아니다
+    REFUND_OK = ("환불도", "환불 처리", "환불해", "환불 가능", "환불됩", "환불 됩")
 
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
@@ -68,9 +71,9 @@ class FakeLLM:
                 if kind == "accept" and any(w in text for w in self.CONDITION):
                     return "unknown", None
                 return kind, None
-        # "양도만 가능합니다"처럼 환불 얘기 없이 현금 아닌 것만 내놓아도 거절이다.
-        # 환불을 함께 말하거나("환불 처리 기간 연장 양해", "홀딩도 되고 환불도 됩니다") 알아보겠다는 답은 그대로 둔다
-        if has(self.NOT_CASH) and "환불" not in text and not has(self.DEFER):
+        # "양도만 가능합니다", "환불 대신 적립금으로 드리겠습니다"처럼 현금 아닌 것만 내놓아도 거절이다.
+        # 환불을 해 준다고 함께 말하거나("환불 처리 기간 연장 양해", "홀딩도 되고 환불도 됩니다") 알아보겠다는 답은 그대로 둔다
+        if has(self.NOT_CASH) and not has(self.REFUND_OK) and not has(self.DEFER):
             return "refuse", None
         return "unknown", None
 

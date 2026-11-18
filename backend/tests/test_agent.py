@@ -409,6 +409,11 @@ def test_keyword_reading_does_not_accept_non_cash_or_caveated_replies(text, kind
     ("지금 바로는 어렵고 다음 주에 환불해 드릴게요", "accept"),
     # 환불을 함께 말하면 현금 아닌 낱말만으로 거절로 보지 않는다
     ("환불 처리 기간 연장 양해 부탁드립니다", "unknown"), ("홀딩도 되고 환불도 됩니다", "unknown"),
+    # "환불"이 들어가도 비현금 대체만 내놓으면 거절이다(#81 추가분에서 unknown으로 바뀌었던 것)
+    ("환불 대신 적립금으로 드리겠습니다", "refuse"), ("환불 대신 포인트로 전환해 드릴 수 있어요", "refuse"),
+    ("환불 말고 양도만 가능합니다", "refuse"), ("환불은 안 해 드리고 기간 연장은 해 드릴게요", "refuse"),
+    # 환불을 부정하는 말을 다시 부정하면 거절이 아니다
+    ("환불이 어렵지는 않습니다", "unknown"), ("환불이 안 되는 건 아닙니다", "unknown"),
 ])
 def test_keyword_reading_catches_refusals_without_the_word_impossible(text, kind):
     assert agent.FAKE.read_reply(text) == (kind, None)
