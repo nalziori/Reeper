@@ -9,4 +9,12 @@
 | `ui_flow.py` | 빌드된 화면을 headless Chrome으로 데스크톱·모바일에서 종결까지 돌린다. 소요 시간, 가로 넘침, 파일 내보내기, 깨진 저장값 복구, 콘솔 오류를 확인하고 스크린샷을 남긴다 |
 | `run_all.sh` | 위 둘과 `pytest`, `npm run build`, `oxlint`를 차례로 돌린다 |
 
-브라우저 하니스는 `playwright`(Python)와 `/usr/bin/google-chrome`이 필요하다. 다른 경로면 `ui_flow.py`의 `executable_path`를 고친다.
+브라우저 하니스는 `playwright`(Python)와 Chrome이 필요하다. Chrome은 따로 받지 않고 깔린 것을 쓴다. 경로는 `CHROME` 환경변수로 넘기고, 없으면 `/usr/bin/google-chrome`이다.
+
+Windows(Git Bash)에서는 `run_all.sh`가 쓰는 `python3`, `.venv/bin/python`이 없을 수 있어 `ui_flow.py`를 직접 부른다.
+
+```
+backend/.venv/Scripts/python -m pip install playwright
+cd frontend && npm run build && cd ../harness
+CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe" ../backend/.venv/Scripts/python ui_flow.py [스크린샷 폴더]
+```

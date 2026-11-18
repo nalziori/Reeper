@@ -3,7 +3,8 @@ import { Button } from '@astryxdesign/core/Button'
 import { Card } from '@astryxdesign/core/Card'
 import { Heading } from '@astryxdesign/core/Heading'
 import { HStack } from '@astryxdesign/core/HStack'
-import { RadioList, RadioListItem } from '@astryxdesign/core/RadioList'
+import { Collapsible } from '@astryxdesign/core/Collapsible'
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl'
 import { DateInput } from '@astryxdesign/core/DateInput'
 import { Text } from '@astryxdesign/core/Text'
 import { TextInput } from '@astryxdesign/core/TextInput'
@@ -35,6 +36,13 @@ const entryMessage = (e: EntryError, min?: string) => !e ? undefined : {
     : '연도-월-일 모양으로 적어 주세요(예: 2026-11-18)',
 }
 
+// 고른 항목의 예시만 한 줄로 보여 준다. 선택지 이름은 짧게 두고 예시를 여기 둔다
+const INDUSTRY_HINT = { fitness: '헬스장, 피트니스, PT', yoga: '요가, 필라테스', other: '수영, 골프, 댄스, 학원 등' } as const
+const REASON_HINT = {
+  mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등',
+  unsure: '강사가 바뀌었는데 계약서에 강사 지정이 없는 경우 등',
+} as const
+
 type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
 
 export function Intake({ onConfirm, rules, upload }: Props) {
@@ -54,6 +62,9 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [checks, setChecks] = useState<Set<ExtractField>>(new Set())
   const [startError, setStartError] = useState<EntryError>(null)
   const [endError, setEndError] = useState<EntryError>(null)
+  const [limitsOpen, setLimitsOpen] = useState(false)
+  // 계약 입력과 근거 확인을 오가면 맨 위에서 시작한다
+  useEffect(() => { window.scrollTo({ top: 0 }) }, [preview === null])
   const edit = (field: ExtractField, next: Contract) => {
     setC(next)
     setChecks((prev) => { const s = new Set(prev); s.delete(field); return s })
@@ -134,22 +145,37 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       })
       onConfirm(step, today)
     })
+    // 업종과 해지 이유는 한 카드에 가로 선택으로 둔다. 둘 다 금액을 보여 줄지를 정하는 질문이다
     const industryCard = (
-      <Card>
-        <RadioList label="회원권 업종" description="업종에 따라 위약금 기준이 달라요" value={industry}
-          onChange={(v) => setIndustry(v as 'fitness' | 'yoga' | 'other')} isDisabled={busy}>
-          <RadioListItem value="fitness" label="헬스장·피트니스·PT" />
-          <RadioListItem value="yoga" label="요가·필라테스" />
-          <RadioListItem value="other" label="그 밖의 업종(수영, 골프, 댄스, 학원 등)" />
-        </RadioList>
-      </Card>
+      <VStack gap={2}>
+        <Text weight="semibold">회원권 업종</Text>
+        <SegmentedControl label="회원권 업종" layout="fill" size="sm" value={industry} isDisabled={busy}
+          onChange={(v) => setIndustry(v as 'fitness' | 'yoga' | 'other')}>
+          <SegmentedControlItem value="fitness" label="헬스장·PT" />
+          <SegmentedControlItem value="yoga" label="요가·필라테스" />
+          <SegmentedControlItem value="other" label="그 밖의 업종" />
+        </SegmentedControl>
+        <Text type="supporting">{INDUSTRY_HINT[industry]}. 업종에 따라 위약금 기준이 달라요</Text>
+      </VStack>
+    )
+    const reasonPicker = (
+      <VStack gap={2}>
+        <Text weight="semibold">해지하려는 이유</Text>
+        <SegmentedControl label="해지하려는 이유" layout="fill" size="sm" value={reason} isDisabled={busy}
+          onChange={(v) => setReason(v as 'mine' | 'business' | 'unsure')}>
+          <SegmentedControlItem value="mine" label="내 사정" />
+          <SegmentedControlItem value="business" label="업체 잘못" />
+          <SegmentedControlItem value="unsure" label="잘 모르겠어요" />
+        </SegmentedControl>
+        <Text type="supporting">{REASON_HINT[reason]}. 이유에 따라 위약금을 빼는지가 달라져요</Text>
+      </VStack>
     )
     if (industry === 'other') {
       // 기준을 확인하지 않은 업종이라 계산 금액·문안을 보여 주지 않고 사건도 열지 않는다
       return (
         <VStack gap={4}>
           <JourneyProgress current={2} />
-          {industryCard}
+          <Card>{industryCard}</Card>
           <Card>
             <VStack gap={2}>
               <Heading level={2}>이 업종은 계산 기준을 확인하지 않았어요</Heading>
@@ -167,14 +193,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       <VStack gap={4}>
         <JourneyProgress current={2} />
         {error && <Banner status="error" title={error} collapsible={false} />}
-        {industryCard}
         <Card>
-          <RadioList label="해지하려는 이유" description="이유에 따라 위약금을 빼는지가 달라져요" value={reason}
-            onChange={(v) => setReason(v as 'mine' | 'business' | 'unsure')} isDisabled={busy}>
-            <RadioListItem value="mine" label="내 사정이에요(이사, 건강, 마음이 바뀜 등)" />
-            <RadioListItem value="business" label="업체 잘못이에요(시설 운영 중단, 약속한 강사·프로그램 불이행 등)" />
-            <RadioListItem value="unsure" label="잘 모르겠어요(강사가 바뀌었는데 계약서에 강사 지정이 없는 경우 등)" />
-          </RadioList>
+          <VStack gap={4}>
+            {industryCard}
+            {reasonPicker}
+          </VStack>
         </Card>
         {reason === 'business' ? (<>
           <Card>
@@ -206,21 +229,29 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {refund.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액입니다. 실제 환불액은 달라질 수 있습니다.</Text>}
           </VStack>
         </Card>
+        {/* 비우면 예상 환불액을 쓰는 칸이라 대부분 건드리지 않는다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
         <Card>
-          <VStack gap={3}>
-            <Heading level={2}>협상 기준</Heading>
-            <Text type="supporting">비워 둔 금액에는 예상 환불액 {won(refund.refund)}을 사용합니다.</Text>
-            <TextInput label="목표 금액(원)" value={target} onChange={setTarget} inputMode="numeric"
-              isDisabled={busy} status={!targetValid ? { type: 'error', message: limitsError } : undefined} />
-            <TextInput label="최저 수용선(원)" value={floor} onChange={setFloor} inputMode="numeric"
-              isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
-          </VStack>
+          <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
+            trigger={<VStack gap={1}>
+              <Text weight="semibold">협상 기준(선택)</Text>
+              <Text type="supporting">비워 두면 예상 환불액을 목표로 써요</Text>
+            </VStack>}>
+            <VStack gap={3}>
+              <TextInput label="목표 금액(원)" value={target} onChange={setTarget} inputMode="numeric"
+                isDisabled={busy} status={!targetValid ? { type: 'error', message: limitsError } : undefined} />
+              <TextInput label="최저 수용선(원)" value={floor} onChange={setFloor} inputMode="numeric"
+                isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
+            </VStack>
+          </Collapsible>
         </Card>
         </>)}
-        <HStack gap={2} wrap="wrap">
-          <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-          {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
-        </HStack>
+        {/* 근거를 다 읽지 않아도 시작할 수 있게 화면 아래에 붙여 둔다 */}
+        <div className="action-dock">
+          <HStack gap={2} wrap="wrap">
+            <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
+            {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 기준으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
+          </HStack>
+        </div>
       </VStack>
     )
   }
@@ -236,41 +267,43 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract)} />)}
         </VStack>
       </Card>
-      {upload && (
-        <Card>
-          <VStack gap={3}>
-            <Heading level={2}>계약서 사진으로 입력</Heading>
-            {/* Astryx FileInput은 사진을 고르면 화면이 멈춰(2026-11-16, Edge) 네이티브 입력을 쓴다 */}
-            <label className="photo-input">
-              <span>계약서 사진</span>
-              <Text type="supporting">사진에서 읽은 값을 아래 입력 칸에 채워요. 사진은 읽은 뒤 저장하지 않아요</Text>
-              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
-                onChange={(e) => {
-                  const input = e.target
-                  const file = input.files?.[0]
-                  // 칸을 읽기 전에 비우면 파일을 못 읽고 멈추는 브라우저가 있어, 다 읽은 뒤에 비운다(같은 사진 다시 고르기용)
-                  if (file) void readPhoto(file).finally(() => { input.value = '' })
-                }} />
-            </label>
-            {busy && <Text type="supporting" role="status">사진을 읽고 있어요</Text>}
-            {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
-          </VStack>
-        </Card>
-      )}
       <Card>
         <VStack gap={3}>
-          <Heading level={2}>내 계약 직접 입력</Heading>
+          <Heading level={2}>내 계약 입력</Heading>
+          {/* 사진은 같은 칸을 채우는 방법이라 따로 카드를 두지 않고 입력 카드 맨 위에 둔다 */}
+          {upload && (
+            <VStack gap={2}>
+              {/* Astryx FileInput은 사진을 고르면 화면이 멈춰(2026-11-16, Edge) 네이티브 입력을 쓴다 */}
+              <label className="photo-input">
+                <span>계약서 사진으로 채우기</span>
+                <Text type="supporting">시연용 가상 계약서만 올려 주세요. 읽은 값을 아래 칸에 채우고, 사진은 저장하지 않아요</Text>
+                <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
+                  onChange={(e) => {
+                    const input = e.target
+                    const file = input.files?.[0]
+                    // 칸을 읽기 전에 비우면 파일을 못 읽고 멈추는 브라우저가 있어, 다 읽은 뒤에 비운다(같은 사진 다시 고르기용)
+                    if (file) void readPhoto(file).finally(() => { input.value = '' })
+                  }} />
+              </label>
+              {busy && <Text type="supporting" role="status">사진을 읽고 있어요</Text>}
+              {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
+              <Text type="supporting">사진이 없으면 아래에 직접 적어 주세요</Text>
+            </VStack>
+          )}
           <TextInput label="업체 이름" value={c.gym_name} onChange={(v) => edit('gym_name', { ...c, gym_name: v })}
             status={checks.has('gym_name') ? CHECK : undefined} />
           <TextInput label="실제 결제한 금액(원)" value={c.total_paid ? String(c.total_paid) : ''}
             onChange={(v) => edit('total_paid', { ...c, total_paid: Number(v.replace(/\D/g, '')) })}
             status={checks.has('total_paid') ? CHECK : undefined} />
-          <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)}
-            onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
-            status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
-          <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)}
-            onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
-            status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
+          {/* 시작일과 종료일은 한 줄에 둔다. 아주 좁은 화면에서는 index.css가 두 줄로 내린다 */}
+          <div className="date-pair">
+            <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)} width="100%"
+              onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
+              status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
+            <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
+              onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
+              status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
+          </div>
           <ContractExtras c={c} isDisabled={busy} statusOf={(f) => checks.has(f) ? CHECK : undefined}
             onChange={(next) => {
               setC(next)
