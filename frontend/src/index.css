@@ -19,8 +19,8 @@ body {
   margin-top: 0.25em;
 }
 
-/* 날짜 입력은 전용 컴포넌트가 없어 네이티브를 쓴다. 입력 칸과 높이·모서리를 맞추고 손가락으로 누르기 쉽게 한다. */
-input[type='date'],
+/* 네이티브 입력 칸의 높이·모서리를 맞추고 손가락으로 누르기 쉽게 한다.
+   날짜는 Astryx DateInput이 그린다. 터치 기기에서는 그 안에 네이티브 날짜 입력을 넣으므로 여기서 input[type='date']를 꾸미면 칸이 겹친다. */
 .photo-input input[type='file'],
 .journey-interactions input[type='number'] {
   font: inherit;
