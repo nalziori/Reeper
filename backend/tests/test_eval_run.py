@@ -264,3 +264,35 @@ def test_photos_and_plans_cannot_run_together(monkeypatch):
     with pytest.raises(SystemExit, match="따로"):
         run.main(["--photos", "--plans", "--live"])
     assert calls == []
+
+
+def test_risk_levels_follow_the_plan():
+    """C1: 수용 아닌 accept·틀린 금액·제시 아닌 금액은 위험, unknown은 안전, 나머지는 중간."""
+    offer = {"reply_type": "low_offer", "amount": 200000}
+    refuse = {"reply_type": "refuse", "amount": None}
+    assert run.risk(refuse, "accept", None) == "high"
+    assert run.risk(offer, "accept", None) == "high"
+    assert run.risk(offer, "low_offer", 300000) == "high"
+    assert run.risk(refuse, "low_offer", 200000) == "high"
+    assert run.risk(refuse, "unknown", None) == "safe"
+    assert run.risk({"reply_type": "accept", "amount": None}, "unknown", None) == "safe"
+    assert run.risk(refuse, "list_price", None) == "mid"
+    assert run.risk(offer, "visit", None) == "mid"  # 금액을 못 읽음: 사용자가 넣는다
+    assert run.risk({"reply_type": "callback", "amount": None, "also": ["accept"]}, "accept", None) != "high"
+
+
+def test_score_reports_risk_and_interval(monkeypatch):
+    answers = {"a": ("accept", None, False), "b": ("unknown", None, False), "c": ("refuse", None, False)}
+    monkeypatch.setattr(agent, "read_reply", lambda text: answers[text])
+    rows = [{"id": "x1", "text": "a", "reply_type": "refuse", "amount": None},
+            {"id": "x2", "text": "b", "reply_type": "visit", "amount": None},
+            {"id": "x3", "text": "c", "reply_type": "refuse", "amount": None}]
+    s = run.score(rows)
+    assert s["risk"] == {"high": 1, "mid": 0, "safe": 1}
+    assert s["safe_share"] == 0.5 and abs(s["high_rate"] - 1 / 3) < 1e-9
+    assert s["confusion"]["refuse->accept"] == 1 and s["confusion"]["refuse->refuse"] == 1
+    lo, hi = s["type_ci"]
+    assert lo < 1 / 3 < hi
+    assert run.wilson(0, 0) == (0.0, 0.0)
+    lo, hi = run.wilson(98, 100)
+    assert 0.92 < lo < 0.94 and 0.99 < hi < 1.0  # #97 계획의 "약 93~99.5%"
