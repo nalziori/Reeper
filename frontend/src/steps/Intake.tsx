@@ -35,6 +35,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [target, setTarget] = useState('')
   const [floor, setFloor] = useState('')
   // 해지 이유. 위약금 공제는 업체 잘못이 없는 해지가 전제라(docs/환불_규칙.md) 업체 잘못이면 이 계산을 쓰지 않는다
+  // 업종. 위약금 기준(총계약대금의 10%)이 고시에서 확인된 것은 헬스·피트니스업과 요가·필라테스업뿐이다(docs/환불_규칙.md)
+  const [industry, setIndustry] = useState<'fitness' | 'yoga' | 'other'>('fitness')
   const [reason, setReason] = useState<'mine' | 'business' | 'unsure'>('mine')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -121,10 +123,40 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       })
       onConfirm(step, today)
     })
+    const industryCard = (
+      <Card>
+        <RadioList label="회원권 업종" description="업종에 따라 위약금 기준이 달라요" value={industry}
+          onChange={(v) => setIndustry(v as 'fitness' | 'yoga' | 'other')} isDisabled={busy}>
+          <RadioListItem value="fitness" label="헬스장·피트니스·PT" />
+          <RadioListItem value="yoga" label="요가·필라테스" />
+          <RadioListItem value="other" label="그 밖의 업종(수영, 골프, 댄스, 학원 등)" />
+        </RadioList>
+      </Card>
+    )
+    if (industry === 'other') {
+      // 기준을 확인하지 않은 업종이라 계산 금액·문안을 보여 주지 않고 사건도 열지 않는다
+      return (
+        <VStack gap={4}>
+          <JourneyProgress current={2} />
+          {industryCard}
+          <Card>
+            <VStack gap={2}>
+              <Heading level={2}>이 업종은 계산 기준을 확인하지 않았어요</Heading>
+              <Text as="p">Reeper의 계산은 위약금 기준이 확인된 헬스·피트니스와 요가·필라테스 회원권에만 맞춰져 있어요. 다른 업종은 기준을 확인하지 않아서 이 계산 금액과 문안을 쓰지 않아요.</Text>
+              <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담을 신청하세요. 계약서와 결제 내역을 함께 준비하면 좋아요.</Text>
+            </VStack>
+          </Card>
+          <HStack gap={2} wrap="wrap">
+            <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
+          </HStack>
+        </VStack>
+      )
+    }
     return (
       <VStack gap={4}>
         <JourneyProgress current={2} />
         {error && <Banner status="error" title={error} collapsible={false} />}
+        {industryCard}
         <Card>
           <RadioList label="해지하려는 이유" description="이유에 따라 위약금을 빼는지가 달라져요" value={reason}
             onChange={(v) => setReason(v as 'mine' | 'business' | 'unsure')} isDisabled={busy}>

@@ -285,6 +285,27 @@ def business_fault(browser, base):
     ctx.close()
 
 
+def industry_gate(browser, base):
+    """기준을 확인하지 않은 업종이면 금액·시작 버튼 대신 1372 안내가 나오고, 확인된 업종으로 돌리면 금액이 다시 보인다."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "업종"
+    page.locator("h2:has-text('샘플 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 기준으로 시작").wait_for()
+    rec(f"{tag}: 기본은 헬스장", page.get_by_role("radio", name=re.compile("헬스장")).is_checked())
+    page.get_by_role("radio", name=re.compile("그 밖의 업종")).check()
+    page.get_by_text("이 업종은 계산 기준을 확인하지 않았어요").wait_for()
+    rec(f"{tag}: 그 밖이면 금액·시작 버튼 없음", page.get_by_role("heading", name="예상 환불액").count() == 0
+        and btn(page, "이 기준으로 시작").count() == 0)
+    rec(f"{tag}: 그 밖이면 1372 안내", page.get_by_text("국번 없이 1372").count() == 1)
+    page.screenshot(path=SHOTS / "업종.png", full_page=True)
+    page.get_by_role("radio", name=re.compile("요가")).check()
+    btn(page, "이 기준으로 시작").wait_for()
+    rec(f"{tag}: 요가·필라테스는 금액 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -318,6 +339,7 @@ def main() -> int:
             photo_fill(browser, base)
             not_sent_drafts(browser, base)
             business_fault(browser, base)
+            industry_gate(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
             limit_flow(browser, base)
