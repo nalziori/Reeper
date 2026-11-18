@@ -51,14 +51,54 @@ class FakeLLM:
     # 환불이 된다는 말. 거절 낱말과 같이 오면("환불 가능합니다만 양도는 안 됩니다") 무엇이 안 된다는 건지 낱말로는 알 수 없다
     CAN_REFUND = re.compile(r"환불(?:은|이|도)?\s?(?:가능(?:합|해|하고|하며|하지만)|됩니다|돼요|되고)")
 
+    # 금액. "28만 5천원", "40만 원", "450,000원", "₩180,000"
+    AMOUNT = re.compile(r"(\d+)\s*만\s*(?:(\d)\s*천\s*)?원?|(?:₩\s*)?(\d{1,3}(?:,\d{3})+|\d{4,})\s*원|₩\s*(\d{1,3}(?:,\d{3})+)")
+    HANGUL_AMOUNT = re.compile(r"[일이삼사오육칠팔구십백천]+\s*만\s*원?|반만|절반")  # 읽지 못하는 금액. 있으면 수용으로 넘기지 않는다
+    # 금액 바로 뒤에 주겠다는 말이 오거나 바로 앞에 환불 금액이라는 말이 있어야 제시액이다.
+    # "60만원 결제 건은", "정가 월 20만원 기준", "위약금 6만원"은 제시가 아니다
+    GIVE = ("드릴", "드리", "드려", "돌려", "환불", "환급", "입금", "보내", "송금", "됩니다", "돼요", "가능", "정리", "진행",
+            "나옵", "나와", "맞습", "해 주", "해주", "맞춰", "마무리")
+    NOT_OFFER_AFTER = re.compile(r"\s*(?:에서|결제|기준|짜리|공제|빼|차감|제하|적용|인데|이라|으로 계산|씩)")
+    NOT_OFFER_BEFORE = re.compile(r"(?:정상가|정가|원래 가격|적립금|포인트|회당|위약금|수수료|이용료|대여비|결제액?)\s*(?:월|회당|\d+\s*%|[은는이가도])?\s*$")
+    REFUND_BEFORE = re.compile(r"(?:환불|환급)\s*(?:가능\s*)?(?:금액|액)?\s*[은는이가]?\s*$")
+    CASH = "현금"
+    ASKS_FIRST = ("검토", "확인 후", "확인하고", "확인해 보고", "확인해 보겠", "알아보", "여쭤", "물어보", "가능할지")  # "확인해 보니"는 미루는 말이 아니다
+
+    def _offers(self, text: str) -> tuple[set[int], set[int], bool]:
+        """(제시액으로 읽히는 금액들, 그중 현금이라고 한 금액들, 금액이 하나라도 보였는지). 금액마다 앞뒤 몇 글자만 본다."""
+        found = list(self.AMOUNT.finditer(text))
+        offers, cash = set(), set()
+        for i, m in enumerate(found):
+            value = (int(m.group(1)) * 10_000 + int(m.group(2) or 0) * 1_000 if m.group(1)
+                     else int((m.group(3) or m.group(4)).replace(",", "")))
+            after = text[m.end():found[i + 1].start() if i + 1 < len(found) else len(text)][:14]
+            after = re.split(r"[.!?\n]", after)[0]
+            before = text[found[i - 1].end() if i else 0:m.start()][-12:]
+            if self.NOT_OFFER_AFTER.match(after) or self.NOT_OFFER_BEFORE.search(before):
+                continue
+            if self.CASH in after or before.rstrip().endswith(self.CASH):
+                cash.add(value)
+            if any(w in after for w in self.GIVE) or self.REFUND_BEFORE.search(before) or value in cash:
+                offers.add(value)
+        return offers, cash, bool(found) or bool(self.HANGUL_AMOUNT.search(text))
+
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
-        amount = None
-        if m := re.search(r"(\d+)\s*만\s*원?", text):
-            amount = int(m.group(1)) * 10_000
-        elif m := re.search(r"(\d{1,3}(?:,\d{3})+|\d{4,})\s*원", text):
-            amount = int(m.group(1).replace(",", ""))
-        if amount is not None:
-            return "low_offer", amount
+        kind = self._kind(text)[0]
+        offers, cash, money = self._offers(text)
+        if any(w in text for w in self.NOT_CASH):
+            offers = cash  # 현금과 적립금을 섞은 제안은 현금 부분만 제시액이다(eval/README.md 판정 기준)
+        if len(offers) == 1:
+            # 금액을 말해도 확인해 보겠다는 답은 아직 제시가 아니다
+            if any(w in text for w in self.ASKS_FIRST):
+                return "callback", None
+            return "low_offer", offers.pop()
+        # 금액이 보이는데 제시액 하나를 가려내지 못했으면 수용으로 넘기지 않는다. 모르면 unknown이다
+        if money and kind == "accept":
+            return "unknown", None
+        return kind, None
+
+    def _kind(self, text: str) -> tuple[ReplyType, None]:
+        """금액을 빼고 낱말로만 본 유형."""
         has = lambda words: any(w in text for w in words)  # noqa: E731
         for found, kind in ((has(("정상가", "정가")), "list_price"), (has(("방문", "오셔", "와서")), "visit"),
                             (has(self.REFUSE) or bool(self.SOFT_REFUSE.search(text)), "refuse"),

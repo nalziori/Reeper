@@ -345,6 +345,27 @@ def test_drafts_after_a_partial_deposit_pass_validate():
     assert "아직 확인되지 않습니다" in agent.render("remind_deposit", nothing) and agent.validate(agent.render("remind_deposit", nothing), nothing)
 
 
+@pytest.mark.parametrize("text, want", [
+    # 주겠다는 말이 붙은 금액 하나만 제시액이다
+    ("25만원만 드릴게요", ("low_offer", 250_000)), ("계산해 보니 38만 5천원 환불됩니다", ("low_offer", 385_000)),
+    ("환불 가능 금액은 412,000원입니다", ("low_offer", 412_000)), ("환불액 ₩180,000", ("low_offer", 180_000)),
+    ("결제하신 50만원에서 15만원 공제하고 35만원 돌려드립니다", ("low_offer", 350_000)),
+    ("위약금 5만원 빼고, 이용료 10만원 빼고, 35만원 입금할게요", ("low_offer", 350_000)),
+    ("정상가 기준 이용료 빼면 22만원 정도 나와요", ("low_offer", 220_000)),
+    ("센터 방문해 주시면 30만원 환불해 드립니다", ("low_offer", 300_000)),
+    # 제시가 아닌 금액은 읽지 않는다(예전에는 금액이 보이면 무조건 제시액이었다)
+    ("50만원 결제 건은 기간이 지나서 환불이 안 됩니다", ("refuse", None)), ("정가 월 15만원 기준으로 빼야 합니다", ("list_price", None)),
+    ("정상가회당6만원으로공제", ("list_price", None)), ("1개월권 20만원, 3개월권 50만원입니다", ("unknown", None)),
+    ("결제하신 50만원에서 반만 돌려드릴게요", ("unknown", None)), ("네 환불해 드려요~ 이십만 원 보내드릴게요", ("unknown", None)),
+    ("20만 원도 많이 드리는 건데 15만 원 드릴게요", ("unknown", None)),  # 제시액이 둘이면 고르지 않는다
+    # 판정 기준(eval/README.md): 섞인 제안은 현금만, 금액이 있는 비현금은 거절, 금액을 말하고 미루면 callback
+    ("15만 원은 현금으로 드리고 나머지는 적립금으로 넣어 드릴게요", ("low_offer", 150_000)),
+    ("적립금 30만 원 지급해 드릴게요", ("refuse", None)), ("30만 원 가능할지 여쭤보고 말씀드릴게요", ("callback", None)),
+])
+def test_keyword_reading_takes_an_amount_as_an_offer_only_with_giving_words(text, want):
+    assert agent.FAKE.read_reply(text) == want
+
+
 def test_draft_dates_have_no_leading_zero():
     """1~9월, 1~9일도 "2027년 1월 5일", "1월 8일까지"로 쓴다. 날짜가 바뀌어도 검사는 통과한다."""
     early = date(2027, 1, 5)
