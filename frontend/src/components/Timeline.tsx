@@ -7,12 +7,14 @@ import { VStack } from '@astryxdesign/core/VStack'
 import type { Case } from '../api'
 import { koDate } from '../format'
 
-export function Timeline({ c }: { c: Case }) {
+// today: 화면이 기준으로 삼는 오늘(시연 날짜 포함). 기한이 지나면 '예정' 대신 '지남'으로 보인다
+export function Timeline({ c, today }: { c: Case; today: string }) {
   const upcoming = c.stage === 'waiting' || c.stage === 'escalated'
     ? (c.deadline_on ? { label: '답변 기한(서비스가 정한 기준)', on: c.deadline_on } : null)
     : c.stage === 'agreed' && c.deposit_due_on ? { label: '입금 기한(서비스가 정한 기준)', on: c.deposit_due_on } : null
   const past = c.timeline.filter((t) => t.text)
   if (past.length === 0 && !upcoming) return null
+  const overdue = upcoming !== null && today > upcoming.on
   return (
     <Card>
       <VStack gap={2}>
@@ -21,7 +23,7 @@ export function Timeline({ c }: { c: Case }) {
         {upcoming && (
           <HStack gap={2} vAlign="center">
             <Text type="supporting">{koDate(upcoming.on)} · {upcoming.label}</Text>
-            <Badge label="예정" />
+            <Badge label={overdue ? '지남' : '예정'} variant={overdue ? 'warning' : 'neutral'} />
           </HStack>
         )}
       </VStack>
