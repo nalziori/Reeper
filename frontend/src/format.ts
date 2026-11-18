@@ -43,3 +43,6 @@ export const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만�
 export const JOURNEY = ['계약 입력', '근거 확인', '말할 준비', '답변 대응', '입금 추적']
 export const journeyPhase = (stage: Step['case']['stage']) =>
   stage === 'ready' ? 3 : stage === 'agreed' || stage === 'closed' ? 5 : 4
+
+// 화면 한 열의 최대 폭. 휴대폰으로 쓰는 서비스라 데스크톱에서도 휴대폰 화면처럼 좁게 둔다(휴대폰에서는 기기 폭을 그대로 쓴다)
+export const PAGE_WIDTH = 480

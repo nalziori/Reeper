@@ -225,7 +225,12 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Text type="supporting">부가 이용분 {won(refund.addon)} · 반환 보증금 {won(refund.security_deposit)}</Text>
             )}
             {contract.special_terms && <Text type="supporting">특약: {contract.special_terms}</Text>}
-            {refund.refs.length > 0 && <Text type="supporting">근거: {refund.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>}
+            {/* 근거 조문 이름이 길어 세 줄을 넘는다. 개수만 보이고 눌러야 펼친다(전체 근거는 '계산 근거 보기'에도 있다) */}
+            {refund.refs.length > 0 && (
+              <Collapsible defaultIsOpen={false} trigger={<Text type="supporting">계산 근거 {refund.refs.length}개</Text>}>
+                <Text type="supporting">{refund.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
+              </Collapsible>
+            )}
             {refund.provisional && <Text type="supporting">일반적인 기준에 따른 예상 금액입니다. 실제 환불액은 달라질 수 있습니다.</Text>}
           </VStack>
         </Card>
