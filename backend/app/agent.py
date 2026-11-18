@@ -48,6 +48,8 @@ class FakeLLM:
     SOFT_REFUSE = re.compile(r"(?:환불|규정상)[^.,!?\n]{0,12}?(?:어렵|곤란|안 ?되)(?!지\s?(?:는|도)?\s?않|는 (?:건|것은|게) 아)")
     # 환불을 해 준다는 말. "환불 대신", "환불 말고", "환불은 안 해"는 아니다
     GIVES_REFUND = re.compile(r"환불(?:도|해|\s?처리)")
+    # 환불이 된다는 말. 거절 낱말과 같이 오면("환불 가능합니다만 양도는 안 됩니다") 무엇이 안 된다는 건지 낱말로는 알 수 없다
+    CAN_REFUND = re.compile(r"환불(?:은|이|도)?\s?(?:가능(?:합|해|하고|하며|하지만)|됩니다|돼요|되고)")
 
     def read_reply(self, text: str) -> tuple[ReplyType, int | None]:
         amount = None
@@ -69,6 +71,8 @@ class FakeLLM:
                     return "callback", None
                 if kind == "accept" and any(w in text for w in self.CONDITION):
                     return "unknown", None
+                if kind == "refuse" and self.CAN_REFUND.search(text):
+                    return "unknown", None  # 사용자가 직접 고르게 한다
                 return kind, None
         # "양도만 가능합니다", "환불 대신 적립금으로 드리겠습니다"처럼 현금 아닌 것만 내놓으면 거절이다.
         # 환불도 해 준다고 하거나("환불 처리 기간 연장 양해", "홀딩도 되고 환불도 됩니다") 알아보겠다는 답은 그대로 둔다
