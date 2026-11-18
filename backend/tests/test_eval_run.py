@@ -22,6 +22,26 @@ def test_labels_use_known_reply_types():
     assert all((r["amount"] is not None) == (r["reply_type"] == "low_offer") for r in rows)
 
 
+def test_hard_reply_labels():
+    rows = run.load([run.ROOT / "hard_replies_c.jsonl"])
+    types = set(get_args(ReplyType))
+    assert [r["id"] for r in rows] == [f"h{i:03d}" for i in range(1, len(rows) + 1)] and len(rows) == 100
+    assert {r["reply_type"] for r in rows} <= types
+    assert all((r["amount"] is not None) == (r["reply_type"] == "low_offer") for r in rows)
+    for r in rows:  # 허용 유형은 정답과 다르고, 정답을 하나로 정하기 어려운 이유를 note에 적는다
+        assert set(r.get("also", [])) <= types - {r["reply_type"]} and r["note"], r["id"]
+        # 제시액은 정답이 low_offer일 때만 채점하므로, low_offer와 다른 유형을 서로 허용하면 금액이 채점에서 빠진다
+        assert "low_offer" not in r.get("also", []) and not (r["reply_type"] == "low_offer" and r.get("also")), r["id"]
+
+
+def test_also_counts_as_correct(monkeypatch):
+    monkeypatch.setattr(agent, "read_reply", lambda text: ("accept", None, False))
+    rows = [{"id": "x1", "text": "-", "reply_type": "unknown", "amount": None, "also": ["accept"]},
+            {"id": "x2", "text": "-", "reply_type": "unknown", "amount": None}]
+    s = run.score(rows)
+    assert s["type_acc"] == 0.5 and [m["id"] for m in s["misses"]] == ["x2"]
+
+
 def test_score_runs_on_the_fake_llm(monkeypatch):
     monkeypatch.setattr(agent, "llm", agent.FAKE)
     s = run.score(run.load())
