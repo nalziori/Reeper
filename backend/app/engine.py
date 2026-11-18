@@ -149,44 +149,50 @@ def _agree(c: Case, amount: int | None, today: date) -> None:
     c.deposit_due_on = add_business_days(today, POLICY["deposit_days"])
 
 
+def _md(d: date) -> str:
+    """화면 안내용 날짜. %m월 %d일은 "01월 05일"처럼 0을 붙여서 쓰지 않는다."""
+    return f"{d.month}월 {d.day}일"
+
+
+# reason은 화면 맨 위 안내로 그대로 보인다. 다른 화면 문구와 같이 해요체로 쓴다
 def next_action(case: Case, today: date) -> Action:
     c = case
     if c.stage == "ready":
-        return Action(type="send_notice", reason="해지 의사를 알려야 환불액이 더 줄지 않는다")
+        return Action(type="send_notice", reason="해지 의사를 알려야 환불액이 더 줄지 않아요")
     if c.stage in ("waiting", "escalated"):
         if today <= c.deadline_on:
-            return Action(type="wait", reason=f"{c.deadline_on:%m월 %d일}까지 답을 기다린다")
+            return Action(type="wait", reason=f"{_md(c.deadline_on)}까지 답을 기다려요")
         if _response_wait_stage(c) == "escalated":
-            return Action(type="go_1372", reason="내용증명에도 답이 없다")
+            return Action(type="go_1372", reason="내용증명에도 답이 없어요")
         if c.attempts <= POLICY["max_follow_ups"]:
-            return Action(type="follow_up", reason="답변 기한이 지났다")
-        return Action(type="certified_mail", reason="재요청에도 답이 없다")
+            return Action(type="follow_up", reason="답변 기한이 지났어요")
+        return Action(type="certified_mail", reason="재요청에도 답이 없어요")
     if c.stage == "negotiating":
         if c.last_reply == "low_offer" and c.offered is not None and c.offered >= c.target:
-            return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
+            return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이에요")
         # 반박을 정한 횟수만큼 보냈는데도 받아들이지 않으면 반박을 되풀이하지 않고 내용증명, 그다음 1372로 간다
         counters = sum(r.type == "counter_sent" for r in c.timeline)
         if counters >= POLICY["max_counters"]:
             # 수용선보다 적은 제시액이면 넘어가는 단계에서도 경고는 그대로 띄운다(완료 기준)
             low = c.last_reply == "low_offer" and c.offered is not None and c.offered < c.floor
             if any(r.type == "escalation_sent" for r in c.timeline):
-                return Action(type="go_1372", reason="내용증명 뒤에도 받아들이지 않는다", warn=low)
-            return Action(type="certified_mail", reason=f"반박을 {counters}번 보냈는데도 받아들이지 않는다", warn=low)
+                return Action(type="go_1372", reason="내용증명 뒤에도 받아들이지 않아요", warn=low)
+            return Action(type="certified_mail", reason=f"반박을 {counters}번 보냈는데도 받아들이지 않아요", warn=low)
         if c.last_reply == "low_offer" and c.offered is not None:
             if c.offered < c.floor:
-                return Action(type="counter", reason="제시액이 최저 수용선보다 적다", warn=True)
+                return Action(type="counter", reason="제시액이 최저 수용선보다 적어요", warn=True)
             if c.offered >= c.target:
-                return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이다")
-            return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적다. 받아들일지 정한다")
-        return Action(type="counter", reason="근거를 들어 다시 요청한다")
+                return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이에요")
+            return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적어요. 받아들일지 정하세요")
+        return Action(type="counter", reason="근거를 들어 다시 요청하세요")
     if c.stage == "agreed":
-        left = f"(남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""
+        left = f" (남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""
         if today <= c.deposit_due_on:
-            return Action(type="wait", reason=f"{c.deposit_due_on:%m월 %d일}까지 입금을 기다린다{left}")
+            return Action(type="wait", reason=f"{_md(c.deposit_due_on)}까지 입금을 기다려요{left}")
         # 기한이 지나면 독촉하고, 그 뒤 wait_days가 더 지나도 다 들어오지 않으면 1372로 간다
         if today <= c.deposit_due_on + timedelta(days=POLICY["wait_days"]):
-            return Action(type="remind_deposit", reason=f"입금 기한이 지났다{left}")
-        return Action(type="go_1372", reason=f"입금 기한이 지나고 독촉 뒤에도 입금되지 않았다{left}")
+            return Action(type="remind_deposit", reason=f"입금 기한이 지났어요{left}")
+        return Action(type="go_1372", reason=f"입금 기한이 지나고 독촉 뒤에도 입금되지 않았어요{left}")
     if c.stage == "handed_off":
-        return Action(type="go_1372", reason="1372 상담 결과를 기다린다")
-    return Action(type="close", reason="환불금을 받았다")
+        return Action(type="go_1372", reason="1372 상담 결과를 기다려요")
+    return Action(type="close", reason="환불금을 받았어요")
