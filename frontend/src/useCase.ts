@@ -8,7 +8,7 @@ const VERSION = 1
 const REFRESH_ERROR = '다음 행동을 새로 불러오지 못했습니다.'
 
 export type Saved = { step: Step; offset: number; note?: string; actionDate?: string }
-export type Send = (event: CaseEvent, patch?: Partial<Saved>) => Promise<boolean>
+export type Send = (event: CaseEvent, patch?: Partial<Saved>, opts?: { analyze?: boolean }) => Promise<boolean>
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -142,12 +142,12 @@ export function useCase() {
       if (!pending.current) setBusy(false)
     }
   }
-  const send: Send = (event, patch = {}) => {
+  const send: Send = (event, patch = {}, opts = {}) => {
     if (pending.current) return Promise.resolve(false)
     const today = isoDate(patch.offset ?? saved!.offset)
     // 통화 직후 문자는 통화를 기록한 직후에만 쓴다. 날짜만 지날 때는 두고, 다른 기록이 생기면 지운다.
     const next = event.type === 'time_passed' || 'note' in patch ? patch : { ...patch, note: undefined }
-    return run(api.step(saved!.step.case, event, today), today, next)
+    return run(api.step(saved!.step.case, event, today, opts.analyze), today, next)
   }
 
   // 상황 설명으로 전략을 받는다. 서버는 단계·금액·문안을 바꾸지 않으므로 사건만 바꿔 끼운다.

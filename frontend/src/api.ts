@@ -73,6 +73,8 @@ export type Step = {
 }
 // 문안 말투. 고정 양식이 기본이고, 다듬은 문안은 숫자·근거 검사를 통과해야 온다.
 export type Tone = 'polite' | 'firm'
+// 답장을 읽기만 한 결과. 사건을 바꾸지 않는다. 사용자가 확정하면 reply_type으로 step을 부른다.
+export type ReadReply = { reply_type: ReplyType; amount: number | null; llm_fallback: boolean }
 export type Polished = { text: string; polished: boolean }
 
 // 계약서 사진에서 읽은 값 하나. check가 참이면 사람이 계약서와 대조해 확인한다.
@@ -110,6 +112,8 @@ export const api = {
 
   extract: (image: string) =>
     call<{ fields: Partial<Record<ExtractField, Extracted>>; llm_fallback?: boolean }>('/api/contracts/extract', { image }),
-  step: (c: Case, event: CaseEvent, today: string) =>
-    call<Step>('/api/cases/step', { case: c, event, today }),
+  readReply: (text: string) => call<ReadReply>('/api/replies/read', { text }),
+  // analyze: 확정한 유형과 함께 보낸 원문으로 참고용 분석을 할지. 확정 전 읽기가 키워드 대체였다면 거짓
+  step: (c: Case, event: CaseEvent, today: string, analyze = false) =>
+    call<Step>('/api/cases/step', { case: c, event, today, ...(analyze ? { analyze } : {}) }),
 }

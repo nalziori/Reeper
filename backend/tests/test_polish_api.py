@@ -50,8 +50,11 @@ def test_fake_llm_returns_the_fixed_template_unpolished():
 def test_real_llm_polish_is_used_only_when_numbers_stay(real):
     case = case_json()
     base = agent.render("notice_sms", open_case(CONTRACT, D))
-    real({"text": "번거로우시겠지만 확인 부탁드립니다. " + base})
-    assert polish(case, tone="firm").json() == {"text": "번거로우시겠지만 확인 부탁드립니다. " + base, "polished": True}
+    softer = base.replace("회신 부탁드립니다", "회신해 주시면 감사하겠습니다")  # 어미만 바꾼 글
+    real({"text": softer})
+    assert polish(case, tone="firm").json() == {"text": softer, "polished": True}
+    real({"text": "번거로우시겠지만 확인 부탁드립니다. " + base})  # 문장을 덧붙이면 쓰지 않는다(agent._same_claims)
+    assert polish(case, tone="firm").json() == {"text": base, "polished": False}
     real({"text": base.replace("473,334", "500,000")})  # 금액을 바꾸면 쓰지 않는다
     assert polish(case).json() == {"text": base, "polished": False}
     real(RuntimeError("down"))  # 호출이 실패해도 원래 양식으로 계속 간다
