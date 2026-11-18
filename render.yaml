@@ -20,4 +20,8 @@ services:
       # 하루 상한이 한국 자정에 초기화되도록 서버 시간대를 맞춘다
       - key: TZ
         value: Asia/Seoul
+      # 심사용 비밀값. 넣으면 /unlock/<값>으로 들어온 사람만 실제 LLM을 쓰고, 공개 주소는 가짜 LLM으로 돈다.
+      # 비워 두면(기본) 잠금이 꺼져 키가 있는 한 모두 실제 LLM을 쓴다. 대시보드에서만 넣는다
+      - key: UNLOCK_KEY
+        sync: false
       # ALLOW_UPLOAD는 넣지 않는다. 사진 읽기는 꺼진 채로 뜬다

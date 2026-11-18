@@ -2,11 +2,12 @@
 import json
 import os
 from datetime import date
+from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -69,8 +70,35 @@ class _TooLarge(BaseException):  # Exception이면 FastAPI가 본문 오류(400)
     pass
 
 
+class UnlockGate:
+    """요청의 reeper_unlock 쿠키를 보고 이 요청이 실제 LLM을 쓸 수 있는지 정한다(agent._llm).
+    UNLOCK_KEY가 비어 있으면 잠금이 꺼져 모두 실제 LLM을 쓴다."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            raw = dict(scope["headers"]).get(b"cookie", b"").decode("latin-1")
+            cookie = SimpleCookie(raw).get("reeper_unlock")
+            agent.set_unlocked(cookie.value if cookie else None)
+        return await self.app(scope, receive, send)
+
+
 app = FastAPI(title="Reeper")
 app.add_middleware(BodyLimit)
+app.add_middleware(UnlockGate)
+
+
+@app.get("/unlock/{token}")
+def unlock(token: str, request: Request) -> RedirectResponse:
+    """비밀값이 맞으면 쿠키를 심고 앱으로 보낸다. 심사용 주소다(예: https://…/unlock/<값>).
+    서버는 토큰을 저장하거나 로그로 남기지 않는다. 쿠키는 이 브라우저에만 남는다."""
+    res = RedirectResponse("/", status_code=303)
+    if agent.check_token(token):
+        res.set_cookie("reeper_unlock", token, max_age=12 * 3600, httponly=True,
+                       secure=request.url.scheme == "https", samesite="lax")
+    return res
 SAMPLES = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((DATA / "samples").glob("*.json"))}
 
 
