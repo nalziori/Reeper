@@ -60,6 +60,8 @@ class FakeLLM:
             "나옵", "나와", "맞습", "해 주", "해주", "맞춰", "마무리")
     NOT_OFFER_AFTER = re.compile(r"\s*(?:에서|결제|기준|짜리|공제|빼|차감|제하|적용|인데|이라|으로 계산|씩)")
     NOT_OFFER_BEFORE = re.compile(r"(?:정상가|정가|원래 가격|적립금|포인트|회당|위약금|수수료|이용료|대여비|결제액?)\s*(?:월|회당|\d+\s*%|[은는이가도])?\s*$")
+    # 금액 뒤에 부정이 붙으면 제시가 아니다. "30만원 드릴 수 없어요", "30만원 드리려 했는데", "30만원이 아니라 25만원"
+    NEGATED_AFTER = re.compile(r"수\s?없|못|어렵|힘들|불가|안\s?(?:되|돼|됩|된)|려고?\s?했|^\s*(?:은|는)?\s*(?:이|가)?\s?아니")
     REFUND_BEFORE = re.compile(r"(?:환불|환급)\s*(?:가능\s*)?(?:금액|액)?\s*[은는이가]?\s*$")
     CASH = "현금"
     ASKS_FIRST = ("검토", "확인 후", "확인하고", "확인해 보고", "확인해 보겠", "알아보", "여쭤", "물어보", "가능할지")  # "확인해 보니"는 미루는 말이 아니다
@@ -74,7 +76,7 @@ class FakeLLM:
             after = text[m.end():found[i + 1].start() if i + 1 < len(found) else len(text)][:14]
             after = re.split(r"[.!?\n]", after)[0]
             before = text[found[i - 1].end() if i else 0:m.start()][-12:]
-            if self.NOT_OFFER_AFTER.match(after) or self.NOT_OFFER_BEFORE.search(before):
+            if self.NOT_OFFER_AFTER.match(after) or self.NOT_OFFER_BEFORE.search(before) or self.NEGATED_AFTER.search(after):
                 continue
             if self.CASH in after or before.rstrip().endswith(self.CASH):
                 cash.add(value)
