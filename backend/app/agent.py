@@ -305,7 +305,25 @@ def facts(case: Case) -> dict[str, str]:
         "offered": f"{case.offered:,}" if case.offered is not None else "",
         "agreed": f"{case.agreed_amount:,}" if case.agreed_amount is not None else "",
         "due": f"{case.deposit_due_on:%m월 %d일}" if case.deposit_due_on else "",
+        # 일부만 들어왔으면 독촉 문자에 받은 금액과 남은 금액을 적는다
+        "paid_part": (f"{case.deposited:,}원만 들어왔습니다. 남은 {case.agreed_amount - case.deposited:,}원의"
+                      if case.deposited and case.agreed_amount else "아직 확인되지 않습니다."),
+        "history": _history(case),
+        # paid_part와 history 속 금액을 validate가 알아보게 숫자만 따로 둔다(문안 속 금액은 facts의 값이어야 한다)
+        "deposited": f"{case.deposited:,}" if case.deposited else "",
+        "left": f"{case.agreed_amount - case.deposited:,}" if case.deposited and case.agreed_amount else "",
     }
+
+
+def _history(case: Case) -> str:
+    """1372 상담 신청의 경과 한 줄. 실제로 지나온 길만 적는다."""
+    sent = {r.type for r in case.timeline}
+    if case.stage == "agreed" and case.agreed_amount is not None:
+        got = f"{case.deposited:,}원만 받음" if case.deposited else "입금받지 못함"
+        return f"{case.agreed_amount:,}원에 합의했으나 입금 기한이 지나도록 {got}"
+    if "escalation_sent" in sent:
+        return "문자와 내용증명으로 요청했으나 해결되지 않음"
+    return "문자로 요청했으나 해결되지 않음"
 
 
 def render(kind: str, case: Case) -> str:
@@ -405,7 +423,8 @@ def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]
     out += [f"쓰면 안 되는 표현 '{w}'" for w in BANNED if w in text]
     c, r = case.contract, case.refund
     known = {c.total_paid, r.used_amount, r.penalty, r.refund, r.addon, r.security_deposit, r.per_day_loss,
-             case.target, case.floor, case.offered, case.agreed_amount, _gap(case)} | _money(source)
+             case.target, case.floor, case.offered, case.agreed_amount, _gap(case), case.deposited,
+             (case.agreed_amount or 0) - case.deposited} | _money(source)
     out += [f"자료에 없는 금액 {v:,}원" for v in _money(text) - known]
     days = {(d.month, d.day) for d in (today, c.start_date, c.end_date, case.notified_on,
                                        case.deadline_on, case.deposit_due_on) if d}

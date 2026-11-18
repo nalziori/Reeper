@@ -35,11 +35,13 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
             raise InvalidTransition("합의 금액은 0원보다 커야 합니다.")
         allowed = stage == "negotiating" or (stage == "handed_off" and event.amount is not None)
     elif event.type == "deposit_confirmed":
+        if event.amount is not None and event.amount <= 0:
+            raise InvalidTransition("입금 금액은 0원보다 커야 합니다.")
         allowed = stage == "agreed"
     elif event.type == "escalation_sent":
         allowed = stage in ("waiting", "negotiating") and next_action(case, today).type == "certified_mail"
     elif event.type == "handoff_done":
-        allowed = stage in ("waiting", "escalated", "negotiating") and next_action(case, today).type == "go_1372"
+        allowed = stage in ("waiting", "escalated", "negotiating", "agreed") and next_action(case, today).type == "go_1372"
     else:
         allowed = event.type == "time_passed"
 
@@ -102,8 +104,14 @@ def apply(case: Case, event: Event, today: date) -> Case:
         log(f"{c.agreed_amount:,}원에 합의")
 
     elif event.type == "deposit_confirmed":
-        c.stage = "closed"
-        log("입금 확인")
+        # 금액이 없으면 합의 금액 전부가 들어온 것으로 본다(예전 기록과 호환)
+        got = c.agreed_amount - c.deposited if event.amount is None else event.amount
+        c.deposited += got
+        if c.deposited >= c.agreed_amount:
+            c.stage = "closed"
+            log(f"입금 확인 {got:,}원")
+        else:
+            log(f"일부 입금 {got:,}원(남은 {c.agreed_amount - c.deposited:,}원)")
 
     elif event.type == "escalation_sent":
         c.stage = "escalated"
@@ -137,6 +145,7 @@ def add_business_days(start: date, days: int) -> date:
 def _agree(c: Case, amount: int | None, today: date) -> None:
     c.stage = "agreed"
     c.agreed_amount = c.refund.refund if amount is None else amount
+    c.deposited = 0  # 1372 상담 뒤 다시 합의하면 그 금액을 새로 받는다(그 전 입금은 기록에 남는다)
     c.deposit_due_on = add_business_days(today, POLICY["deposit_days"])
 
 
@@ -171,9 +180,13 @@ def next_action(case: Case, today: date) -> Action:
             return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적다. 받아들일지 정한다")
         return Action(type="counter", reason="근거를 들어 다시 요청한다")
     if c.stage == "agreed":
+        left = f"(남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""
         if today <= c.deposit_due_on:
-            return Action(type="wait", reason=f"{c.deposit_due_on:%m월 %d일}까지 입금을 기다린다")
-        return Action(type="remind_deposit", reason="입금 기한이 지났다")
+            return Action(type="wait", reason=f"{c.deposit_due_on:%m월 %d일}까지 입금을 기다린다{left}")
+        # 기한이 지나면 독촉하고, 그 뒤 wait_days가 더 지나도 다 들어오지 않으면 1372로 간다
+        if today <= c.deposit_due_on + timedelta(days=POLICY["wait_days"]):
+            return Action(type="remind_deposit", reason=f"입금 기한이 지났다{left}")
+        return Action(type="go_1372", reason=f"입금 기한이 지나고 독촉 뒤에도 입금되지 않았다{left}")
     if c.stage == "handed_off":
         return Action(type="go_1372", reason="1372 상담 결과를 기다린다")
     return Action(type="close", reason="환불금을 받았다")

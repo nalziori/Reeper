@@ -36,6 +36,7 @@ export type Case = {
   last_reply: ReplyType | null
   offered: number | null
   agreed_amount: number | null
+  deposited?: number // 합의 뒤 확인한 입금 합계. 예전에 저장한 사건에는 없을 수 있다
   deposit_due_on: string | null
   timeline: { on: string; type: string; text: string }[]
   situation?: string

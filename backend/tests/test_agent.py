@@ -332,6 +332,19 @@ def test_conditional_reply_does_not_agree_when_the_llm_is_down(real):
     assert res["llm_fallback"] and res["case"]["stage"] != "agreed" and res["case"]["agreed_amount"] is None
 
 
+def test_drafts_after_a_partial_deposit_pass_validate():
+    """일부만 입금된 뒤의 독촉 문안과 1372 상담 내용도 금액 검사를 통과한다(받은 금액, 남은 금액)."""
+    case = open_case(CONTRACT, D).model_copy(update={"stage": "agreed", "notified_on": D, "agreed_amount": 473_334,
+                                                     "deposited": 200_000, "deposit_due_on": D})
+    for kind in ("remind_deposit", "go_1372"):
+        text = agent.render(kind, case)
+        assert "200,000원" in text and agent.validate(text, case), kind
+    assert "273,334원" in agent.render("remind_deposit", case)
+    assert not agent.validate(agent.render("remind_deposit", case).replace("273,334", "373,334"), case)  # 지어낸 금액은 걸린다
+    nothing = case.model_copy(update={"deposited": 0})  # 아무것도 안 들어왔을 때는 예전 문장 그대로
+    assert "아직 확인되지 않습니다" in agent.render("remind_deposit", nothing) and agent.validate(agent.render("remind_deposit", nothing), nothing)
+
+
 @pytest.mark.parametrize("text", [
     "법적 조치를 하겠다고 말하세요.", "고발하겠다고 하세요.", "손해배상을 청구하세요.", "경찰에 알리세요.",
     "시행규칙에 따라 받아야 합니다.", "대법원 판결에 따르면 됩니다.", "표준약관에 어긋납니다.",
