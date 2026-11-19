@@ -1,4 +1,5 @@
-import { Banner, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack, Waiting } from '../ui'
+import { Banner, BottomSheet, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack, Waiting } from '../ui'
+import { InboxArrowDownIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
@@ -59,11 +60,16 @@ function ReadConfirm({ read, refund, saving, onConfirm, onReject }:
 // stage가 waiting, negotiating, escalated일 때: 문안, 기록 버튼, 답장 입력. handed_off일 때: 1372 상담 뒤 합의 금액 기록
 export function Respond({ saved, send, reply, setReply, settlement, setSettlement, autoReadOff, read, readNote, reading, readReply, clearRead }: Props) {
   const { case: c, action, drafts } = saved.step
+  const [saving, setSaving] = useState(false)  // 답장을 기록하는 중(읽은 결과 확정, 선택지, 금액)
   // 답장을 기록하면 붙여넣은 칸과 읽은 결과를 비운다
   const sendReply: Send = async (event, patch, opts) => {
-    const ok = await send(event, patch, opts)
-    if (ok) { setReply(''); clearRead() }
-    return ok
+    // 시트는 화면 밖(Portal)에 그려져 fieldset의 잠금이 닿지 않는다. 저장하는 동안 직접 잠그고 기다리는 표시를 보인다
+    setSaving(true)
+    try {
+      const ok = await send(event, patch, opts)
+      if (ok) { setReply(''); clearRead(); setSheet(false) }
+      return ok
+    } finally { setSaving(false) }
   }
   const settlementAmount = Number(settlement)
   // 한 화면에 할 일 하나. 보내거나 말할 글이 있으면(재요청, 반박, 수락, 내용증명, 1372 접수) 그 글과 '했어요' 버튼이 이 화면의 일이고,
@@ -71,9 +77,11 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   const sendFirst = ['follow_up', 'counter', 'certified_mail', 'confirm_agreement'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
   const hasDock = sendFirst || (c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn)
   const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
-  const [openReply, setOpenReply] = useState(false)
+  // 답장 기록은 아래에서 올라오는 시트에서 한다. 읽는 중이거나 읽은 결과가 있으면 열어 둔다(시연 버튼으로 넣은 답장도 바로 보인다)
+  const [sheet, setSheet] = useState(false)
+  const sheetOpen = replyStage && (sheet || reading || Boolean(read) || Boolean(readNote))
+  const closeSheet = () => { setSheet(false); clearRead() }
   const [openSent, setOpenSent] = useState(false)
-  const [saving, setSaving] = useState(false)  // 읽은 답장을 확정해 기록하는 중
   const hasDrafts = Object.keys(drafts).length > 0 || Boolean(saved.note)
   // 업체가 나중에 연락하겠다고 미뤘을 때의 문자는 아직 보낸 적이 없다. '보낸 문자 다시 보기'에 접지 않고 펼쳐 둔다
   const askFirst = 'ask_callback_time' in drafts
@@ -83,10 +91,10 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       {autoReadOff && (
         <>
           <Banner status="info" collapsible={false} title="지금은 버튼으로 골라 주세요" />
-          <ReplyButtons send={sendReply} text={reply} />
+          <ReplyButtons send={sendReply} text={reply} saving={saving} />
         </>
       )}
-      <TextArea label="받은 답장" description="문자를 붙여넣거나 통화로 들은 말을 적어요"
+      <TextArea label="받은 답장" description="받은 문자를 붙여넣거나 통화로 들은 말을 적어요"
         value={reply} onChange={setReply} maxLength={500} />
       <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
         onClick={() => void readReply(reply)} /></HStack>
@@ -94,16 +102,11 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       {readNote && <Text type="supporting" role="status">{readNote}</Text>}
       {read && (
         <ReadConfirm read={read} refund={c.refund.refund} saving={saving}
-          onConfirm={async () => {
-            setSaving(true)
-            try {
-              await sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
-                ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })
-            } finally { setSaving(false) }
-          }}
+          onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
+            ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
           onReject={clearRead} />
       )}
-      {!autoReadOff && <ReplyButtons send={sendReply} text={reply} />}
+      {!autoReadOff && <ReplyButtons send={sendReply} text={reply} saving={saving} />}
     </VStack>
   )
 
@@ -141,25 +144,29 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
         </Card>
       )}
 
-      {/* 답장 기록: 보낼 문자가 없으면 이 화면의 일이라 펼쳐 둔다 */}
+      {/* 답장 기록: 보낼 문자가 없으면 이 화면의 일이라 탭 바로 위 주 버튼으로 시트를 연다 */}
       {replyStage && !hasDock && (
-        <Card>
-          <VStack gap={3}>
-            <Heading level={3}>답장 기록</Heading>
-            {replyForm}
-          </VStack>
-        </Card>
+        <Dock label="답장 기록">
+          <HStack gap={2} wrap="wrap">
+            <Button variant="primary" label="업체 답장 기록하기" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
+          </HStack>
+        </Dock>
       )}
-      {/* 보낼 문자가 먼저인 화면에서도 답장이 먼저 오면 바로 적을 수 있다. 읽던 답장이 있으면 펼쳐 둔다 */}
+      {/* 보낼 문자가 먼저인 화면에서도 답장이 먼저 오면 바로 적을 수 있다 */}
       {replyStage && hasDock && (
         <Card>
-          <Collapsible isOpen={openReply || Boolean(read) || Boolean(readNote) || reply.trim() !== ''} onOpenChange={setOpenReply}
-            trigger={<VStack gap={1}><Text weight="semibold">업체가 먼저 답했나요?</Text>
-              <Text type="supporting">답장을 받았으면 여기서 기록해요</Text></VStack>}>
-            <div className="fold-body">{replyForm}</div>
-          </Collapsible>
+          <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+            <VStack gap={1}>
+              <Text weight="semibold">업체가 먼저 답했나요?</Text>
+              <Text type="supporting">답장을 받았으면 기록해요</Text>
+            </VStack>
+            <Button label="답장 기록하기" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
+          </HStack>
         </Card>
       )}
+      <BottomSheet open={sheetOpen} onOpenChange={(o) => (o ? setSheet(true) : closeSheet())} title="업체 답장 기록">
+        {replyForm}
+      </BottomSheet>
 
       {/* 지난 문자. 다시 보낼 때 쓴다 */}
       {!sendFirst && !askFirst && hasDrafts && (

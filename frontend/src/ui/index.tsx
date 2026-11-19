@@ -283,3 +283,4 @@ export function Collapsible({ trigger, defaultIsOpen, isOpen, onOpenChange, chil
 }
 
 export { Dock, DockProvider } from './dock'
+export { BottomSheet, ChoiceRow } from './sheet'

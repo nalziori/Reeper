@@ -1,3 +1,4 @@
+import { ClockIcon } from '@heroicons/react/24/outline'
 import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack, Waiting } from '../ui'
 import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
@@ -202,20 +203,29 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         {reason === 'unsure' && (
           <Banner status="info" collapsible={false} title="애매하면 문자 보내기 전에 '내 상황에 맞는 조언'에 상황을 적어 보세요. 그래도 애매하면 1372에 물어보세요" />
         )}
+        {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
         <Card>
-          <VStack gap={2}>
-            <Heading level={2}>예상 환불액</Heading>
-            <Text type="display-3">{won(refund.refund)}</Text>
-            <Text>{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
-            <Text type="supporting">
-              결제 {won(contract.total_paid)} · 이용분 {won(refund.used_amount)} · 위약금 {won(refund.penalty)}
-            </Text>
-            {refund.per_day_loss > 0 && <Text weight="semibold">하루 늦으면 {won(refund.per_day_loss)} 줄어요</Text>}
-            {(refund.addon > 0 || refund.security_deposit > 0) && (
-              <Text type="supporting">사은품 {won(refund.addon)} · 돌려받을 보증금 {won(refund.security_deposit)}</Text>
+          <VStack gap={3}>
+            <VStack gap={1}>
+              <Heading level={2} className="text-[15px] font-medium text-muted-foreground">예상 환불액</Heading>
+              <Text type="display-3">{won(refund.refund)}</Text>
+              <Text type="supporting">{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
+            </VStack>
+            <dl className="receipt">
+              <div><dt>낸 돈</dt><dd>{won(contract.total_paid)}</dd></div>
+              <div><dt>쓴 만큼 · {refund.total_days}{refund.unit_label} 중 {refund.used_days}{refund.unit_label}</dt><dd>−{won(refund.used_amount)}</dd></div>
+              <div><dt>위약금</dt><dd>−{won(refund.penalty)}</dd></div>
+              {refund.addon > 0 && <div><dt>사은품</dt><dd>−{won(refund.addon)}</dd></div>}
+              {refund.security_deposit > 0 && <div><dt>돌려받을 보증금</dt><dd>+{won(refund.security_deposit)}</dd></div>}
+              <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
+            </dl>
+            {refund.per_day_loss > 0 && (
+              <p className="m-0 flex w-fit items-center gap-1.5 rounded-lg bg-warn-soft px-2.5 py-1.5 text-[13px] font-medium text-warn">
+                <ClockIcon className="size-4" aria-hidden />하루 늦으면 {won(refund.per_day_loss)} 줄어요
+              </p>
             )}
             {contract.special_terms && <Text type="supporting">특약: {contract.special_terms}</Text>}
-            {/* 근거 조문 이름이 길어 세 줄을 넘는다. 개수만 보이고 눌러야 펼친다(전체 근거는 '계산 근거 보기'에도 있다) */}
+            {/* 근거 조문 이름이 길어 세 줄을 넘는다. 개수만 보이고 눌러야 펼친다(전체 근거는 '근거' 탭에도 있다) */}
             {refund.refs.length > 0 && (
               <Collapsible defaultIsOpen={false} trigger={<Text type="supporting">계산 근거 {refund.refs.length}개</Text>}>
                 <Text type="supporting">{refund.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
