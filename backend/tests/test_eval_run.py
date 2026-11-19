@@ -308,3 +308,37 @@ def test_amount_on_a_non_offer_and_also_and_perfect(monkeypatch):
     assert s["confusion"] == {"refuse->refuse": 1}
     perfect = run.score([{"id": "x2", "text": "m", "reply_type": "list_price", "amount": None, "also": ["callback"]}])
     assert perfect["misses"] == [] and perfect["safe_share"] is None and perfect["confusion"] == {}
+
+
+class LiveDouble:
+    """실제 모델 자리에 넣는 대역. 부르지 않는다(read_reply를 바꿔 끼운다)."""
+
+
+def _live_rows(tmp_path):
+    p = tmp_path / "r.jsonl"
+    p.write_text(json.dumps({"id": "x1", "text": "t", "reply_type": "refuse", "amount": None}) + "\n", encoding="utf-8")
+    return str(p)
+
+
+def test_live_unlocks_when_unlock_key_is_in_the_shell(monkeypatch, tmp_path, capsys):
+    """#103 리뷰: UNLOCK_KEY가 셸에 있으면 요청 밖의 run.py --live도 잠겨 가짜 LLM으로 돌던 것.
+    --live는 이 실행의 잠금을 풀고, 출력하는 모델 이름도 실제로 쓰는 구현에서 가져온다."""
+    import contextvars
+    monkeypatch.setenv("UNLOCK_KEY", "k")
+    monkeypatch.setattr(agent, "llm", LiveDouble())
+    used = []
+    monkeypatch.setattr(agent, "read_reply", lambda text: used.append(type(agent._llm()).__name__) or ("refuse", None, False))
+    contextvars.copy_context().run(run.main, ["--live", _live_rows(tmp_path)])
+    assert used == ["LiveDouble"]
+    assert "모델: LiveDouble" in capsys.readouterr().out
+    assert agent._llm() is agent.FAKE  # 잠금 해제가 이 실행 밖으로 새지 않는다
+
+
+def test_live_stops_if_it_would_still_run_fake(monkeypatch, tmp_path):
+    """잠금을 못 풀면(구조가 바뀌어도) 조용히 가짜로 돌지 않고 멈춘다."""
+    import contextvars
+    monkeypatch.setenv("UNLOCK_KEY", "k")
+    monkeypatch.setattr(agent, "llm", LiveDouble())
+    monkeypatch.setattr(agent, "set_unlocked", lambda token: None)
+    with pytest.raises(SystemExit, match="가짜 LLM"):
+        contextvars.copy_context().run(run.main, ["--live", _live_rows(tmp_path)])

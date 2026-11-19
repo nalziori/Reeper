@@ -234,12 +234,18 @@ def main(argv=None) -> None:
         agent.llm = agent.FAKE
     elif agent.llm is agent.FAKE:
         sys.exit("--live에는 OPENAI_API_KEY가 필요하다")
+    else:
+        # UNLOCK_KEY가 셸에 있으면 요청 밖의 이 실행도 잠겨 조용히 가짜 LLM으로 돈다(#103). --live는 키를 가진 사람이 붙이므로 푼다.
+        agent.set_unlocked(agent.unlock_key() or None)
+        if agent._llm() is agent.FAKE:
+            sys.exit("--live인데 잠금(UNLOCK_KEY) 때문에 가짜 LLM으로 돈다. 셸에서 UNLOCK_KEY를 지우고 다시 돌린다")
+    used = agent._llm()  # 출력하는 모델 이름은 실제로 쓰는 구현에서 가져온다
     if args.photos:
         if not args.live:
             sys.exit("사진 추출은 실제 모델만 읽는다. --photos --live로 돌린다(유료)")
         os.environ["ALLOW_UPLOAD"] = "1"
         s = score_photos(load([ROOT / "contracts.jsonl"]))
-        print(f"모델: {getattr(agent.llm, 'model', '')}  사진 {s['n']}장 (워드에서 내보낸 이미지, 실제 사진보다 쉽다)")
+        print(f"모델: {getattr(used, 'model', '')}  사진 {s['n']}장 (워드에서 내보낸 이미지, 실제 사진보다 쉽다)")
         print("필드별:", ", ".join(f"{f} {k}/{s['n']}" for f, k in s["fields"].items()),
               f" 전부 맞음 {s['all_ok']}/{s['n']}  대체 {s['failed']}")
         for x in s["results"]:
@@ -254,7 +260,7 @@ def main(argv=None) -> None:
                 print(f"  {r['id']}: {r['situation']}")
             return
         s = score_plans(rows)
-        model = getattr(agent.llm, "model", type(agent.llm).__name__)
+        model = getattr(used, "model", type(used).__name__)
         recall = f"{s['must_recall']:.1%}" if s["must_recall"] is not None else "N/A"
         print(f"모델: {model}  N={s['n']}")
         print(f"필수 근거 재현율 {recall} ({s['must_hit']}/{s['must_n']})  "
@@ -264,7 +270,7 @@ def main(argv=None) -> None:
             print(f"  {r['id']}: {r['rule_ids']}  버림 {r['dropped']}")
         return
     s = score(load(args.files))
-    print(f"모델: {type(agent.llm).__name__}  답장 {s['n']}건")
+    print(f"모델: {type(used).__name__}  답장 {s['n']}건")
     print(f"유형 정답률 {s['type_acc']:.1%}  제시액 정답률 {s['amount_acc']:.1%} ({s['amount_n']}건)  대체 {s['fallbacks']}건")
     print("유형별:", ", ".join(f"{t} {v}" for t, v in s["per_type"].items()))
     lo, hi = s["type_ci"]
