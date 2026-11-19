@@ -1,4 +1,4 @@
-import { Banner } from '@astryxdesign/core/Banner'
+import { Banner } from '../ui'
 import type { Rules, Step } from '../api'
 import { AnalysisCard } from './AnalysisCard'
 

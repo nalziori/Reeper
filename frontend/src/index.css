@@ -1,17 +1,121 @@
-@import '@astryxdesign/core/reset.css';
-@import '@astryxdesign/core/astryx.css';
-@import '@astryxdesign/theme-neutral/theme.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 
-body {
-  margin: 0;
+/* ── 토큰 ─────────────────────────────────────────────
+   Reeper 대표색은 에르메스 주황(#F37021). 주황 위 글자는 짙은 갈색(대비 5.8:1),
+   흰 바탕 위 주황 글자는 #A8460B(5.5:1). 바탕은 회색, 카드는 흰색이다.
+   빨강은 확인이 필요한 것(경고), 초록은 끝났거나 기준을 지킨 것에만 쓴다 */
+:root {
+  --background: #f2f3f5;
+  --foreground: #17191c;
+  --card: #ffffff;
+  --card-foreground: #17191c;
+  --popover: #ffffff;
+  --popover-foreground: #17191c;
+  --primary: #F37021;
+  --primary-foreground: #2b1608;
+  --secondary: #f2f3f5;
+  --secondary-foreground: #17191c;
+  --muted: #eef0f2;
+  --muted-foreground: #6b7079;
+  --accent: #eef0f2;
+  --accent-foreground: #17191c;
+  --destructive: #b42318;
+  --border: rgb(23 25 28 / 0.08);
+  --input: rgb(23 25 28 / 0.12);
+  --ring: #F37021;
+  --radius: 0.75rem;
+
+  --brand-text: #A8460B;
+  --brand-soft: #fff1e6;
+  --warn: #b42318;
+  --warn-soft: #fdecea;
+  --success: #12795a;
+  --success-soft: #e7f4ef;
+  --offer: #c8463b;
 }
 
-/* 문안은 줄바꿈을 그대로 보여 준다 */
+@theme inline {
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-offer: var(--offer);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { @apply font-sans; -webkit-font-smoothing: antialiased; }
+  body { @apply m-0 bg-background text-foreground; font-feature-settings: "tnum"; }
+  a { color: var(--brand-text); }
+}
+
+/* 키보드 사용자가 어디에 있는지 보이게 한다 */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.segmented-item:has(.segmented-input:focus-visible),
+.radio-item:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ── 문안 ─────────────────────────────────────────────
+   업체에 보낼 문자는 연한 주황 말풍선. 통화 대본·1372 내용처럼 보내지 않는 글은 말풍선 없이 둔다 */
 .draft {
   white-space: pre-wrap;
   word-break: keep-all;
+  overflow-wrap: anywhere;
   font: inherit;
+  font-size: 15px;
+  line-height: 1.65;
   margin: 0;
+}
+
+.draft[data-bubble] {
+  margin-inline-start: 24px;
+  padding: 14px 16px;
+  background: var(--brand-soft);
+  border-radius: 18px 18px 4px 18px;
+}
+
+/* 문자 속 받을 돈. 계산과 같은 숫자라는 표시 */
+.draft mark {
+  background: none;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline 2px var(--primary);
+  text-underline-offset: 4px;
 }
 
 .draft-section {
@@ -19,47 +123,92 @@ body {
   margin-top: 0.25em;
 }
 
-/* 네이티브 입력 칸의 높이·모서리를 맞추고 손가락으로 누르기 쉽게 한다.
-   날짜는 Astryx DateInput이 그린다. 터치 기기에서는 그 안에 네이티브 날짜 입력을 넣으므로 여기서 input[type='date']를 꾸미면 칸이 겹친다. */
+/* ── 고르기 칸 ─────────────────────────────────────── */
+.segmented-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 라디오는 칸 전체를 투명하게 덮는다. 누르는 곳이 곧 라디오라 손가락·키보드·화면 읽기 프로그램이 같은 것을 고른다 */
+.segmented-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.segmented[data-size='sm'] .segmented-item { min-height: 36px; font-size: 14px; }
+.segmented-item:has(input:checked) { background: var(--card); color: var(--foreground); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+.segmented-item:has(input:disabled) { opacity: 0.5; cursor: default; }
+
+.radio-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.radio-item input { accent-color: var(--primary); width: 18px; height: 18px; margin: 0; }
+.radio-item:has(input:checked) { border-color: var(--primary); background: var(--brand-soft); }
+
+/* 계약서 사진 칸: 이름, 설명, 파일 선택을 위아래로 쌓는다 */
+.photo-input {
+  display: grid;
+  gap: 4px;
+}
+
 .photo-input input[type='file'],
 .journey-interactions input[type='number'] {
   font: inherit;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-radius: 8px;
-  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: 12px;
+  background: var(--card);
   color: inherit;
   box-sizing: border-box;
 }
 
-/* 키보드 사용자가 어디에 있는지 보이게 한다 */
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
+/* ── 진행 단계(위 막대) ───────────────────────────────── */
 .journey-steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 4px;
   list-style: none;
-  margin: 0;
+  margin: 4px 0 0;
   padding: 0;
 }
 
 .journey-steps li {
-  border-top: 3px solid currentColor;
-  padding-top: 8px;
-  font-size: clamp(0.6875rem, 2.5vw, 0.875rem);
+  border-top: 4px solid var(--muted);
+  padding-top: 6px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--muted-foreground);
   word-break: keep-all;
 }
 
-.journey-steps li[data-state='done'] { opacity: 0.7; }
-.journey-steps li[data-state='next'] { opacity: 0.6; }
-.journey-steps li[data-state='current'] { font-weight: 700; }
+.journey-steps li[data-state='done'] { border-color: var(--primary); }
+.journey-steps li[data-state='current'] { border-color: var(--primary); color: var(--foreground); font-weight: 600; }
 
 .journey-interactions {
   min-width: 0;
@@ -78,19 +227,14 @@ textarea:focus-visible {
 .contract-quote {
   margin: 0;
   padding-inline-start: 12px;
-  border-inline-start: 2px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-inline-start: 2px solid var(--input);
   word-break: keep-all;
-}
-
-/* 계약서 사진 칸: 이름, 설명, 파일 선택을 위아래로 쌓는다 */
-.photo-input {
-  display: grid;
-  gap: 4px;
 }
 
 /* 한 열 화면을 넓은 화면에서 가운데에 둔다 */
 .page {
   margin-inline: auto;
+  min-height: 100dvh;
 }
 
 /* 이용 시작일·종료일을 한 줄에 둔다. 칸이 너무 좁아지는 화면(약 340px 미만)에서는 두 줄로 내린다 */
@@ -98,11 +242,6 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-
-/* Astryx 날짜 칸은 최소 폭이 180px라 390px 화면의 반 칸(약 160px)을 넘친다. 이 줄 안에서만 최소 폭을 푼다 */
-.date-pair .astryx-date-input {
-  min-width: 0;
 }
 
 @media (max-width: 340px) {
@@ -114,17 +253,24 @@ textarea:focus-visible {
   padding-top: 12px;
 }
 
-/* 그 단계의 주 버튼 줄. 내리는 동안 화면 아래에 붙어 있다가 원래 자리에 닿으면 그 자리에 머문다.
-   본문이 뒤로 비치지 않게 페이지 배경을 깔고, 좌우는 페이지 여백(16px)만큼 넓혀 가장자리까지 덮는다.
-   페이지(html·body)는 배경을 정하지 않아 브라우저 캔버스 색이 보이므로, 같은 색(Canvas)을 써야 넓은 화면에서 띠가 생기지 않는다 */
+/* ── 위 막대, 아래 버튼 줄, 아래 탭 ─────────────────── */
+/* 그 단계의 주 버튼 줄. 내리는 동안 화면 아래(탭 바로 위)에 붙어 있다가 원래 자리에 닿으면 그 자리에 머문다.
+   좌우는 페이지 여백(16px)만큼 넓혀 가장자리까지 덮는다 */
 .action-dock {
   position: sticky;
   bottom: var(--dock-bottom, 0px);
   z-index: 1;
   margin-inline: -16px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: Canvas;
-  border-top: 1px solid var(--color-border);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+/* 주 버튼은 줄을 채운다 */
+.action-dock [data-slot='button'][data-variant='default'] {
+  flex: 1 1 auto;
+  height: 52px;
+  font-size: 16px;
 }
 
 /* 위에 붙어 있는 막대. 페이지 위·옆 여백(16px)까지 덮어 가장자리에 붙인다 */
@@ -133,9 +279,9 @@ textarea:focus-visible {
   top: 0;
   z-index: 3;
   margin: -16px -16px 0;
-  padding: 12px 16px 8px;
-  background: Canvas;
-  border-bottom: 1px solid var(--color-border);
+  padding: 12px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
 }
 
 /* 아래 탭. 화면 아래에 고정하고, 한 열 폭(480px)에 맞춰 가운데 둔다 */
@@ -144,28 +290,40 @@ textarea:focus-visible {
   inset-inline: 0;
   bottom: 0;
   z-index: 3;
-  background: Canvas;
-  border-top: 1px solid var(--color-border);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.tab-bar > * {
+.tab-bar [role='tablist'] {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   max-width: 480px;
   margin-inline: auto;
 }
 
-/* 탭 하나가 손가락으로 누르기 좋은 높이(48px)가 되게 한다. 막대는 위아래 4px를 더해 56px(--tab-h) */
-.tab-bar {
-  padding-top: 4px;
-  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+.tab-bar [role='tab'] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
 }
 
-.tab-bar .astryx-tab {
-  min-height: 48px;
-}
+.tab-bar [role='tab'] svg { width: 22px; height: 22px; }
+.tab-bar [role='tab'][aria-selected='true'] { color: var(--foreground); }
 
 /* 탭이 있는 화면: 마지막 내용이 탭 밑에 깔리지 않게 탭 높이만큼 비우고, 아래 버튼 줄은 탭 바로 위에 붙인다 */
 .has-tabs {
-  --tab-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --tab-h: calc(57px + env(safe-area-inset-bottom, 0px));
   --dock-bottom: var(--tab-h);
 }
 
@@ -174,12 +332,8 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
-/* 손가락으로 누르는 기기에서는 버튼·입력 칸을 44px 이상으로 키운다(Astryx 기본 28·32·36px는 마우스 기준).
-   테마 크기 값만 바꾸므로 컴포넌트는 그대로이고, 마우스로 쓰는 화면은 바뀌지 않는다 */
-@media (pointer: coarse) {
-  :root {
-    --size-element-sm: 40px;
-    --size-element-md: 44px;
-    --size-element-lg: 48px;
-  }
-}
+/* 주 버튼 자리: 탭 바로 위에 고정. 버튼이 있을 때만 그만큼 아래를 비운다 */
+.dock-slot:not(:empty) { position: fixed; inset-inline: 0; bottom: var(--tab-h); z-index: 2; }
+.dock-slot .action-dock { position: static; margin: 0 auto; max-width: 480px; border-top: 0; }
+.dock-slot:not(:empty) { background: var(--card); border-top: 1px solid var(--border); }
+.page:has(.dock-slot:not(:empty)) .tab-spacer { height: calc(var(--tab-h) + 80px); }

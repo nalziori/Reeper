@@ -1,14 +1,4 @@
-import { Banner } from '@astryxdesign/core/Banner'
-import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
-import { HStack } from '@astryxdesign/core/HStack'
-import { Collapsible } from '@astryxdesign/core/Collapsible'
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl'
-import { DateInput } from '@astryxdesign/core/DateInput'
-import { Text } from '@astryxdesign/core/Text'
-import { TextInput } from '@astryxdesign/core/TextInput'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack } from '../ui'
 import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
@@ -278,7 +268,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           {/* 사진은 같은 칸을 채우는 방법이라 따로 카드를 두지 않고 입력 카드 맨 위에 둔다 */}
           {upload && (
             <VStack gap={2}>
-              {/* Astryx FileInput은 사진을 고르면 화면이 멈춰(2026-11-16, Edge) 네이티브 입력을 쓴다 */}
+              {/* 사진 고르기는 네이티브 입력을 쓴다(2026-11-16, 꾸민 파일 입력이 Edge에서 멈춘 적이 있다) */}
               <label className="photo-input">
                 <span>계약서 사진으로 채우기</span>
                 <Text type="supporting">시연용 가상 계약서만 올려 주세요. 사진은 저장하지 않아요</Text>

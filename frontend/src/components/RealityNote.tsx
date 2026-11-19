@@ -1,7 +1,4 @@
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Card, Heading, Text, VStack } from '../ui'
 
 export function RealityNote({ demo }: { demo: boolean }) {
   return (

@@ -1,7 +1,4 @@
-import { Button } from '@astryxdesign/core/Button'
-import { Heading } from '@astryxdesign/core/Heading'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Button, Heading, Text, VStack } from '../ui'
 import { Component, type ReactNode } from 'react'
 import { PAGE_WIDTH, STORAGE_KEY } from '../format'
 

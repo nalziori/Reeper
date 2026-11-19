@@ -1,7 +1,4 @@
-import { Button } from '@astryxdesign/core/Button'
-import { HStack } from '@astryxdesign/core/HStack'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Button, HStack, Text, VStack } from '../ui'
 import { useState } from 'react'
 import type { Case, Rules } from '../api'
 import { buildJson, buildSummary, fileName } from '../exportCase'

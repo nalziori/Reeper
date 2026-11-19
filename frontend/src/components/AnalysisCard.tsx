@@ -1,7 +1,4 @@
-import { Badge } from '@astryxdesign/core/Badge'
-import { Card } from '@astryxdesign/core/Card'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Badge, Card, Text, VStack } from '../ui'
 import type { Analysis, Rules } from '../api'
 
 // 표시 전용이다. 이 값으로 단계·금액·문안을 계산하지 않는다.
