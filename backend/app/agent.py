@@ -54,7 +54,9 @@ class FakeLLM:
     CAN_REFUND = re.compile(r"환불(?:은|이|도)?\s?(?:가능(?:합|해|하고|하며|하지만)|됩니다|돼요|되고)")
 
     # 금액. "28만 5천원", "40만 원", "450,000원", "₩180,000"
-    AMOUNT = re.compile(r"(\d+)\s*만\s*(?:(\d)\s*천\s*)?원?|(?:₩\s*)?(\d{1,3}(?:,\d{3})+|\d{4,})\s*원|₩\s*(\d{1,3}(?:,\d{3})+)")
+    # "47만 3,334원"은 한 금액이다. 만 뒤의 나머지(1만 미만)는 바로 뒤에 원이 있을 때만 붙인다("40만 3일 안에"는 아니다)
+    AMOUNT = re.compile(r"(\d+)\s*만\s*(?:(\d)\s*천\s*|(\d,\d{3}|\d{1,4})\s*(?=원))?원?"
+                        r"|(?:₩\s*)?(\d{1,3}(?:,\d{3})+|\d{4,})\s*원|₩\s*(\d{1,3}(?:,\d{3})+)")
     HANGUL_AMOUNT = re.compile(r"[일이삼사오육칠팔구십백천]+\s*만\s*원?|반만|절반")  # 읽지 못하는 금액. 있으면 수용으로 넘기지 않는다
     # 금액 바로 뒤에 주겠다는 말이 오거나 바로 앞에 환불 금액이라는 말이 있어야 제시액이다.
     # "60만원 결제 건은", "정가 월 20만원 기준", "위약금 6만원"은 제시가 아니다
@@ -73,8 +75,8 @@ class FakeLLM:
         found = list(self.AMOUNT.finditer(text))
         offers, cash = set(), set()
         for i, m in enumerate(found):
-            value = (int(m.group(1)) * 10_000 + int(m.group(2) or 0) * 1_000 if m.group(1)
-                     else int((m.group(3) or m.group(4)).replace(",", "")))
+            value = (int(m.group(1)) * 10_000 + int(m.group(2) or 0) * 1_000 + int((m.group(3) or "0").replace(",", ""))
+                     if m.group(1) else int((m.group(4) or m.group(5)).replace(",", "")))
             after = text[m.end():found[i + 1].start() if i + 1 < len(found) else len(text)][:14]
             after = re.split(r"[.!?\n]", after)[0]
             before = text[found[i - 1].end() if i else 0:m.start()][-12:]
