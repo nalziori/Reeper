@@ -457,6 +457,9 @@ def drafts_for(case: Case, action: Action) -> dict[str, str]:
     }.get(action.type, [])
     if action.type == "wait" and case.stage == "agreed":
         kinds = ["confirm_agreement"]
+    # 업체가 나중에 연락하겠다고 미뤘으면, 기다리는 동안 언제 연락할지 묻는 문자를 준다
+    if action.type == "wait" and case.stage in ("waiting", "escalated") and case.last_reply == "callback":
+        kinds = ["ask_callback_time"]
     return {k: render(k, case) for k in kinds}
 
 

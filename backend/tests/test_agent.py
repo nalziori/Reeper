@@ -332,6 +332,19 @@ def test_conditional_reply_does_not_agree_when_the_llm_is_down(real):
     assert res["llm_fallback"] and res["case"]["stage"] != "agreed" and res["case"]["agreed_amount"] is None
 
 
+def test_callback_reply_gives_a_draft_asking_when():
+    """업체가 나중에 연락하겠다고 미루면, 기다리는 동안 언제 연락할지 묻는 문자가 나온다. 다른 답장 뒤에는 나오지 않는다."""
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    assert agent.drafts_for(case, next_action(case, D)) == {}  # 아직 답이 없으면 기다리기만 한다
+    later = apply(case, Event(type="reply_received", reply_type="callback"), D)
+    action = next_action(later, D)
+    drafts = agent.drafts_for(later, action)
+    assert action.type == "wait" and list(drafts) == ["ask_callback_time"]
+    assert "날짜와 시간" in drafts["ask_callback_time"] and agent.validate(drafts["ask_callback_time"], later)
+    silent = apply(case, Event(type="reply_received", reply_type="no_answer"), D)
+    assert agent.drafts_for(silent, next_action(silent, D)) == {}
+
+
 def test_drafts_after_a_partial_deposit_pass_validate():
     """일부만 입금된 뒤의 독촉 문안과 1372 상담 내용도 금액 검사를 통과한다(받은 금액, 남은 금액)."""
     case = open_case(CONTRACT, D).model_copy(update={"stage": "agreed", "notified_on": D, "agreed_amount": 473_334,
