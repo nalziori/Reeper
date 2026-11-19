@@ -118,8 +118,11 @@ def test_polish_keeps_only_text_with_the_same_numbers(real):
     assert agent.polished("notice_sms", case, "firm") == (base, False)
     real({"text": base + " 답이 없으면 법적 조치를 하겠습니다."})  # 양식에 없던 압박 표현
     assert agent.polished("notice_sms", case, "firm") == (base, False)
-    real({"text": base.replace("방문판매 등에 관한 법률 제31조와 ", "")})  # 근거 언급을 뺐다
-    assert agent.polished("notice_sms", case, "firm") == (base, False)
+    # 첫 통지 문자에는 법 문장이 없다(근거는 업체가 다툴 때의 반박 문자부터 든다). 근거를 빼는 검사는 반박 문자로 본다
+    assert "법률" not in base and "고시" not in base
+    counter = agent.render("counter_refuse", case)
+    real({"text": counter.replace("방문판매 등에 관한 법률 제31조에 따라 ", "")})  # 근거 언급을 뺐다
+    assert agent.polished("counter_refuse", case, "firm") == (counter, False)
     real({"text": base + " " + "빠른 처리를 거듭 부탁드립니다. " * 8})  # 문장을 덧붙여 길어졌다
     assert agent.polished("notice_sms", case, "firm") == (base, False)
     softer = base.replace("회신 부탁드립니다", "회신해 주시면 감사하겠습니다")  # 어미만 바꾼 글은 쓴다
