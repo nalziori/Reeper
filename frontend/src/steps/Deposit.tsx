@@ -27,9 +27,9 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
           <Heading level={3}>기록하기</Heading>
           {c.stage === 'agreed' && (
             <>
-              {deposited > 0 && <Text>받은 금액 {won(deposited)} · 남은 금액 {won(left)}</Text>}
+              {deposited > 0 && <Text>받은 돈 {won(deposited)} · 남은 돈 {won(left)}</Text>}
               <TextInput label="들어온 금액(원)" inputMode="numeric" value={amount} placeholder={left.toLocaleString('ko-KR')}
-                description="비워 두면 남은 금액이 모두 들어온 것으로 기록해요. 일부만 들어왔으면 그 금액을 적어 주세요"
+                description="비우면 남은 돈이 다 들어온 걸로 기록해요"
                 onChange={(v) => setAmount(v.replace(/\D/g, ''))} />
               <HStack gap={2} wrap="wrap">
                 <Button variant="primary" label="입금을 확인했어요" isDisabled={!valid}
@@ -38,7 +38,7 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
               </HStack>
             </>
           )}
-          {c.stage === 'closed' && <Text>환불금을 받았습니다. 수고하셨습니다.</Text>}
+          {c.stage === 'closed' && <Text>수고 많으셨어요. 남기려면 아래 '기록 저장'을 쓰세요</Text>}
         </VStack>
       </Card>
     </>

@@ -37,22 +37,22 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
 
   return (
     // 지금 할 일이 아니라 참고용이라 접어 둔다. 받은 전략이 있으면 펼쳐 둔다
-    <Fold title="상황에 맞춘 대응 전략" defaultOpen={Boolean(s)}
-      summary={autoReadOff ? '자동 전략을 쓸 수 없어요. 고정 문안과 버튼으로 끝까지 진행할 수 있어요'
-        : '참고용 전략이에요. 업체에 보낼 문장은 위의 고정 문안을 쓰세요'}>
+    <Fold title="내 상황에 맞는 조언" defaultOpen={Boolean(s)}
+      summary={autoReadOff ? '지금은 쓸 수 없어요. 버튼만으로도 끝까지 갈 수 있어요'
+        : '참고용이에요. 업체에는 위 문자를 그대로 보내세요'}>
       <div className="strategy">
       <VStack gap={4}>
 
         <TextArea label="내 상황" maxLength={LIMIT}
-          description="개인 사정, 업체가 한 말, 계약서 특약을 적어 주세요. 이 내용은 서버에 저장되지 않아요"
+          description="내 사정, 업체가 한 말, 계약서 특약을 적어 주세요"
           value={situation} onChange={setSituation}
-          isDisabled={autoReadOff} disabledMessage="지금은 자동 전략을 쓸 수 없어요" />
+          isDisabled={autoReadOff} disabledMessage="지금은 조언을 받을 수 없어요" />
         <div>
-          <Button label={s ? '전략 다시 받기' : '전략 받기'} isDisabled={autoReadOff || !text || tooLong}
+          <Button label={s ? '조언 다시 받기' : '조언 받기'} isDisabled={autoReadOff || !text || tooLong}
             onClick={async () => setEmpty(await plan(text) === 'empty')} />
         </div>
         {!autoReadOff && empty && !s && (
-          <Text type="supporting">이번에는 전략을 만들지 못했어요. 고정 문안과 버튼으로 계속 진행하면 돼요</Text>
+          <Text type="supporting">이번에는 조언을 만들지 못했어요. 버튼으로 계속 진행하면 돼요</Text>
         )}
 
         {s && (

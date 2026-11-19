@@ -11,7 +11,7 @@ export function AnalysisCard({ analysis, rules }: { analysis: Analysis; rules: R
     <VStack gap={2}>
       <Card>
         <VStack gap={3}>
-          <Text type="supporting">참고용 분석입니다. 업체에 보낼 문장은 아래 고정 문안을 쓰세요.</Text>
+          <Text type="supporting">참고용이에요. 업체에는 아래 문자를 보내세요</Text>
           {analysis.claims.map((cl, i) => {
             const rule = cl.rule_id ? rules[cl.rule_id] : undefined
             return (

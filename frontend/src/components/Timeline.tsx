@@ -10,8 +10,8 @@ import { koDate } from '../format'
 // today: 화면이 기준으로 삼는 오늘(시연 날짜 포함). 기한이 지나면 '예정' 대신 '지남'으로 보인다
 export function Timeline({ c, today }: { c: Case; today: string }) {
   const upcoming = c.stage === 'waiting' || c.stage === 'escalated'
-    ? (c.deadline_on ? { label: '답변 기한(서비스가 정한 기준)', on: c.deadline_on } : null)
-    : c.stage === 'agreed' && c.deposit_due_on ? { label: '입금 기한(서비스가 정한 기준)', on: c.deposit_due_on } : null
+    ? (c.deadline_on ? { label: '답장 기한', on: c.deadline_on } : null)
+    : c.stage === 'agreed' && c.deposit_due_on ? { label: '입금 기한', on: c.deposit_due_on } : null
   const past = c.timeline.filter((t) => t.text)
   if (past.length === 0 && !upcoming) return null
   const overdue = upcoming !== null && today > upcoming.on

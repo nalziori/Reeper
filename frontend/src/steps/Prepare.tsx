@@ -30,7 +30,7 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
               <SegmentedControlItem value="call" label="전화로" />
             </SegmentedControl>
             <Text type="supporting">
-              {channel === 'sms' ? '아래 문안을 복사하거나 문자 앱으로 열어 보내세요' : '아래 카드를 보며 말하세요. 끊은 뒤 보낼 확인 문자도 만들어 드려요'}
+              {channel === 'sms' ? '복사하거나 문자 앱으로 열어 보내요' : '대본을 보며 말해요. 끊은 뒤 보낼 문자도 만들어 드려요'}
             </Text>
           </VStack>
         </Card>

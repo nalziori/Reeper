@@ -16,7 +16,7 @@ export function DemoPanel({ stage, offset, send, ownerSays }: { stage: Case['sta
     <Card variant="muted">
       <VStack gap={3}>
         <Heading level={3}>시연용 조작</Heading>
-        <Text type="supporting">실제 서비스에는 없는 기능입니다. 업체의 답과 날짜 경과를 가상으로 만듭니다.</Text>
+        <Text type="supporting">실제 서비스엔 없어요. 업체 답장과 날짜를 흉내 내요</Text>
         {offset > 0 && <Text as="p">시연 날짜: {isoDate(offset)} (실제보다 {offset}일 뒤)</Text>}
         <HStack gap={2} wrap="wrap">
           {ownerCanReply && OWNER_SAYS.map((t) => <Button key={t} size="sm" label={`사장: ${t}`} onClick={() => ownerSays(t)} />)}

@@ -30,7 +30,7 @@ export function FaultSummary({ c }: { c: Contract }) {
       <VStack gap={3}>
         <Heading level={3}>1372에 말할 내용 정리</Heading>
         <TextArea label="무슨 일이 있었나요" maxLength={500} value={happened} onChange={(v) => { setHappened(v); setCopied('') }}
-          description="언제부터 무엇이 달라졌는지, 업체가 뭐라고 했는지 적어 주세요. 이 내용은 서버로 보내지 않아요" />
+          description="언제부터 무엇이 달라졌는지, 업체가 뭐라고 했는지 적어 주세요" />
         <div className="draft">{text}</div>
         <div>
           <Button label={copied === text ? '복사됨' : '복사'} onClick={async () => {
