@@ -146,7 +146,7 @@ def full_flow(browser, base, tag, viewport):
     page.screenshot(path=SHOTS / f"{tag}-7-closed.png", full_page=True)
     # 새로고침해도 이어진다
     page.reload(wait_until="networkidle")
-    rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_text("환불금을 받았어요").count() == 1)
+    rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_role("heading", name="환불금을 받았어요").count() == 1)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
@@ -225,13 +225,13 @@ def photo_fill(browser, base):
     rec(f"{tag}: 보증금 없음은 빈칸", page.get_by_label("보증금(원, 선택)").input_value() == "")
     rec(f"{tag}: 비어 온 금액 칸 안내", page.get_by_text("보증금이 계약서에 적혀 있으면 직접 적어 주세요").count() == 1)
     # 화면 낭독용 알림 영역에도 같은 글이 남으므로 칸 아래 상태 표시만 센다
-    warn = page.locator(".astryx-field-status", has_text="사진에서 읽었어요")
+    warn = page.locator(".field-status", has_text="사진에서 읽었어요")
     rec(f"{tag}: 확인 표시는 check이고 값 있는 칸만", warn.count() == 1, f"{warn.count()}개")
     calc = btn(page, "확인했어요, 계산하기")
     rec(f"{tag}: 이미 쓴 횟수 없으면 계산 막힘", calc.is_disabled())
     page.get_by_label("이미 쓴 횟수").fill("5")
     page.get_by_label("사은품 금액(원, 선택)").fill("40000")
-    rec(f"{tag}: 고친 칸은 확인 표시 사라짐", page.locator(".astryx-field-status", has_text="사진에서 읽었어요").count() == 0)
+    rec(f"{tag}: 고친 칸은 확인 표시 사라짐", page.locator(".field-status", has_text="사진에서 읽었어요").count() == 0)
     btn(page, "계산하기").click()
     page.get_by_text("예상 환불액").first.wait_for()
     rec(f"{tag}: 회 단위로 계산", page.get_by_text(re.compile(r"이용분 .*원")).count() >= 1)

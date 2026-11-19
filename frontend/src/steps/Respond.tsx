@@ -1,13 +1,5 @@
-import { Banner } from '@astryxdesign/core/Banner'
-import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
-import { TextInput } from '@astryxdesign/core/TextInput'
-import { HStack } from '@astryxdesign/core/HStack'
-import { Text } from '@astryxdesign/core/Text'
-import { TextArea } from '@astryxdesign/core/TextArea'
-import { VStack } from '@astryxdesign/core/VStack'
-import { useEffect, useRef } from 'react'
+import { Banner, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack } from '../ui'
+import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
 import { ReplyButtons } from '../components/ReplyButtons'
@@ -72,55 +64,102 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
     return ok
   }
   const settlementAmount = Number(settlement)
+  // 한 화면에 할 일 하나. 보내거나 말할 글이 있으면(재요청, 반박, 내용증명, 1372 접수) 그 글과 '했어요' 버튼이 이 화면의 일이고,
+  // 답장 기록은 접어 둔다. 보낼 것이 없으면 답장 기록이 이 화면의 일이고, 지난 문자를 접어 둔다
+  const sendFirst = ['follow_up', 'counter', 'certified_mail'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
+  const hasDock = sendFirst || (c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn)
+  const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
+  const [openReply, setOpenReply] = useState(false)
+  const [openSent, setOpenSent] = useState(false)
+  const hasDrafts = Object.keys(drafts).length > 0 || Boolean(saved.note)
+
+  const replyForm = (
+    <VStack gap={3}>
+      {autoReadOff && (
+        <>
+          <Banner status="info" collapsible={false} title="지금은 버튼으로 골라 주세요" />
+          <ReplyButtons send={sendReply} text={reply} />
+        </>
+      )}
+      <TextArea label="받은 답장" description="문자를 붙여넣거나 통화로 들은 말을 적어요"
+        value={reply} onChange={setReply} maxLength={500} />
+      <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isDisabled={!reply.trim() || reading}
+        onClick={() => void readReply(reply)} /></HStack>
+      {readNote && <Text type="supporting" role="status">{readNote}</Text>}
+      {read && (
+        <ReadConfirm read={read} refund={c.refund.refund}
+          onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
+            ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
+          onReject={clearRead} />
+      )}
+      {!autoReadOff && <ReplyButtons send={sendReply} text={reply} />}
+    </VStack>
+  )
+
   return (
     <>
-      <DraftList drafts={drafts} note={saved.note} />
-      <Card>
-        <VStack gap={3}>
-          <Heading level={3}>기록하기</Heading>
-          {action.type === 'follow_up' && <HStack><Button variant="primary" label="다시 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} /></HStack>}
-          {action.type === 'counter' && <HStack><Button label="이 문자를 보냈어요" onClick={() => send({ type: 'counter_sent' })} /></HStack>}
-          {action.type === 'certified_mail' && <HStack><Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} /></HStack>}
-          {action.type === 'go_1372' && c.stage !== 'handed_off' && <HStack><Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} /></HStack>}
-          {/* 합의 금액은 0원보다 커야 한다(서버가 0원 이하는 409로 거절) */}
-          {c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn && (
-            <HStack><Button variant="primary" label={`${won(c.offered)}에 합의했어요`} onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} /></HStack>
-          )}
-          {c.stage === 'handed_off' && (
-            <>
-              <Text as="p">1372 상담으로 금액이 정해지면 적어 주세요. 입금될 때까지 챙겨 드려요</Text>
-              <TextInput label="정해진 금액(원)" inputMode="numeric" value={settlement}
-                onChange={(v) => setSettlement(v.replace(/\D/g, ''))} />
-              <HStack><Button label="금액 저장" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}
-                onClick={async () => {
-                  if (await send({ type: 'agreement_recorded', amount: settlementAmount })) setSettlement('')
-                }} /></HStack>
-            </>
-          )}
-          {['waiting', 'negotiating', 'escalated'].includes(c.stage) && (
-            <>
-              {autoReadOff && (
-                <>
-                  <Banner status="info" collapsible={false} title="지금은 버튼으로 골라 주세요" />
-                  <ReplyButtons send={sendReply} text={reply} />
-                </>
-              )}
-              <TextArea label="받은 답장" description="문자를 붙여넣거나 통화로 들은 말을 적어요"
-                value={reply} onChange={setReply} maxLength={500} />
-              <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isDisabled={!reply.trim() || reading}
-                onClick={() => void readReply(reply)} /></HStack>
-              {readNote && <Text type="supporting" role="status">{readNote}</Text>}
-              {read && (
-                <ReadConfirm read={read} refund={c.refund.refund}
-                  onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
-                    ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
-                  onReject={clearRead} />
-              )}
-              {!autoReadOff && <ReplyButtons send={sendReply} text={reply} />}
-            </>
-          )}
-        </VStack>
-      </Card>
+      {sendFirst && <DraftList drafts={drafts} note={saved.note} />}
+      {/* 이 단계에서 한 일을 기록하는 버튼. 탭 바로 위에 붙어 있다 */}
+      {hasDock && (
+        <Dock label="한 일 기록">
+          <HStack gap={2} wrap="wrap">
+            {action.type === 'follow_up' && <Button variant="primary" label="다시 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />}
+            {action.type === 'counter' && <Button variant="primary" label="이 문자를 보냈어요" onClick={() => send({ type: 'counter_sent' })} />}
+            {action.type === 'certified_mail' && <Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} />}
+            {action.type === 'go_1372' && c.stage !== 'handed_off' && <Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} />}
+            {/* 합의 금액은 0원보다 커야 한다(서버가 0원 이하는 409로 거절) */}
+            {c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn && (
+              <Button variant="primary" label={`${won(c.offered)}에 합의했어요`} onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} />
+            )}
+          </HStack>
+        </Dock>
+      )}
+
+      {c.stage === 'handed_off' && (
+        <Card>
+          <VStack gap={3}>
+            <Heading level={3}>기록하기</Heading>
+            <Text as="p">1372 상담으로 금액이 정해지면 적어 주세요. 입금될 때까지 챙겨 드려요</Text>
+            <TextInput label="정해진 금액(원)" inputMode="numeric" value={settlement}
+              onChange={(v) => setSettlement(v.replace(/\D/g, ''))} />
+            <HStack><Button label="금액 저장" isDisabled={!Number.isSafeInteger(settlementAmount) || settlementAmount <= 0}
+              onClick={async () => {
+                if (await send({ type: 'agreement_recorded', amount: settlementAmount })) setSettlement('')
+              }} /></HStack>
+          </VStack>
+        </Card>
+      )}
+
+      {/* 답장 기록: 보낼 문자가 없으면 이 화면의 일이라 펼쳐 둔다 */}
+      {replyStage && !hasDock && (
+        <Card>
+          <VStack gap={3}>
+            <Heading level={3}>답장 기록</Heading>
+            {replyForm}
+          </VStack>
+        </Card>
+      )}
+      {/* 보낼 문자가 먼저인 화면에서도 답장이 먼저 오면 바로 적을 수 있다. 읽던 답장이 있으면 펼쳐 둔다 */}
+      {replyStage && hasDock && (
+        <Card>
+          <Collapsible isOpen={openReply || Boolean(read) || Boolean(readNote) || reply.trim() !== ''} onOpenChange={setOpenReply}
+            trigger={<VStack gap={1}><Text weight="semibold">업체가 먼저 답했나요?</Text>
+              <Text type="supporting">답장을 받았으면 여기서 기록해요</Text></VStack>}>
+            <div className="fold-body">{replyForm}</div>
+          </Collapsible>
+        </Card>
+      )}
+
+      {/* 지난 문자. 다시 보낼 때 쓴다 */}
+      {!sendFirst && hasDrafts && (
+        <Card>
+          <Collapsible isOpen={openSent} onOpenChange={setOpenSent}
+            trigger={<VStack gap={1}><Text weight="semibold">보낸 문자 다시 보기</Text>
+              <Text type="supporting">복사해서 다시 보낼 수 있어요</Text></VStack>}>
+            <div className="fold-body"><VStack gap={3}><DraftList drafts={drafts} note={saved.note} /></VStack></div>
+          </Collapsible>
+        </Card>
+      )}
     </>
   )
 }

@@ -1,18 +1,12 @@
-import { Banner } from '@astryxdesign/core/Banner'
-import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
-import { HStack } from '@astryxdesign/core/HStack'
-import { Icon } from '@astryxdesign/core/Icon'
-import { Tab, TabList } from '@astryxdesign/core/TabList'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
-import { useEffect, useState } from 'react'
+import { Banner, Button, Card, DockProvider, HStack, Heading, Text, VStack } from './ui'
+import { ClockIcon, FlagIcon, PlusIcon, ScaleIcon } from '@heroicons/react/24/outline'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { api, type Health, type ReadReply, type Rules, type Step } from './api'
 import { DeadlineLine } from './components/DeadlineLine'
 import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
+import { OfferCompare } from './components/OfferCompare'
 import { PolishContext } from './components/PolishContext'
 import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
@@ -26,13 +20,43 @@ import { Prepare } from './steps/Prepare'
 import { Respond } from './steps/Respond'
 import { useCase } from './useCase'
 
+type TabKey = 'now' | 'basis' | 'log'
+const TABS = [
+  { value: 'now', label: '진행', Icon: FlagIcon },
+  { value: 'basis', label: '근거', Icon: ScaleIcon },
+  { value: 'log', label: '기록', Icon: ClockIcon },
+] as const
+
+// 아래 탭. 고른 탭만 Tab 키로 들어가고, 좌우 화살표로 옮긴다
+function TabBar({ value, onChange }: { value: TabKey; onChange: (v: TabKey) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const move = (e: KeyboardEvent, i: number) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const next = (i + step + TABS.length) % TABS.length
+    onChange(TABS[next].value)
+    refs.current[next]?.focus()
+  }
+  return (
+    <div role="tablist" aria-label="화면">
+      {TABS.map(({ value: v, label, Icon }, i) => (
+        <button key={v} ref={(el) => { refs.current[i] = el }} type="button" role="tab" id={`tab-${v}`}
+          aria-selected={value === v} aria-controls={`panel-${v}`} tabIndex={value === v ? 0 : -1}
+          onClick={() => onChange(v)} onKeyDown={(e) => move(e, i)}>
+          <Icon aria-hidden />{label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const { saved, error, busy, keep, send, plan } = useCase()
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
   // 아래 탭. 단계가 바뀌면 '진행'으로 돌아온다(고른 탭을 그때의 단계와 함께 둔다)
-  type TabKey = 'now' | 'basis' | 'log'
   const [tabAt, setTabAt] = useState<{ tab: TabKey; stage: Step['case']['stage'] } | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   // 붙여넣은 답장을 읽은 결과. 사용자가 확정하기 전에는 사건을 바꾸지 않는다.
@@ -59,6 +83,7 @@ export default function App() {
 
   // 사건은 이 브라우저에만 있어서 지우면 되돌릴 수 없다. 끝나지 않은 사건은 한 번 더 묻는다
   const [confirmReset, setConfirmReset] = useState(false)
+  const [dockEl, setDockEl] = useState<HTMLElement | null>(null)
   const reset = () => { setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
   const tab: TabKey = saved && tabAt?.stage === saved.step.case.stage ? tabAt.tab : 'now'
   // 단계가 바뀌거나 탭을 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 새 단계 안내가 가려진다
@@ -71,7 +96,7 @@ export default function App() {
       <VStack gap={2}>
         <HStack hAlign="between" vAlign="center">
           <Heading level={1}>Reeper</Heading>
-          {saved && <Button variant="ghost" label="새로 시작" isDisabled={busy}
+          {saved && <Button variant="ghost" size="sm" label="새로 시작" icon={<PlusIcon aria-hidden />} isDisabled={busy}
             onClick={() => saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
         </HStack>
         {sc && (
@@ -124,9 +149,9 @@ export default function App() {
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
 
-      {tab === 'basis' && <div id="panel-basis" role="tabpanel" aria-label="근거"><Evidence c={c} rules={rules} /></div>}
+      {tab === 'basis' && <div id="panel-basis" role="tabpanel" aria-labelledby="tab-basis"><Evidence c={c} rules={rules} /></div>}
       {tab === 'log' && (
-        <div id="panel-log" role="tabpanel" aria-label="기록">
+        <div id="panel-log" role="tabpanel" aria-labelledby="tab-log">
           <VStack gap={4}>
             <Timeline c={c} today={isoDate(saved.offset)} />
             <ExportMenu c={c} rules={rules} />
@@ -135,45 +160,46 @@ export default function App() {
         </div>
       )}
 
-      {tab === 'now' && <div id="panel-now" role="tabpanel" aria-label="진행"><VStack gap={4}>
-      {/* 지금 할 일 한 문장과 기한. 업체·받을 돈은 위에 붙은 막대에 늘 보인다 */}
-      <Card>
-        <VStack gap={2}>
+      {tab === 'now' && <div id="panel-now" role="tabpanel" aria-labelledby="tab-now">
+      <DockProvider value={dockEl}>
+      <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
+      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
+      {/* 카드 하나가 한 장이다. 옆으로 넘긴다. 단계가 바뀌면 첫 장부터 */}
+      {/* 지금 할 일 한 문장과 기한 */}
+      <Card className="mb-3">
+        <VStack gap={3}>
           <Heading level={2}>{action.reason}</Heading>
           <DeadlineLine c={c} offset={saved.offset} />
         </VStack>
       </Card>
-      {action.warn && (
-        <Banner status="warning" collapsible={false} title={`업체가 말한 ${won(c.offered ?? 0)}은 거절 기준 ${won(c.floor)}보다 적어요`} />
-      )}
-
-      <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
-      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
-      <VStack gap={4}>
-      <ReplyReading step={saved.step} rules={rules} />
-      {phase === 3 &&<Prepare saved={saved} send={send} />}
-      {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
-        settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff}
-        read={read} readNote={readNote} reading={reading.busy} readReply={readReply}
-        clearRead={() => setReading((r) => ({ ...r, result: null }))} />}
-      {phase === 5 && <Deposit saved={saved} send={send} />}
-      {(phase === 3 || phase === 4) && !handedOff && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
-      {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send}
-        ownerSays={(t) => { setReply(t); void readReply(t) }} />}
+      {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
+      <VStack gap={3}>
+        {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} />}
+        <ReplyReading step={saved.step} rules={rules} />
+        {phase === 3 && <Prepare saved={saved} send={send} />}
+        {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
+          settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff}
+          read={read} readNote={readNote} reading={reading.busy} readReply={readReply}
+          clearRead={() => setReading((r) => ({ ...r, result: null }))} />}
+        {phase === 5 && <Deposit saved={saved} send={send} />}
+        {(phase === 3 || phase === 4) && !handedOff && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
+        {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send}
+          ownerSays={(t) => { setReply(t); void readReply(t) }} />}
       </VStack>
       </fieldset>
       </PolishContext.Provider>
-      </VStack></div>}
+      </DockProvider>
+      </div>}
+      {/* 주 버튼 자리. 탭 바로 위에 고정된다 */}
+      {/* 저장 중에는 이 버튼들도 잠근다(카드 쪽 fieldset 밖으로 옮겨 그리므로 따로 잠근다) */}
+      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
+        <div ref={setDockEl} className="dock-slot" />
+      </fieldset>
 
       {/* 아래 탭: 지금 할 일, 계산 근거, 지금까지 한 일·저장. 화면 아래에 늘 붙어 있다 */}
       <div className="tab-spacer" aria-hidden />
       <nav className="tab-bar" aria-label="화면 바꾸기">
-        <TabList role="tablist" layout="fill" size="lg" value={tab}
-          onChange={(v) => setTabAt({ tab: v as TabKey, stage: c.stage })}>
-          <Tab value="now" label="진행" panelId="panel-now" icon={<Icon icon="check" />} />
-          <Tab value="basis" label="근거" panelId="panel-basis" icon={<Icon icon="info" />} />
-          <Tab value="log" label="기록" panelId="panel-log" icon={<Icon icon="clock" />} />
-        </TabList>
+        <TabBar value={tab} onChange={(v) => setTabAt({ tab: v, stage: c.stage })} />
       </nav>
     </VStack>
   )

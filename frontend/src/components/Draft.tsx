@@ -1,13 +1,8 @@
-import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { Heading } from '@astryxdesign/core/Heading'
-import { HStack } from '@astryxdesign/core/HStack'
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { ChatBubbleBottomCenterTextIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline'
+import { Button, Card, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
 import { useContext, useRef, useState } from 'react'
 import { api, type Tone } from '../api'
-import { DRAFT } from '../format'
+import { DRAFT, won } from '../format'
 import { PolishContext } from './PolishContext'
 
 type Choice = 'base' | Tone
@@ -16,15 +11,18 @@ type Choice = 'base' | Tone
 const NOT_SENT = new Set(['call_card', 'go_1372'])
 
 // 문안은 줄바꿈 그대로 보여 주되, [첫마디] 같은 구역 제목 줄은 굵게 해서 훑어볼 수 있게 한다. 복사는 원문 그대로다.
-function DraftText({ text }: { text: string }) {
+// 업체에 보낼 문자는 말풍선으로 보이고, 받을 돈은 밑줄로 짚는다(계산과 같은 숫자라는 표시)
+function DraftText({ text, bubble, amount }: { text: string; bubble: boolean; amount?: string }) {
   const lines = text.split('\n')
+  const mark = (line: string) => !amount ? line : line.split(amount).flatMap((part, j) =>
+    j === 0 ? [part] : [<mark key={j}>{amount}</mark>, part])
   return (
-    <div className="draft">
+    <div className="draft" data-bubble={bubble || undefined}>
       {lines.map((line, i) => {
         const end = i < lines.length - 1 ? '\n' : ''
         return /^\[[^\]]+\]$/.test(line.trim())
           ? <strong key={i} className="draft-section">{line}{end}</strong>
-          : <span key={i}>{line}{end}</span>
+          : <span key={i}>{mark(line)}{end}</span>
       })}
     </div>
   )
@@ -64,6 +62,9 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
   const [copyError, setCopyError] = useState('')
   const tone = useTone(kind, base)
   const text = tone.text
+  const { c } = useContext(PolishContext)
+  const sendable = !NOT_SENT.has(kind)
+  const amount = c ? won(c.agreed_amount ?? c.refund.refund) : undefined
   return (
     <Card>
       <VStack gap={3}>
@@ -76,11 +77,11 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
             <SegmentedControlItem value="firm" label="단호하게" />
           </SegmentedControl>
         )}
-        <DraftText text={text} />
+        <DraftText text={text} bubble={sendable} amount={sendable ? amount : undefined} />
         {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
         {tone.note && <Text type="supporting" role="status">{tone.note}</Text>}
-        <HStack gap={2} wrap="wrap">
-          <Button label={copied ? '복사됨' : '복사'} onClick={async () => {
+        <HStack gap={2} wrap="wrap" hAlign={sendable ? 'end' : 'start'}>
+          <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} onClick={async () => {
             try {
               await navigator.clipboard.writeText(text)
               setCopied(true)
@@ -89,7 +90,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
               setCopyError('복사하지 못했어요. 글을 길게 눌러 복사해 주세요')
             }
           }} />
-          {!NOT_SENT.has(kind) && <Button label="문자 앱으로 열기" href={`sms:?&body=${encodeURIComponent(text)}`} />}
+          {sendable && <Button label="문자 앱으로 열기" icon={<ChatBubbleBottomCenterTextIcon aria-hidden />} href={`sms:?&body=${encodeURIComponent(text)}`} />}
         </HStack>
         {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>

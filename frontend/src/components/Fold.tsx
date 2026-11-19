@@ -1,7 +1,4 @@
-import { Card } from '@astryxdesign/core/Card'
-import { Collapsible } from '@astryxdesign/core/Collapsible'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/VStack'
+import { Card, Collapsible, Text, VStack } from '../ui'
 import type { ReactNode } from 'react'
 
 // 지금 할 일이 아닌 카드(전략, 내보내기 등)는 제목과 한 줄 설명만 보이고 눌러야 펼쳐진다.
