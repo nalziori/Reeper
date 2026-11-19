@@ -72,6 +72,8 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   const [openReply, setOpenReply] = useState(false)
   const [openSent, setOpenSent] = useState(false)
   const hasDrafts = Object.keys(drafts).length > 0 || Boolean(saved.note)
+  // 업체가 나중에 연락하겠다고 미뤘을 때의 문자는 아직 보낸 적이 없다. '보낸 문자 다시 보기'에 접지 않고 펼쳐 둔다
+  const askFirst = 'ask_callback_time' in drafts
 
   const replyForm = (
     <VStack gap={3}>
@@ -98,7 +100,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
 
   return (
     <>
-      {sendFirst && <DraftList drafts={drafts} note={saved.note} />}
+      {(sendFirst || askFirst) && <DraftList drafts={drafts} note={saved.note} />}
       {/* 이 단계에서 한 일을 기록하는 버튼. 탭 바로 위에 붙어 있다 */}
       {hasDock && (
         <Dock label="한 일 기록">
@@ -151,7 +153,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       )}
 
       {/* 지난 문자. 다시 보낼 때 쓴다 */}
-      {!sendFirst && hasDrafts && (
+      {!sendFirst && !askFirst && hasDrafts && (
         <Card>
           <Collapsible isOpen={openSent} onOpenChange={setOpenSent}
             trigger={<VStack gap={1}><Text weight="semibold">보낸 문자 다시 보기</Text>

@@ -477,6 +477,11 @@ def drafts_for(case: Case, action: Action) -> dict[str, str]:
     }.get(action.type, [])
     if action.type == "wait" and case.stage == "agreed":
         kinds = ["confirm_agreement"]
+    # 업체가 나중에 연락하겠다고 미뤘으면, 기다리는 동안 언제 연락할지 묻는 문자를 준다.
+    # 마지막 기록이 그 답장일 때만이다. last_reply는 다음 답장까지 남으므로, 재요청이나 내용증명을 보낸 뒤에는 주지 않는다
+    if (action.type == "wait" and case.stage in ("waiting", "escalated") and case.last_reply == "callback"
+            and case.timeline and case.timeline[-1].type == "reply_received"):
+        kinds = ["ask_callback_time"]
     return {k: render(k, case) for k in kinds}
 
 

@@ -25,7 +25,7 @@ export const DRAFT: Record<string, string> = {
   notice_sms: '보낼 문자', call_card: '통화 대본', after_call_sms: '통화 끝나고 보낼 문자',
   follow_up: '다시 보낼 문자', counter_refuse: '다음에 보낼 문자', counter_list_price: '다음에 보낼 문자',
   counter_visit: '다음에 보낼 문자', counter_low_offer: '다음에 보낼 문자', counter_unknown: '다음에 보낼 문자', counter_penalty: '다음에 보낼 문자',
-  accept_offer: '수락 문자', confirm_agreement: '합의 확인 문자', remind_deposit: '입금 요청 문자',
+  ask_callback_time: '언제 연락 줄지 묻는 문자', accept_offer: '수락 문자', confirm_agreement: '합의 확인 문자', remind_deposit: '입금 요청 문자',
   certified_mail: '내용증명 초안', go_1372: '1372에 말할 내용',
 }
 // 시연 조작(사장 답, 날짜 건너뛰기)은 개발 서버이거나 주소에 ?demo가 있을 때만 보인다. 실제 사용자에게는 숨긴다.

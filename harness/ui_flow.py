@@ -346,6 +346,25 @@ def good_offer(browser, base):
     ctx.close()
 
 
+def callback_draft(browser, base):
+    """업체가 나중에 연락하겠다고 미루면 언제 연락할지 묻는 문자가 펼쳐져 나오고, 재요청을 보낸 뒤에는 다시 나오지 않는다."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").click()
+    btn(page, "문자로 보냈어요").click()
+    btn(page, "다시 연락 준대요").click()
+    ask = page.get_by_text("날짜와 시간을 문자로 알려 주시겠어요")
+    ask.first.wait_for()
+    rec("미루는 답 뒤: 묻는 문자가 펼쳐져 있고 보낸 문자 다시 보기는 없음", ask.filter(visible=True).count() == 1
+        and page.get_by_text("보낸 문자 다시 보기").count() == 0 and page.get_by_label("받은 답장").filter(visible=True).count() == 1)
+    btn(page, "4일 지남").click()
+    btn(page, "다시 보냈어요").click()
+    page.get_by_text("답장 기한").first.wait_for()
+    rec("미루는 답 뒤: 재요청을 보낸 뒤에는 묻는 문자가 없음", ask.count() == 0)
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -381,6 +400,7 @@ def main() -> int:
             business_fault(browser, base)
             industry_gate(browser, base)
             good_offer(browser, base)
+            callback_draft(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
             limit_flow(browser, base)
