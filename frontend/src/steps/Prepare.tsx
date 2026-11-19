@@ -41,7 +41,8 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
               <Button variant="primary" label="문자로 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />
             ) : (<>
               <Button variant="primary" label="전화로 말했어요" onClick={() => send({ type: 'notice_sent', channel: 'call' }, { note: drafts.after_call_sms })} />
-              <Button label="전화 연결이 안 됐어요" onClick={() => send({ type: 'call_attempted' })} />
+              {/* 연결이 안 됐으면 다음 할 일은 문자다. 기록한 뒤 문자 문안으로 바꿔 보여 준다 */}
+              <Button label="전화 연결이 안 됐어요" onClick={async () => { if (await send({ type: 'call_attempted' })) setChannel('sms') }} />
             </>)}
           </HStack>
         </Dock>

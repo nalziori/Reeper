@@ -332,8 +332,21 @@ textarea:focus-visible,
   flex-shrink: 0;
 }
 
-/* 주 버튼 자리: 탭 바로 위에 고정. 버튼이 있을 때만 그만큼 아래를 비운다 */
-.dock-slot:not(:empty) { position: fixed; inset-inline: 0; bottom: var(--tab-h); z-index: 2; }
+/* 화면 아래, 탭 바로 위: 방금 기록한 것 알림과 그 단계의 주 버튼. 버튼이 있을 때만 그만큼 아래를 비운다 */
+.bottom-stack { position: fixed; inset-inline: 0; bottom: var(--tab-h, 0px); z-index: 2; pointer-events: none; }
+.bottom-stack > * { pointer-events: auto; }
 .dock-slot .action-dock { position: static; margin: 0 auto; max-width: 480px; border-top: 0; }
 .dock-slot:not(:empty) { background: var(--card); border-top: 1px solid var(--border); }
+.flash-slot { max-width: 480px; margin-inline: auto; padding-inline: 16px; pointer-events: none; }
+.flash {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--foreground); color: var(--card);
+  font-size: 14px; line-height: 1.45; word-break: keep-all;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  animation: flash-in 160ms ease-out;
+}
+.flash svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--success-soft); }
+@keyframes flash-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
 .page:has(.dock-slot:not(:empty)) .tab-spacer { height: calc(var(--tab-h) + 80px); }
