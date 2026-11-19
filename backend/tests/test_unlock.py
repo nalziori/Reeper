@@ -39,3 +39,11 @@ def test_without_a_real_key_it_stays_fake(monkeypatch):
     client = TestClient(app)
     client.get("/unlock/s3cret", follow_redirects=False)
     assert which(client) == "FakeLLM"
+
+
+def test_cookie_is_secure_off_localhost(real, monkeypatch):
+    monkeypatch.setenv("UNLOCK_KEY", "s3cret")
+    # 프록시 뒤에서는 http로 보여도 로컬이 아니면 Secure를 붙인다
+    res = TestClient(app, base_url="http://reeper.example").get("/unlock/s3cret", follow_redirects=False)
+    assert "Secure" in res.headers["set-cookie"]
+    assert "Secure" not in TestClient(app).get("/unlock/s3cret", follow_redirects=False).headers["set-cookie"]

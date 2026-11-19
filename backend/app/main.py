@@ -22,6 +22,8 @@ from .rules import DATA, RULES, calculate
 MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(256 * 1024)))
 PHOTO_PATH = "/api/contracts/extract"
 PHOTO_BODY_BYTES = agent.MAX_IMAGE + 4096  # data URL + JSON 껍데기
+# 프록시(Render) 뒤에서는 요청이 http로 보여 scheme으로는 Secure를 못 정한다. 로컬과 테스트(http)에서만 뺀다
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "testserver")
 
 
 class BodyLimit:
@@ -97,7 +99,7 @@ def unlock(token: str, request: Request) -> RedirectResponse:
     res = RedirectResponse("/", status_code=303)
     if agent.check_token(token):
         res.set_cookie("reeper_unlock", token, max_age=12 * 3600, httponly=True,
-                       secure=request.url.scheme == "https", samesite="lax")
+                       secure=request.url.hostname not in LOCAL_HOSTS, samesite="lax")
     return res
 SAMPLES = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((DATA / "samples").glob("*.json"))}
 
