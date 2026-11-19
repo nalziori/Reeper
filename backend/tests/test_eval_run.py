@@ -342,3 +342,32 @@ def test_live_stops_if_it_would_still_run_fake(monkeypatch, tmp_path):
     monkeypatch.setattr(agent, "set_unlocked", lambda token: None)
     with pytest.raises(SystemExit, match="가짜 LLM"):
         contextvars.copy_context().run(run.main, ["--live", _live_rows(tmp_path)])
+
+
+def test_live_photos_and_plans_print_the_model_actually_used(monkeypatch, capsys):
+    """A 리뷰(#109): 모델 이름을 바꾼 세 곳 중 --photos와 --plans도 실제로 쓰는 구현의 이름을 찍는다.
+    채점 함수는 대역으로 바꿔 끼워 호출하지 않는다."""
+    import contextvars
+    monkeypatch.setenv("UNLOCK_KEY", "k")
+    double = LiveDouble()
+    double.model = "live-double"
+    monkeypatch.setattr(agent, "llm", double)
+    seen = []
+
+    def photos(rows):
+        seen.append(agent._llm() is double)
+        return {"n": 0, "fields": {}, "all_ok": 0, "failed": 0, "results": []}
+
+    def plans(rows):
+        seen.append(agent._llm() is double)
+        return {"n": 0, "must_recall": None, "must_hit": 0, "must_n": 0, "forbid_hits": 0, "out_of_table": 0,
+                "empty": 0, "business_content_failures": 0, "dropped": 0, "situations": []}
+
+    monkeypatch.setattr(run, "score_photos", photos)
+    monkeypatch.setattr(run, "score_plans", plans)
+    monkeypatch.delenv("ALLOW_UPLOAD", raising=False)
+    contextvars.copy_context().run(run.main, ["--photos", "--live"])
+    contextvars.copy_context().run(run.main, ["--plans", "--live"])
+    assert seen == [True, True]
+    out = capsys.readouterr().out
+    assert out.count("모델: live-double") == 2

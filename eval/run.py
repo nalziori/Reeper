@@ -236,6 +236,8 @@ def main(argv=None) -> None:
         sys.exit("--live에는 OPENAI_API_KEY가 필요하다")
     else:
         # UNLOCK_KEY가 셸에 있으면 요청 밖의 이 실행도 잠겨 조용히 가짜 LLM으로 돈다(#103). --live는 키를 가진 사람이 붙이므로 푼다.
+        # 잠금은 ContextVar라 이 스레드에만 풀린다. 채점을 스레드로 나누면(ThreadPoolExecutor 등) 작업마다
+        # contextvars.copy_context().run으로 넘겨야 한다. 안 그러면 호출마다 다시 가짜로 돌고 "대체 N건"에도 안 잡힌다(A 리뷰 #109)
         agent.set_unlocked(agent.unlock_key() or None)
         if agent._llm() is agent.FAKE:
             sys.exit("--live인데 잠금(UNLOCK_KEY) 때문에 가짜 LLM으로 돈다. 셸에서 UNLOCK_KEY를 지우고 다시 돌린다")
