@@ -1,5 +1,5 @@
 import { ChatBubbleBottomCenterTextIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline'
-import { Button, Card, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
+import { Button, Card, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack, Waiting } from '../ui'
 import { useContext, useRef, useState } from 'react'
 import { api, type Tone } from '../api'
 import { DRAFT, won } from '../format'
@@ -79,6 +79,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
         )}
         <DraftText text={text} bubble={sendable} amount={sendable ? amount : undefined} />
         {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
+        {tone.loading && <Waiting message="말투를 바꾸고 있어요. 금액과 근거는 그대로 둬요" />}
         {tone.note && <Text type="supporting" role="status">{tone.note}</Text>}
         <HStack gap={2} wrap="wrap" hAlign={sendable ? 'end' : 'start'}>
           <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} onClick={async () => {

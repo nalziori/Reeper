@@ -337,3 +337,57 @@ textarea:focus-visible,
 .dock-slot .action-dock { position: static; margin: 0 auto; max-width: 480px; border-top: 0; }
 .dock-slot:not(:empty) { background: var(--card); border-top: 1px solid var(--border); }
 .page:has(.dock-slot:not(:empty)) .tab-spacer { height: calc(var(--tab-h) + 80px); }
+
+/* 기다리는 표시. 도는 원, 자리 표시 줄, 위 막대 아래를 흐르는 줄 */
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* 금방 끝나는 요청에서는 깜빡이지 않게 0.4초 뒤에 나타난다 */
+.waiting {
+  animation: appear 0.2s 0.4s both;
+}
+
+.skeleton {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--muted);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.busy-bar {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 3px;
+  overflow: hidden;
+  animation: appear 0.2s 0.4s both;
+}
+
+.busy-bar::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  background: var(--primary);
+  animation: slide 1.1s ease-in-out infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@keyframes slide { from { left: -40%; } to { left: 100%; } }
+
+/* 움직임을 줄이도록 설정한 기기에서는 돌거나 흐르지 않고 그대로 보인다 */
+@media (prefers-reduced-motion: reduce) {
+  .spinner, .skeleton, .busy-bar::after { animation: none; }
+  .busy-bar::after { width: 100%; left: 0; opacity: 0.5; }
+}

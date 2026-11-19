@@ -1,4 +1,4 @@
-import { Banner, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack } from '../ui'
+import { Banner, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack, Waiting } from '../ui'
 import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
@@ -24,8 +24,8 @@ type Props = {
 // 읽은 결과를 보여 주고 사용자가 확정해야 기록한다. 자동 판단이 곧바로 합의 같은 단계를 만들지 않게 한다.
 // 수용·금액 제시는 잘못 읽으면 합의 금액과 수용선 경고가 틀어지므로 원문을 다 보여 주고, 수용은 확정하면 생기는 일을 적는다.
 // 키워드 판단은 이 둘을 자주 잘못 읽어서(평가에서 틀린 건 대부분이 금액) 미리 고른 값을 확정하지 못하게 하고 버튼으로 고르게 한다
-function ReadConfirm({ read, refund, onConfirm, onReject }:
-  { read: ReadReply & { text: string }; refund: number; onConfirm: () => void; onReject: () => void }) {
+function ReadConfirm({ read, refund, saving, onConfirm, onReject }:
+  { read: ReadReply & { text: string }; refund: number; saving: boolean; onConfirm: () => void; onReject: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.scrollIntoView({ block: 'nearest' }) }, [read])
   const risky = read.reply_type === 'accept' || read.reply_type === 'low_offer'
@@ -45,9 +45,11 @@ function ReadConfirm({ read, refund, onConfirm, onReject }:
             ? <Text type="supporting">자동으로 못 읽어 낱말로 짐작했어요. 환불 여부와 금액은 원문을 보고 아래 버튼으로 골라 주세요</Text>
             : read.llm_fallback && <Text type="supporting">자동으로 못 읽어 낱말로 짐작했어요. 틀리기 쉬우니 꼭 봐 주세요</Text>}
           <HStack gap={2} wrap="wrap">
-            {!keywordOnly && <Button variant="primary" label="맞아요, 기록할게요" onClick={onConfirm} />}
-            <Button label={keywordOnly ? '닫기' : '아니에요, 직접 고를게요'} onClick={onReject} />
+            {!keywordOnly && <Button variant="primary" label={saving ? '기록하는 중…' : '맞아요, 기록할게요'} isLoading={saving} onClick={onConfirm} />}
+            <Button label={keywordOnly ? '닫기' : '아니에요, 직접 고를게요'} isDisabled={saving} onClick={onReject} />
           </HStack>
+          {/* 확정하면 답장을 한 번 더 분석해서 몇 초가 걸린다 */}
+          {saving && <Waiting message="기록하고, 업체 말에 어떻게 답할지 정리하고 있어요" lines={3} />}
         </VStack>
       </Card>
     </div>
@@ -71,6 +73,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
   const [openReply, setOpenReply] = useState(false)
   const [openSent, setOpenSent] = useState(false)
+  const [saving, setSaving] = useState(false)  // 읽은 답장을 확정해 기록하는 중
   const hasDrafts = Object.keys(drafts).length > 0 || Boolean(saved.note)
   // 업체가 나중에 연락하겠다고 미뤘을 때의 문자는 아직 보낸 적이 없다. '보낸 문자 다시 보기'에 접지 않고 펼쳐 둔다
   const askFirst = 'ask_callback_time' in drafts
@@ -85,13 +88,19 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       )}
       <TextArea label="받은 답장" description="문자를 붙여넣거나 통화로 들은 말을 적어요"
         value={reply} onChange={setReply} maxLength={500} />
-      <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isDisabled={!reply.trim() || reading}
+      <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
         onClick={() => void readReply(reply)} /></HStack>
+      {reading && <Waiting message="답장을 읽고 있어요. 몇 초 걸려요" lines={2} />}
       {readNote && <Text type="supporting" role="status">{readNote}</Text>}
       {read && (
-        <ReadConfirm read={read} refund={c.refund.refund}
-          onConfirm={() => void sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
-            ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
+        <ReadConfirm read={read} refund={c.refund.refund} saving={saving}
+          onConfirm={async () => {
+            setSaving(true)
+            try {
+              await sendReply({ type: 'reply_received', text: read.text, reply_type: read.reply_type,
+                ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })
+            } finally { setSaving(false) }
+          }}
           onReject={clearRead} />
       )}
       {!autoReadOff && <ReplyButtons send={sendReply} text={reply} />}

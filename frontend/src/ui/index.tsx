@@ -83,14 +83,36 @@ const VARIANT = { primary: 'default', secondary: 'secondary', ghost: 'ghost', de
 type ButtonProps = {
   label: string; variant?: keyof typeof VARIANT; size?: 'sm' | 'md' | 'lg'; isDisabled?: boolean
   onClick?: () => void; href?: string; icon?: ReactNode; className?: string
+  isLoading?: boolean  // 참이면 아이콘 자리에 도는 표시를 두고 누르지 못하게 한다
 }
-export function Button({ label, variant = 'secondary', size = 'md', isDisabled, onClick, href, icon, className }: ButtonProps) {
+export function Button({ label, variant = 'secondary', size = 'md', isDisabled, isLoading, onClick, href, icon, className }: ButtonProps) {
   const look = { variant: VARIANT[variant], size: size === 'md' ? 'default' as const : size }
   if (href) {
     return <a href={href} aria-disabled={isDisabled || undefined}
       className={cn(buttonVariants(look), 'no-underline', isDisabled && 'pointer-events-none opacity-50', className)}>{icon}{label}</a>
   }
-  return <UiButton type="button" {...look} disabled={isDisabled} onClick={onClick} className={className}>{icon}{label}</UiButton>
+  return <UiButton type="button" {...look} disabled={isDisabled || isLoading} aria-busy={isLoading || undefined}
+    onClick={onClick} className={className}>{isLoading ? <Spinner /> : icon}{label}</UiButton>
+}
+
+// ── 기다리는 표시 ────────────────────────────────────
+// 실제 모델을 부르면 몇 초가 걸린다. 멈춘 것처럼 보이지 않게 도는 표시와 자리 표시 줄을 보여 준다
+export function Spinner() {
+  return <span aria-hidden className="spinner" />
+}
+
+// 0.4초 안에 끝나는 요청에서는 보이지 않는다(index.css의 .waiting). lines는 곧 채워질 글의 자리 표시 줄 수다
+export function Waiting({ message, lines = 0 }: { message: string; lines?: number }) {
+  return (
+    <div role="status" className="waiting">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{message}</div>
+      {lines > 0 && (
+        <div aria-hidden className="mt-3 flex flex-col gap-2">
+          {Array.from({ length: lines }, (_, i) => <span key={i} className="skeleton" style={{ width: `${[92, 100, 78, 96, 64][i % 5]}%` }} />)}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── 알림 줄 ──────────────────────────────────────────

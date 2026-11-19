@@ -1,4 +1,4 @@
-import { Badge, Button, Divider, Heading, Text, TextArea, VStack } from '../ui'
+import { Badge, Button, Divider, Heading, Text, TextArea, VStack, Waiting } from '../ui'
 import { useState, type ReactNode } from 'react'
 import type { Case, Rules } from '../api'
 import { Fold } from './Fold'
@@ -25,6 +25,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
   const [situation, setSituation] = useState(c.situation ?? '')
   const [empty, setEmpty] = useState(false)
+  const [loading, setLoading] = useState(false)  // 조언을 받는 중(가장 오래 걸리는 호출이다)
   const s = c.strategy
   const text = situation.trim()
   const tooLong = [...situation].length > LIMIT
@@ -42,9 +43,14 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
           value={situation} onChange={setSituation}
           isDisabled={autoReadOff} disabledMessage="지금은 조언을 받을 수 없어요" />
         <div>
-          <Button label={s ? '조언 다시 받기' : '조언 받기'} isDisabled={autoReadOff || !text || tooLong}
-            onClick={async () => setEmpty(await plan(text) === 'empty')} />
+          <Button label={loading ? '조언을 만드는 중…' : s ? '조언 다시 받기' : '조언 받기'} isLoading={loading}
+            isDisabled={autoReadOff || !text || tooLong}
+            onClick={async () => {
+              setLoading(true)
+              try { setEmpty(await plan(text) === 'empty') } finally { setLoading(false) }
+            }} />
         </div>
+        {loading && <Waiting message="상황을 읽고 조언을 만들고 있어요. 10초쯤 걸려요" lines={5} />}
         {!autoReadOff && empty && !s && (
           <Text type="supporting">이번에는 조언을 만들지 못했어요. 버튼으로 계속 진행하면 돼요</Text>
         )}
