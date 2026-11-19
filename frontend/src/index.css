@@ -188,27 +188,59 @@ textarea:focus-visible,
   box-sizing: border-box;
 }
 
-/* ── 진행 단계(위 막대) ───────────────────────────────── */
+/* ── 진행 단계(위 막대) ───────────────────────────────
+   지난 단계는 주황 바탕에 체크, 지금 단계는 주황 테두리, 남은 단계는 회색. 점 사이를 선으로 잇는다 */
 .journey-steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
   list-style: none;
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   padding: 0;
 }
 
 .journey-steps li {
-  border-top: 4px solid var(--muted);
-  padding-top: 6px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
-  text-align: center;
   color: var(--muted-foreground);
   word-break: keep-all;
 }
 
-.journey-steps li[data-state='done'] { border-color: var(--primary); }
-.journey-steps li[data-state='current'] { border-color: var(--primary); color: var(--foreground); font-weight: 600; }
+/* 점과 점 사이 선: 각 칸의 왼쪽 절반에 앞 단계와 잇는 선을 그린다 */
+.journey-steps li + li::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--muted);
+  z-index: 0;
+}
+.journey-steps li[data-state='done'] + li::before,
+.journey-steps li[data-state='done'] + li[data-state='current']::before { background: var(--primary); }
+
+.journey-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 2px solid var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.journey-dot svg { width: 14px; height: 14px; stroke-width: 2.5; }
+.journey-steps li[data-state='done'] .journey-dot { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.journey-steps li[data-state='current'] .journey-dot { border-color: var(--primary); color: var(--brand-text); }
+.journey-steps li[data-state='current'] { color: var(--foreground); font-weight: 600; }
 
 .journey-interactions {
   min-width: 0;
@@ -350,3 +382,59 @@ textarea:focus-visible,
 @keyframes flash-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
 .page:has(.dock-slot:not(:empty)) .tab-spacer { height: calc(var(--tab-h) + 80px); }
+
+/* ── 바텀 시트 ──────────────────────────────────────── */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgb(23 25 28 / 0.4); transition: opacity 160ms ease-out; }
+.sheet-backdrop[data-starting-style], .sheet-backdrop[data-ending-style] { opacity: 0; }
+.sheet {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 21;
+  max-width: 480px; margin-inline: auto; max-height: 88dvh;
+  display: flex; flex-direction: column;
+  background: var(--card); border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.12);
+  transition: transform 200ms ease-out;
+  outline: none;
+}
+.sheet[data-starting-style], .sheet[data-ending-style] { transform: translateY(100%); }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-backdrop { transition: none; } }
+.sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--muted); margin: 0 auto 8px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 12px; }
+.sheet-close { display: grid; place-items: center; width: 44px; height: 44px; margin-right: -8px; border: 0; border-radius: 12px; background: none; color: var(--muted-foreground); cursor: pointer; }
+.sheet-close svg { width: 22px; height: 22px; }
+.sheet-body { overflow-y: auto; overscroll-behavior: contain; margin-inline: -16px; padding-inline: 16px; }
+
+/* 시트 안의 한 줄 선택지 */
+.choice-list { display: flex; flex-direction: column; border-radius: 14px; background: var(--secondary); overflow: hidden; }
+.choice-row {
+  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 16px;
+  border: 0; border-top: 1px solid var(--border); background: var(--card);
+  font: inherit; font-size: 16px; color: var(--foreground); text-align: left; cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+.choice-list .choice-row:first-child { border-top: 0; }
+.choice-row:hover { background: var(--secondary); }
+.choice-row:active { background: var(--muted); }
+.choice-row:disabled { opacity: 0.5; cursor: default; }
+.choice-list { border: 1px solid var(--border); }
+.choice-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--secondary); color: var(--muted-foreground); flex: none; }
+.choice-icon svg { width: 18px; height: 18px; }
+.choice-amount { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+
+/* ── 영수증(예상 환불액) ─────────────────────────────── */
+.receipt { margin: 0; display: flex; flex-direction: column; border-top: 1px dashed var(--input); padding-top: 8px; }
+.receipt > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 15px; }
+.receipt dt { color: var(--muted-foreground); }
+.receipt dd { margin: 0; font-weight: 500; white-space: nowrap; }
+.receipt .receipt-total { border-top: 1px dashed var(--input); margin-top: 4px; padding-top: 10px; }
+.receipt .receipt-total dt { color: var(--foreground); font-weight: 600; }
+.receipt .receipt-total dd { font-weight: 600; }
+
+/* ── 타임라인(기록 탭, 완료 화면) ─────────────────────── */
+.tl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.tl-item { position: relative; display: grid; grid-template-columns: 28px 1fr auto; align-items: start; gap: 12px; padding: 8px 0; font-size: 15px; }
+.tl-item + .tl-item::before { content: ""; position: absolute; left: 13.5px; top: -10px; height: 18px; width: 1px; background: var(--input); }
+.tl-dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 14px; background: var(--brand-soft); color: var(--brand-text); }
+.tl-dot svg { width: 16px; height: 16px; }
+.tl-upcoming .tl-dot { background: var(--secondary); color: var(--muted-foreground); }
+.tl-date { white-space: nowrap; padding-top: 2px; }

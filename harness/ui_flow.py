@@ -30,6 +30,20 @@ def btn(page, name, exact=False):
     return page.get_by_role("button", name=name, exact=exact)
 
 
+def open_reply(page):
+    """답장 기록은 바텀 시트 안에 있다. 닫혀 있으면 연다."""
+    if page.get_by_role("dialog").count() == 0:
+        page.get_by_role("button", name=re.compile(r"^(업체 )?답장 기록하기$")).first.click()
+        page.get_by_role("dialog").wait_for()
+
+
+def close_sheet(page):
+    """시트가 열려 있으면 Esc로 닫는다(열린 동안 뒤 화면은 누를 수 없다)."""
+    if page.get_by_role("dialog").count():
+        page.keyboard.press("Escape")
+        page.get_by_role("dialog").wait_for(state="detached")
+
+
 def new_page(browser, base, viewport, errors):
     ctx = browser.new_context(viewport=viewport, accept_downloads=True, locale="ko-KR", timezone_id="Asia/Seoul")
     page = ctx.new_page()
@@ -101,7 +115,9 @@ def full_flow(browser, base, tag, viewport):
         page.get_by_text(re.compile("답장 기한 ")).first.inner_text())
     rec(f"{tag}: 법정 기한 아님 문구", page.get_by_text("법정 기한 아님").count() >= 1)
     page.screenshot(path=SHOTS / f"{tag}-4-waiting.png", full_page=True)
-    # 버튼 경로: 금액 제시(수용선 미만)
+    # 버튼 경로: 금액 제시(수용선 미만). 답장 기록은 아래 주 버튼으로 여는 시트 안에 있다
+    rec(f"{tag}: 답장 기다림 주 버튼이 시트를 연다", btn(page, "업체 답장 기록하기").count() == 1)
+    open_reply(page)
     page.get_by_label("업체가 말한 금액(원)").fill("100000")
     btn(page, "금액을 말했어요").click()
     page.get_by_text("거절 기준").first.wait_for()
@@ -111,6 +127,7 @@ def full_flow(browser, base, tag, viewport):
     btn(page, "이 문자를 보냈어요").click()
     btn(page, "하루 지남").wait_for()
     # 애매한 답장: 읽은 결과를 확정하지 않으면 단계가 바뀌지 않는다
+    open_reply(page)
     page.get_by_label("받은 답장").fill("환불해 드릴게요. 위약금 30% 빼고요")
     btn(page, "답장 읽기").click()
     page.get_by_text("이렇게 읽었어요. 맞나요?").wait_for()
@@ -118,7 +135,8 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 읽기만으로는 합의가 되지 않음", btn(page, "입금을 확인했어요").count() == 0
         and page.get_by_text("이렇게 읽었어요. 맞나요?").count() == 0)
     page.get_by_label("받은 답장").fill("")
-    # 시연 조작: 사장 답도 읽은 결과를 확정해야 기록된다(가짜 LLM 키워드 판단)
+    close_sheet(page)
+    # 시연 조작: 사장 답도 읽은 결과를 확정해야 기록된다(가짜 LLM 키워드 판단). 읽은 결과가 있으면 시트가 저절로 열린다
     btn(page, "사장: 네 알겠습니다 환불해 드릴게요").click()
     page.get_by_text("이렇게 읽었어요. 맞나요?").wait_for()
     rec(f"{tag}: 사장 답 읽은 결과 표시", page.get_by_text("환불해 준대요", exact=True).count() >= 1)
@@ -184,6 +202,7 @@ def limit_flow(browser, base):
     page.get_by_role("radio", name="문자로").check()
     rec(f"{tag}: 전략 꺼짐 안내", page.get_by_text("버튼만으로도 끝까지 갈 수 있어요").count() >= 1)
     btn(page, "문자로 보냈어요").click()
+    open_reply(page)
     page.get_by_text("지금은 버튼으로 골라 주세요").first.wait_for()
     rec(f"{tag}: 자동 읽기 꺼짐 안내와 버튼", btn(page, "환불해 준대요").count() == 1)
     page.get_by_label("받은 답장").fill("네 알겠습니다 환불해 드릴게요")
@@ -242,7 +261,7 @@ def photo_fill(browser, base):
     rec(f"{tag}: 고친 칸은 확인 표시 사라짐", page.locator(".field-status", has_text="사진에서 읽었어요").count() == 0)
     btn(page, "계산하기").click()
     page.get_by_text("예상 환불액").first.wait_for()
-    rec(f"{tag}: 회 단위로 계산", page.get_by_text(re.compile(r"이용분 .*원")).count() >= 1)
+    rec(f"{tag}: 회 단위로 계산", page.get_by_text(re.compile(r"\d+회 중 \d+회")).count() >= 1)
     rec(f"{tag}: 실제 서버는 사진 읽기 꺼짐", real_health.get("upload") is False)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
@@ -346,6 +365,7 @@ def good_offer(browser, base):
     page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").click()
+    open_reply(page)
     page.get_by_label("업체가 말한 금액(원)").fill("460000")
     btn(page, "금액을 말했어요").click()
     btn(page, "에 합의했어요").wait_for()
@@ -361,11 +381,12 @@ def callback_draft(browser, base):
     page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").click()
+    open_reply(page)
     btn(page, "다시 연락 준대요").click()
     ask = page.get_by_text("날짜와 시간을 문자로 알려 주시겠어요")
     ask.first.wait_for()
     rec("미루는 답 뒤: 묻는 문자가 펼쳐져 있고 보낸 문자 다시 보기는 없음", ask.filter(visible=True).count() == 1
-        and page.get_by_text("보낸 문자 다시 보기").count() == 0 and page.get_by_label("받은 답장").filter(visible=True).count() == 1)
+        and page.get_by_text("보낸 문자 다시 보기").count() == 0 and btn(page, "업체 답장 기록하기").filter(visible=True).count() == 1)
     btn(page, "4일 지남").click()
     btn(page, "다시 보냈어요").click()
     page.get_by_text("답장 기한").first.wait_for()

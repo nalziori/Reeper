@@ -123,7 +123,8 @@ export default function App() {
               <Text weight="semibold">{won(sc.agreed_amount ?? sc.refund.refund)}</Text>
             </HStack>
             {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
-            <JourneyProgress current={sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
+            {/* 끝난 사건은 다섯 단계가 모두 지난 것으로(6) 그려 마지막 단계도 체크로 보인다 */}
+            <JourneyProgress current={sc.stage === 'closed' ? 6 : sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
           </>
         )}
       </VStack>
