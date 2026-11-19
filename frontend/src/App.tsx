@@ -1,5 +1,5 @@
 import { Banner, Button, Card, DockProvider, HStack, Heading, Text, VStack } from './ui'
-import { ClockIcon, FlagIcon, PlusIcon, ScaleIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ClockIcon, FlagIcon, PlusIcon, ScaleIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { api, type Health, type ReadReply, type Rules, type Step } from './api'
 import { DeadlineLine } from './components/DeadlineLine'
@@ -84,6 +84,23 @@ export default function App() {
   // 사건은 이 브라우저에만 있어서 지우면 되돌릴 수 없다. 끝나지 않은 사건은 한 번 더 묻는다
   const [confirmReset, setConfirmReset] = useState(false)
   const [dockEl, setDockEl] = useState<HTMLElement | null>(null)
+  // 기록이 하나 늘면 무엇을 기록했는지 잠깐 보여 준다. 단계가 그대로인 기록(전화 연결 안 됨, 전화 안 받음)은
+  // 화면이 바뀌지 않아 눌렸는지 알 수 없었다. 새 사건·새로고침·새로 시작에는 띄우지 않는다
+  const logCount = saved?.step.case.timeline.length
+  const lastLog = saved?.step.case.timeline.at(-1)?.text ?? ''
+  const prevCount = useRef<number | undefined>(undefined)
+  const [flash, setFlash] = useState<{ text: string; n: number } | null>(null)
+  useEffect(() => {
+    if (prevCount.current !== undefined && logCount !== undefined && logCount > prevCount.current && lastLog) {
+      setFlash({ text: lastLog, n: logCount })
+    }
+    prevCount.current = logCount
+  }, [logCount, lastLog])
+  useEffect(() => {
+    if (!flash) return
+    const t = window.setTimeout(() => setFlash(null), 5000)
+    return () => window.clearTimeout(t)
+  }, [flash])
   const reset = () => { setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
   const tab: TabKey = saved && tabAt?.stage === saved.step.case.stage ? tabAt.tab : 'now'
   // 단계가 바뀌거나 탭을 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 새 단계 안내가 가려진다
@@ -106,7 +123,8 @@ export default function App() {
               <Text weight="semibold">{won(sc.agreed_amount ?? sc.refund.refund)}</Text>
             </HStack>
             {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
-            <JourneyProgress current={sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
+            {/* 끝난 사건은 다섯 단계가 모두 지난 것으로(6) 그려 마지막 단계도 체크로 보인다 */}
+            <JourneyProgress current={sc.stage === 'closed' ? 6 : sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
           </>
         )}
       </VStack>
@@ -164,7 +182,6 @@ export default function App() {
       <DockProvider value={dockEl}>
       <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
-      {/* 카드 하나가 한 장이다. 옆으로 넘긴다. 단계가 바뀌면 첫 장부터 */}
       {/* 지금 할 일 한 문장과 기한 */}
       <Card className="mb-3">
         <VStack gap={3}>
@@ -192,9 +209,15 @@ export default function App() {
       </div>}
       {/* 주 버튼 자리. 탭 바로 위에 고정된다 */}
       {/* 저장 중에는 이 버튼들도 잠근다(카드 쪽 fieldset 밖으로 옮겨 그리므로 따로 잠근다) */}
-      <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
-        <div ref={setDockEl} className="dock-slot" />
-      </fieldset>
+      <div className="bottom-stack">
+        {/* 방금 기록한 것. 화면 읽기 프로그램에도 읽힌다 */}
+        <div role="status" aria-live="polite" className="flash-slot">
+          {flash && <p key={flash.n} className="flash"><CheckCircleIcon aria-hidden />기록했어요 · {flash.text}</p>}
+        </div>
+        <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
+          <div ref={setDockEl} className="dock-slot" />
+        </fieldset>
+      </div>
 
       {/* 아래 탭: 지금 할 일, 계산 근거, 지금까지 한 일·저장. 화면 아래에 늘 붙어 있다 */}
       <div className="tab-spacer" aria-hidden />
