@@ -1,0 +1,20 @@
+{"id": "a6", "text": "그렇군요 하지만 계약서 상에 보면 기간이 지나고 난 다음에는 해지가 불가하고 양도만 가능합니다. 양도 하시겠나요?", "reply_type": "refuse", "amount": null, "note": "메모: 환불은 안 되고 양도만 된다 / 기준: 양도만 권함 = 비현금 대체(판정 기준 표)", "author": "human"}
+{"id": "a8", "text": "네 ㅅㄱ", "reply_type": "accept", "amount": null, "note": "메모: 알겠다, 환불해 주겠다 / 기준: 쓴 사람 메모: 알겠다, 환불해 주겠다. 문장만으로는 애매해 위험 경계", "author": "human"}
+{"id": "a3", "text": "하루에 8000원인데 제해서 환불하겠습니다", "reply_type": "list_price", "amount": null, "note": "메모: 정상가 하루 8천 원으로 빼서 환불하겠다(금액은 말 안 함) / 기준: 정상가 주장만, 금액 없음(c10·u06 선례)", "author": "human"}
+{"id": "a1", "text": "계약서상 하루 8000원이니 46만원 보내드릴겡", "reply_type": "low_offer", "amount": 460000, "note": "메모: 하루 8천 원으로 빼서 460,000원을 주겠다 / 기준: 숫자 둘(8000, 46만) 중 제시액은 46만", "author": "human"}
+{"id": "a4", "text": "사정은 이해하지만 계약서 상에 환불불가가 있어서 환불은 어렵습니다. 대신 이용권을 양도할 수 있는데 어떠신가요?", "reply_type": "refuse", "amount": null, "note": "메모: 환불은 안 되고 양도를 권한다 / 기준: 환불 불가 + 양도 권유", "author": "human"}
+{"id": "a5", "text": "남은 기간 PT로 바꿔드릴 수 있어요ㅠㅠ 쌤도 바꿔드림", "reply_type": "refuse", "amount": null, "note": "메모: 환불은 안 해 주고 남은 기간을 PT나 다른 트레이너로 바꿔 주겠다 / 기준: PT·트레이너 교체 = 비현금 대체(u05 선례)", "author": "human"}
+{"id": "a7", "text": "본사처리가 늦어져서 죄송합니다. 현재 시즌이라 회원님들이 너무 많아서 처리가 밀렸습니다. 꼭 환불해드릴테니 기다려주세요. 제가 꼭 본사에 말해놓겠습니다. 오늘내로 환불해드리겠습니다", "reply_type": "accept", "amount": null, "note": "메모: 요청한 금액 그대로 오늘 안에 환불해 주겠다 / 기준: 긴 설명 끝 결론: 오늘 안 환불", "author": "human"}
+{"id": "a2", "text": "등록수수료와 총 이용기간 계산해서 입급하겠습니다", "reply_type": "callback", "amount": null, "also": ["list_price", "unknown"], "note": "메모: 등록수수료를 더 빼고, 쉰 기간까지 넣은 총 이용기간으로 다시 계산해서 보내겠다(금액은 말 안 함) / 기준: 추가 공제 후 다시 계산, 금액·날짜 없음(v15 선례에 가까움). 정답이 갈릴 수 있어 also", "author": "human"}
+{"id": "a9", "text": "해지는 운영매니저님만 처리 가능하셔서요 평일 9시~6시 사이에 지점으로 방문 부탁드려요 문자로는 접수가 안 됩니다", "reply_type": "visit", "amount": null, "note": "메모: 평일 9~6시에 지점에 와서 매니저에게 해지해야 한다 / 기준: 해지 창구·시간 요구. 숫자 9·6은 금액 아님", "author": "claude"}
+{"id": "a10", "text": "넵 처리해드릴게여~ 근데 신분증 들고 직접 오셔야 돼서 언제 오실지 말씀해주세용", "reply_type": "visit", "amount": null, "note": "메모: 직접 와야만 처리해 준다 / 기준: 처리해 준다면서 방문 조건", "author": "claude"}
+{"id": "a11", "text": "473,334원 요청 건 확인했습니다. 담당 매니저 출근하시면 검토 후 다시 연락드리겠습니다.", "reply_type": "callback", "amount": null, "note": "메모: 아직 정하지 않았고 나중에 연락하겠다 / 기준: 요청 금액을 되풀이만, 확답 없음", "author": "claude"}
+{"id": "a12", "text": "계산해보니까 사십 몇 정도 나올거 같은데 사장님 확인받고 다시 말씀드릴게요", "reply_type": "callback", "amount": null, "note": "메모: 금액·날짜를 정하지 않고 나중에 알려 주겠다 / 기준: 대략 금액만 흘리고 확인 후 알려 줌(2026-11-18 callback 줄)", "author": "claude"}
+{"id": "a13", "text": "(사흘 동안 전화 다섯 번 했는데 안 받음. 문자는 읽음 표시만 뜨고 답 없음)", "reply_type": "no_answer", "amount": null, "note": "메모: 연락이 안 된다 / 기준: 통화 메모: 안 받음", "author": "claude"}
+{"id": "a14", "text": "회원님~ 저희 해지 규정은 회원님 불편하시게 하려는 게 아니라 정확하게 처리하려는 거예요^^ 걱정 마세요", "reply_type": "unknown", "amount": null, "note": "메모: 안심시키는 말만 하고 아무 약속도 없다 / 기준: 안심 문구만, 약속 없음(FTC ¶57)", "author": "claude"}
+{"id": "a1c", "text": "계약서상 하루 8000원이니 다시 계산해서 보내드릴겡", "reply_type": "list_price", "amount": null, "also": ["callback"], "note": "메모: 다시 계산한 뒤 보내겠다(금액·날짜 없음) / 기준: 정상가 주장 + 다시 계산, 금액 없음", "author": "human+claude"}
+{"id": "a3c", "text": "하루에 8000원인데 그건 빼고 요청하신 대로 환불하겠습니다", "reply_type": "accept", "amount": null, "note": "메모: 정상가로 빼지 않고 요청한 금액대로 환불하겠다 / 기준: 정상가 안 쓰고 요청대로", "author": "human+claude"}
+{"id": "a4c", "text": "사정은 이해하지만 계약서 상에 환불불가가 있어요. 그래도 이번엔 환불해드릴게요", "reply_type": "accept", "amount": null, "note": "메모: 요청대로 환불해 주겠다 / 기준: 동의서 있어도 이번엔 환불", "author": "human+claude"}
+{"id": "a7c", "text": "본사처리가 늦어져서 죄송합니다. 현재 시즌이라 회원님들이 너무 많아서 처리가 밀렸습니다. 꼭 환불해드릴테니 기다려주세요. 제가 꼭 본사에 말해놓겠습니다. 근데 이번 달 안에는 환불이 어렵습니다", "reply_type": "callback", "amount": null, "also": ["refuse"], "note": "메모: 말로는 해 준다지만 이번 달엔 환불하지 않겠다 / 기준: 해 준다면서 이번 달엔 안 함", "author": "human+claude"}
+{"id": "a8c", "text": "네 ㄴㄴ", "reply_type": "refuse", "amount": null, "note": "메모: 안 해 주겠다 / 기준: ㄴㄴ = 안 해 줌", "author": "human+claude"}
+{"id": "a12c", "text": "계산해보니까 44만 나오는데 그걸로 보내드릴게요", "reply_type": "low_offer", "amount": 440000, "note": "메모: 440,000원을 주겠다 / 기준: 확정 금액 44만", "author": "claude"}
