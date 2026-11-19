@@ -1,4 +1,4 @@
-"""키워드 판정(FakeLLM)의 회귀 테스트. 평가 답장 164건과 변형 435건에서 지금 맞히는 것을 고정한다.
+"""키워드 판정(FakeLLM)의 회귀 테스트. 평가 답장 184건(어려운 답장 A 20건 포함)과 변형 435건에서 지금 맞히는 것을 고정한다.
 
 규칙을 고칠 때 다른 문장이 깨지는 것을 사람 눈이 아니라 테스트로 막는다(docs/어려운_답장_작업_분담.md B2).
 지금 틀리는 건의 id는 keyword_misses.txt에 있다. 목록 밖의 건이 틀리면 실패하고, 목록의 건이 맞게 되면
@@ -15,7 +15,7 @@ run = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run)
 
 FILES = ["replies_b.jsonl", "replies_c.jsonl", "unseen_replies_b.jsonl", "unseen_replies_c.jsonl",
-         "hard_replies_c.jsonl", "perturbed_c.jsonl"]
+         "hard_replies_c.jsonl", "hard_replies_a.jsonl", "perturbed_c.jsonl"]
 MISSES = Path(__file__).with_name("keyword_misses.txt")
 
 
@@ -39,6 +39,18 @@ def test_keyword_reader_keeps_what_it_gets_right():
     assert not risky, f"위험하게 틀린다(잘못된 수용, 없는 금액, 틀린 금액): {risky}"
     assert not missed - known, f"맞던 답장이 틀리게 됐다: {sorted(missed - known)}"
     assert not known - missed, f"이제 맞는다. keyword_misses.txt에서 지운다: {sorted(known - missed)}"
+
+
+def test_unit_price_is_not_an_offer():
+    read = agent.FAKE.read_reply
+    assert read("계약서상 하루 8000원이니 다시 계산해서 보내드릴겡")[1] is None  # 8,000원 제시로 읽던 버그(#117 a1c)
+    assert read("하루에 8000원인데 제해서 환불하겠습니다")[1] is None
+    assert read("계약서상 하루 8000원이니 46만원 보내드릴겡") == ("low_offer", 460000)  # 단가 옆의 진짜 제시액은 그대로 읽는다
+    assert read("1일 8,000원 기준으로 다시 계산해서 보내드릴게요")[1] is None
+    # 날짜 뒤의 금액은 제시액이다. "1일"을 단가로만 보면 맞던 문장이 틀린다(#118 A 리뷰)
+    for dated in ("다음 달 1일에 40만원 입금해 드릴게요", "11일에 40만원 보내드릴게요", "21일 40만원 입금해 드릴게요",
+                  "31일까지 40만원 환불해 드릴게요"):
+        assert read(dated) == ("low_offer", 400000), dated
 
 
 if __name__ == "__main__":
