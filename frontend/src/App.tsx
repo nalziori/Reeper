@@ -128,6 +128,8 @@ export default function App() {
           </>
         )}
       </VStack>
+      {/* 서버에 묻는 동안 위 막대 아래로 줄이 흐른다. 어느 화면에 있어도 돌아가는 중인 것이 보인다 */}
+      {(busy || reading.busy) && <div className="busy-bar" role="progressbar" aria-label="처리하고 있어요" />}
     </header>
   )
   // 위 막대는 페이지의 바로 아래 자식이어야 내려도 붙어 있다(짧은 묶음 안에 두면 그 묶음과 함께 올라간다)

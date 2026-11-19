@@ -1,5 +1,5 @@
 import { ClockIcon } from '@heroicons/react/24/outline'
-import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack } from '../ui'
+import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack, Waiting } from '../ui'
 import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
@@ -290,7 +290,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
                     if (file) void readPhoto(file).finally(() => { input.value = '' })
                   }} />
               </label>
-              {busy && <Text type="supporting" role="status">사진을 읽고 있어요</Text>}
+              {busy && <Waiting message="사진을 읽고 있어요. 몇 초 걸려요" />}
               {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
               <Text type="supporting">사진이 없으면 아래에 직접 적어 주세요</Text>
             </VStack>
