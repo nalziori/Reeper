@@ -380,15 +380,17 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
 
 def facts(case: Case) -> dict[str, str]:
     c, r = case.contract, case.refund
+    addon_part = f", 부가상품 {r.addon:,}원" if r.addon else ""
+    deposit_note = f", 보증금 {r.security_deposit:,}원 포함" if r.security_deposit else ""
     return {
         "gym": c.gym_name or "센터",
         "total": f"{c.total_paid:,}", "used": f"{r.used_amount:,}", "penalty": f"{r.penalty:,}",
         "refund": f"{r.refund:,}", "used_days": str(r.used_days), "total_days": str(r.total_days), "unit": r.unit_label,
         # 부가상품·보증금이 없으면 빈칸이라 기존 문장 그대로다
         "addon": f"{r.addon:,}" if r.addon else "", "deposit": f"{r.security_deposit:,}" if r.security_deposit else "",
-        "addon_part": f", 부가상품 {r.addon:,}원" if r.addon else "",
+        "addon_part": addon_part,
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
-        "deposit_note": f", 보증금 {r.security_deposit:,}원 포함" if r.security_deposit else "",
+        "deposit_note": deposit_note,
         "start": _ymd(c.start_date),
         "notified": _ymd(case.notified_on) if case.notified_on else "오늘",
         "offered": f"{case.offered:,}" if case.offered is not None else "",
@@ -398,6 +400,7 @@ def facts(case: Case) -> dict[str, str]:
         "paid_part": (f"{case.deposited:,}원만 들어왔습니다. 남은 {case.agreed_amount - case.deposited:,}원의"
                       if case.deposited and case.agreed_amount else "아직 확인되지 않습니다."),
         "history": _history(case),
+        "request": _request(case, addon_part, deposit_note),
         # paid_part와 history 속 금액을 validate가 알아보게 숫자만 따로 둔다(문안 속 금액은 facts의 값이어야 한다)
         "deposited": f"{case.deposited:,}" if case.deposited else "",
         "left": f"{case.agreed_amount - case.deposited:,}" if case.deposited and case.agreed_amount else "",
@@ -419,6 +422,24 @@ def _history(case: Case) -> str:
     if "escalation_sent" in sent:
         return "문자와 내용증명으로 요청했으나 해결되지 않음"
     return "문자로 요청했으나 해결되지 않음"
+
+
+def _request(case: Case, addon_part: str, deposit_note: str) -> str:
+    """1372 상담 신청의 요청 금액 줄. 사용자가 그대로 옮겨 쓰는 줄이다.
+
+    합의 뒤 입금을 다 받지 못했으면 못 받은 합의 금액을 요청한다. 계산액을 쓰면 합의보다 더 달라는 글이 되고
+    일부를 받은 경우 남은 금액이 보이지 않는다. 계산액은 참고로 붙인다. 그 밖에는 계산액과 공제 내역이다.
+    """
+    r = case.refund
+    if case.stage in ("agreed", "handed_off") and case.agreed_amount is not None:
+        left = case.agreed_amount - case.deposited
+        if left > 0:
+            got = (f"합의한 금액 {case.agreed_amount:,}원 중 {case.deposited:,}원만 받음" if case.deposited
+                   else "합의한 금액, 아직 입금받지 못함")
+            # 계산상 더 받을 수 있었을 때만 참고로 붙인다. 같으면 되풀이이고, 더 많이 합의했으면 낮은 금액을 먼저 꺼내는 셈이다(A 리뷰 #116)
+            ref = f". 참고: 계산한 환불액 {r.refund:,}원" if r.refund > case.agreed_amount else ""
+            return f"{left:,}원 ({got}{ref})"
+    return f"{r.refund:,}원 (이용분 {r.used_amount:,}원, 위약금 {r.penalty:,}원{addon_part} 공제{deposit_note})"
 
 
 def render(kind: str, case: Case) -> str:
