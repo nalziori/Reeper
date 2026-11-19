@@ -119,10 +119,67 @@ textarea:focus-visible {
    페이지(html·body)는 배경을 정하지 않아 브라우저 캔버스 색이 보이므로, 같은 색(Canvas)을 써야 넓은 화면에서 띠가 생기지 않는다 */
 .action-dock {
   position: sticky;
-  bottom: 0;
+  bottom: var(--dock-bottom, 0px);
   z-index: 1;
   margin-inline: -16px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: Canvas;
   border-top: 1px solid var(--color-border);
+}
+
+/* 위에 붙어 있는 막대. 페이지 위·옆 여백(16px)까지 덮어 가장자리에 붙인다 */
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -16px -16px 0;
+  padding: 12px 16px 8px;
+  background: Canvas;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* 아래 탭. 화면 아래에 고정하고, 한 열 폭(480px)에 맞춰 가운데 둔다 */
+.tab-bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 3;
+  background: Canvas;
+  border-top: 1px solid var(--color-border);
+}
+
+.tab-bar > * {
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+/* 탭 하나가 손가락으로 누르기 좋은 높이(48px)가 되게 한다. 막대는 위아래 4px를 더해 56px(--tab-h) */
+.tab-bar {
+  padding-top: 4px;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+}
+
+.tab-bar .astryx-tab {
+  min-height: 48px;
+}
+
+/* 탭이 있는 화면: 마지막 내용이 탭 밑에 깔리지 않게 탭 높이만큼 비우고, 아래 버튼 줄은 탭 바로 위에 붙인다 */
+.has-tabs {
+  --tab-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --dock-bottom: var(--tab-h);
+}
+
+.tab-spacer {
+  height: var(--tab-h);
+  flex-shrink: 0;
+}
+
+/* 손가락으로 누르는 기기에서는 버튼·입력 칸을 44px 이상으로 키운다(Astryx 기본 28·32·36px는 마우스 기준).
+   테마 크기 값만 바꾸므로 컴포넌트는 그대로이고, 마우스로 쓰는 화면은 바뀌지 않는다 */
+@media (pointer: coarse) {
+  :root {
+    --size-element-sm: 40px;
+    --size-element-md: 44px;
+    --size-element-lg: 48px;
+  }
 }
