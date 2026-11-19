@@ -41,6 +41,8 @@ SPEECH = {"abbrev", "banmal", "greet", "excuse", "laugh", "emoji"}
 TYPOS = [("게요", "께요"), ("됐", "됬"), ("돼", "되"), ("습니다", "슴니다")]
 # 긴 것부터. 높임(-시-, 드리다)을 먼저 낮추고, 합쇼체를 반말로, 마지막에 해요체의 끝 요를 뺀다.
 BANMAL = [
+    # "드리다"가 "하다"의 높임일 때(연락드리다)는 하다로, 주는 뜻일 때(돌려드리다)는 주다로 낮춘다. 높임 주어(저희)도 낮춘다 (A 리뷰 #106)
+    ("연락드릴게요", "연락할게"), ("연락드리겠습니다", "연락할게"), ("있으시면", "있으면"), ("저희", "우리"), ("드리고", "주고"),
     ("말씀하신", "말한"), ("말씀드리겠습니다", "말해 줄게"), ("드릴 말씀 없습니다", "할 말 없어"),
     ("드리겠습니다", "줄게"), ("드릴게요", "줄게"), ("드립니다", "줄게"), ("드리긴", "주긴"), ("드리는", "주는"),
     ("드려야", "줘야"), ("드릴", "줄"), ("드려", "줘"),
@@ -83,6 +85,7 @@ def abbrev(t):
 def banmal(t):
     for a, b in BANMAL:
         t = t.replace(a, b)
+    t = t.replace("%이야", "%야")  # 20%입니다 → 20%야 (받침 없는 퍼센트)
     return re.sub(r"(?<!필)요(?=[.,!?~\s]|$)", "", t)
 
 
@@ -131,6 +134,15 @@ def hangul(n: int) -> str:
 
 
 RENDER = {"comma": comma, "man": man, "hangul": hangul}
+
+
+def same_spacing(old: str, word: str) -> str:
+    """금액 줄이기가 띄어쓰기까지 바꾸지 않게 원문 금액의 띄어쓰기를 따른다(삼십만원 → 이십오만원, A 리뷰 #106).
+    수 안(만·천 사이)과 원 앞을 따로 따른다(28만5천 원 → 23만5천 원, Codex 교차 검증)."""
+    core, wcore = old[:-1].rstrip(), word[:-1].rstrip()
+    if " " not in core:
+        wcore = wcore.replace(" ", "")
+    return wcore + (" 원" if old.endswith(" 원") else "원")
 
 
 def _spellings(parts: list[str]) -> list[str]:
@@ -186,7 +198,8 @@ def variants(r: dict) -> list[dict]:
     new = g - 50000
     # 다른 금액이 함께 있으면(c03 "60만원에서 20만원 공제하고 40만원") 계산이 틀어지므로, 줄인 금액이 이미 있어도(u03) 만들지 않는다
     if new > 0 and len(MONEY.findall(text)) == 1 and not find(text, new):
-        out.append(_make(r, "amount_change", put(f"₩{new:,}" if text[s] == "₩" else RENDER[style](new)), new))
+        word = f"₩{new:,}" if text[s] == "₩" else same_spacing(text[s:e], RENDER[style](new))
+        out.append(_make(r, "amount_change", put(word), new))
     return out
 
 
@@ -258,10 +271,10 @@ def main(argv=None) -> None:
     rep = report(rows, var)
     for name, x in rep.items():
         s, kind = x["score"], RULES[name][0] if name in RULES else name.split()[0]
-        r = s["risk"]
-        amt = f"  제시액 {s['amount_acc']:.1%}({s['amount_n']})" if s["amount_n"] else ""
+        r, (lo, hi) = s["risk"], s["type_ci"]
+        amt =f"  제시액 {s['amount_acc']:.1%}({s['amount_n']})" if s["amount_n"] else ""
         chg = f"  응답 바뀜 {x['changed']}" if kind == "불변" else ""
-        print(f"{name:<14} {kind} {x['n']:>3}건  유형 {s['type_acc']:.1%}{amt}  위험 {r['high']}·중간 {r['mid']}·안전 {r['safe']}"
+        print(f"{name:<14} {kind} {x['n']:>3}건  유형 {s['type_acc']:.1%}(95% {lo:.1%}~{hi:.1%}){amt}  위험 {r['high']}·중간 {r['mid']}·안전 {r['safe']}"
               f"  원래 맞던 것 틀림 {x['broken']}  맞게 바뀜 {x['fixed']}{chg}")
         if name in RULES:
             print(f"    {RULES[name][1]}")

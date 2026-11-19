@@ -34,7 +34,7 @@
 {"id": "b04~emoji", "src": "b04", "rule": "emoji", "test": "불변", "text": "삼십만원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다. 😊", "reply_type": "low_offer", "amount": 300000, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "b04~amount_format_comma", "src": "b04", "rule": "amount_format", "test": "방향", "text": "300,000원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다.", "reply_type": "low_offer", "amount": 300000, "note": "제시액 표기만 바꾸면(400,000원 / 40만원 / 사십만 원) 유형과 금액은 그대로다."}
 {"id": "b04~amount_format_man", "src": "b04", "rule": "amount_format", "test": "방향", "text": "30만원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다.", "reply_type": "low_offer", "amount": 300000, "note": "제시액 표기만 바꾸면(400,000원 / 40만원 / 사십만 원) 유형과 금액은 그대로다."}
-{"id": "b04~amount_change", "src": "b04", "rule": "amount_change", "test": "방향", "text": "이십오만 원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다.", "reply_type": "low_offer", "amount": 250000, "note": "제시액을 5만 원 줄이면 정답 금액도 5만 원 줄고 유형은 그대로다. 다른 금액이 함께 있는 문장(계산식, 비교)은 바꾸지 않는다."}
+{"id": "b04~amount_change", "src": "b04", "rule": "amount_change", "test": "방향", "text": "이십오만원까지는 맞춰 드릴 수 있어요. 그 이상은 어렵습니다.", "reply_type": "low_offer", "amount": 250000, "note": "제시액을 5만 원 줄이면 정답 금액도 5만 원 줄고 유형은 그대로다. 다른 금액이 함께 있는 문장(계산식, 비교)은 바꾸지 않는다."}
 {"id": "b05~nospace", "src": "b05", "rule": "nospace", "test": "불변", "text": "프로모션가로등록하신분들은계약서에환불불가로명시되어있습니다.", "reply_type": "refuse", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "b05~typo", "src": "b05", "rule": "typo", "test": "불변", "text": "프로모션가로 등록하신 분들은 계약서에 환불 불가로 명시되어 있슴니다.", "reply_type": "refuse", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
 {"id": "b05~banmal", "src": "b05", "rule": "banmal", "test": "불변", "text": "프로모션가로 등록한 분들은 계약서에 환불 불가로 명시되어 있어.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
@@ -110,7 +110,7 @@
 {"id": "c03~amount_format_comma", "src": "c03", "rule": "amount_format", "test": "방향", "text": "결제하신 60만원에서 20만원 공제하고 400,000원 돌려드립니다.", "reply_type": "low_offer", "amount": 400000, "note": "제시액 표기만 바꾸면(400,000원 / 40만원 / 사십만 원) 유형과 금액은 그대로다."}
 {"id": "c03~amount_format_hangul", "src": "c03", "rule": "amount_format", "test": "방향", "text": "결제하신 60만원에서 20만원 공제하고 사십만 원 돌려드립니다.", "reply_type": "low_offer", "amount": 400000, "note": "제시액 표기만 바꾸면(400,000원 / 40만원 / 사십만 원) 유형과 금액은 그대로다."}
 {"id": "c04~nospace", "src": "c04", "rule": "nospace", "test": "불변", "text": "환불해드리긴하는데위약금은저희규정상20%입니다.", "reply_type": "unknown", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
-{"id": "c04~banmal", "src": "c04", "rule": "banmal", "test": "불변", "text": "환불해 주긴 하는데 위약금은 저희 규정상 20%이야.", "reply_type": "unknown", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "c04~banmal", "src": "c04", "rule": "banmal", "test": "불변", "text": "환불해 주긴 하는데 위약금은 우리 규정상 20%야.", "reply_type": "unknown", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "c04~greet", "src": "c04", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 환불해 드리긴 하는데 위약금은 저희 규정상 20%입니다.", "reply_type": "unknown", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "c04~excuse", "src": "c04", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 환불해 드리긴 하는데 위약금은 저희 규정상 20%입니다.", "reply_type": "unknown", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "c04~laugh", "src": "c04", "rule": "laugh", "test": "불변", "text": "환불해 드리긴 하는데 위약금은 저희 규정상 20%입니다. ㅋㅋ", "reply_type": "unknown", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
@@ -196,7 +196,7 @@
 {"id": "c16~laugh", "src": "c16", "rule": "laugh", "test": "불변", "text": "이미 환불 처리했습니다. ㅋㅋ", "reply_type": "accept", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
 {"id": "c16~emoji", "src": "c16", "rule": "emoji", "test": "불변", "text": "이미 환불 처리했습니다. 😊", "reply_type": "accept", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "c17~nospace", "src": "c17", "rule": "nospace", "test": "불변", "text": "불만있으시면소비자원에신고하세요.", "reply_type": "refuse", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
-{"id": "c17~banmal", "src": "c17", "rule": "banmal", "test": "불변", "text": "불만 있으시면 소비자원에 신고해.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "c17~banmal", "src": "c17", "rule": "banmal", "test": "불변", "text": "불만 있으면 소비자원에 신고해.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "c17~greet", "src": "c17", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 불만 있으시면 소비자원에 신고하세요.", "reply_type": "refuse", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "c17~excuse", "src": "c17", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 불만 있으시면 소비자원에 신고하세요.", "reply_type": "refuse", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "c17~laugh", "src": "c17", "rule": "laugh", "test": "불변", "text": "불만 있으시면 소비자원에 신고하세요. ㅋㅋ", "reply_type": "refuse", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
@@ -240,7 +240,7 @@
 {"id": "u04~emoji", "src": "u04", "rule": "emoji", "test": "불변", "text": "이벤트 회원은 중도 해지 자체가 안 되는 상품이에요. 😊", "reply_type": "refuse", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "u05~nospace", "src": "u05", "rule": "nospace", "test": "불변", "text": "현금으로는못돌려드리고남은기간만큼PT이용권으로바꿔드릴수있습니다.", "reply_type": "refuse", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "u05~typo", "src": "u05", "rule": "typo", "test": "불변", "text": "현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있슴니다.", "reply_type": "refuse", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
-{"id": "u05~banmal", "src": "u05", "rule": "banmal", "test": "불변", "text": "현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 줄 수 있어.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "u05~banmal", "src": "u05", "rule": "banmal", "test": "불변", "text": "현금으로는 못 돌려주고 남은 기간만큼 PT 이용권으로 바꿔 줄 수 있어.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "u05~greet", "src": "u05", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다.", "reply_type": "refuse", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "u05~excuse", "src": "u05", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다.", "reply_type": "refuse", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "u05~laugh", "src": "u05", "rule": "laugh", "test": "불변", "text": "현금으로는 못 돌려드리고 남은 기간만큼 PT 이용권으로 바꿔 드릴 수 있습니다. ㅋㅋ", "reply_type": "refuse", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
@@ -292,7 +292,7 @@
 {"id": "u13~emoji", "src": "u13", "rule": "emoji", "test": "불변", "text": "어제 카드 취소 넣었습니다. 😊", "reply_type": "accept", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "u14~nospace", "src": "u14", "rule": "nospace", "test": "불변", "text": "법대로하세요.저희는더드릴말씀없습니다.", "reply_type": "refuse", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "u14~typo", "src": "u14", "rule": "typo", "test": "불변", "text": "법대로 하세요. 저희는 더 드릴 말씀 없슴니다.", "reply_type": "refuse", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
-{"id": "u14~banmal", "src": "u14", "rule": "banmal", "test": "불변", "text": "법대로 해. 저희는 더 할 말 없어.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "u14~banmal", "src": "u14", "rule": "banmal", "test": "불변", "text": "법대로 해. 우리는 더 할 말 없어.", "reply_type": "refuse", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "u14~greet", "src": "u14", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 법대로 하세요. 저희는 더 드릴 말씀 없습니다.", "reply_type": "refuse", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "u14~excuse", "src": "u14", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 법대로 하세요. 저희는 더 드릴 말씀 없습니다.", "reply_type": "refuse", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "u14~laugh", "src": "u14", "rule": "laugh", "test": "불변", "text": "법대로 하세요. 저희는 더 드릴 말씀 없습니다. ㅋㅋ", "reply_type": "refuse", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
@@ -407,21 +407,21 @@
 {"id": "v13~emoji", "src": "v13", "rule": "emoji", "test": "불변", "text": "센터 말고 앱 고객센터 1:1 문의로 남겨 주셔야 처리돼요. 😊", "reply_type": "visit", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "v14~nospace", "src": "v14", "rule": "nospace", "test": "불변", "text": "점장님이출장중이셔서복귀하시면연락드릴게요.", "reply_type": "callback", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "v14~typo", "src": "v14", "rule": "typo", "test": "불변", "text": "점장님이 출장 중이셔서 복귀하시면 연락드릴께요.", "reply_type": "callback", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
-{"id": "v14~banmal", "src": "v14", "rule": "banmal", "test": "불변", "text": "점장님이 출장 중이라서 복귀하면 연락줄게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "v14~banmal", "src": "v14", "rule": "banmal", "test": "불변", "text": "점장님이 출장 중이라서 복귀하면 연락할게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "v14~greet", "src": "v14", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 점장님이 출장 중이셔서 복귀하시면 연락드릴게요.", "reply_type": "callback", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "v14~excuse", "src": "v14", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 점장님이 출장 중이셔서 복귀하시면 연락드릴게요.", "reply_type": "callback", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "v14~laugh", "src": "v14", "rule": "laugh", "test": "불변", "text": "점장님이 출장 중이셔서 복귀하시면 연락드릴게요. ㅋㅋ", "reply_type": "callback", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
 {"id": "v14~emoji", "src": "v14", "rule": "emoji", "test": "불변", "text": "점장님이 출장 중이셔서 복귀하시면 연락드릴게요. 😊", "reply_type": "callback", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "v15~nospace", "src": "v15", "rule": "nospace", "test": "불변", "text": "환불금액은저희가계산해서다시알려드릴게요.", "reply_type": "callback", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "v15~typo", "src": "v15", "rule": "typo", "test": "불변", "text": "환불 금액은 저희가 계산해서 다시 알려 드릴께요.", "reply_type": "callback", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
-{"id": "v15~banmal", "src": "v15", "rule": "banmal", "test": "불변", "text": "환불 금액은 저희가 계산해서 다시 알려 줄게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "v15~banmal", "src": "v15", "rule": "banmal", "test": "불변", "text": "환불 금액은 우리가 계산해서 다시 알려 줄게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "v15~greet", "src": "v15", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 환불 금액은 저희가 계산해서 다시 알려 드릴게요.", "reply_type": "callback", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "v15~excuse", "src": "v15", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 환불 금액은 저희가 계산해서 다시 알려 드릴게요.", "reply_type": "callback", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "v15~laugh", "src": "v15", "rule": "laugh", "test": "불변", "text": "환불 금액은 저희가 계산해서 다시 알려 드릴게요. ㅋㅋ", "reply_type": "callback", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}
 {"id": "v15~emoji", "src": "v15", "rule": "emoji", "test": "불변", "text": "환불 금액은 저희가 계산해서 다시 알려 드릴게요. 😊", "reply_type": "callback", "amount": null, "note": "끝에 이모티콘을 붙여도 유형과 금액은 그대로다."}
 {"id": "v16~nospace", "src": "v16", "rule": "nospace", "test": "불변", "text": "확인해보고연락드리겠습니다.", "reply_type": "callback", "amount": null, "note": "띄어쓰기를 모두 없애도 유형과 금액은 그대로다."}
 {"id": "v16~typo", "src": "v16", "rule": "typo", "test": "불변", "text": "확인해 보고 연락드리겠슴니다.", "reply_type": "callback", "amount": null, "note": "흔한 맞춤법 실수(게요→께요, 됐→됬, 돼→되, 습니다→슴니다)는 유형과 금액을 바꾸지 않는다."}
-{"id": "v16~banmal", "src": "v16", "rule": "banmal", "test": "불변", "text": "확인해 보고 연락줄게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
+{"id": "v16~banmal", "src": "v16", "rule": "banmal", "test": "불변", "text": "확인해 보고 연락할게.", "reply_type": "callback", "amount": null, "note": "존댓말을 반말로 바꿔도(드릴게요→줄게, 하신→한, 끝의 요 빼기) 유형과 금액은 그대로다."}
 {"id": "v16~greet", "src": "v16", "rule": "greet", "test": "불변", "text": "안녕하세요 회원님, 문의 주셔서 감사합니다. 확인해 보고 연락드리겠습니다.", "reply_type": "callback", "amount": null, "note": "앞에 인사말을 붙여도 유형과 금액은 그대로다."}
 {"id": "v16~excuse", "src": "v16", "rule": "excuse", "test": "불변", "text": "요즘 문의가 많아서 답이 늦었습니다. 확인해 보고 연락드리겠습니다.", "reply_type": "callback", "amount": null, "note": "앞에 답이 늦은 사정을 붙여도 유형과 금액은 그대로다."}
 {"id": "v16~laugh", "src": "v16", "rule": "laugh", "test": "불변", "text": "확인해 보고 연락드리겠습니다. ㅋㅋ", "reply_type": "callback", "amount": null, "note": "끝에 ㅋㅋ를 붙여도 유형과 금액은 그대로다."}

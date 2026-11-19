@@ -73,6 +73,13 @@ def test_banmal_and_abbrev_examples():
     assert perturb.banmal("말씀하신 금액으로 환불 처리해 드리겠습니다. 계좌번호 남겨주세요.") == \
         "말한 금액으로 환불 처리해 줄게. 계좌번호 남겨줘."
     assert perturb.banmal("그걸로 처리해 드릴게요.") == "그걸로 처리해 줄게."
+    # A 리뷰(#106): 연락드리다는 하다로, 높임 남은 곳과 저희도 낮춘다
+    assert perturb.banmal("복귀하시면 연락드릴게요.") == "복귀하면 연락할게."
+    assert perturb.banmal("확인해 보고 연락드리겠습니다.") == "확인해 보고 연락할게."
+    assert perturb.banmal("불만 있으시면 소비자원에 신고하세요.") == "불만 있으면 소비자원에 신고해."
+    assert perturb.banmal("법대로 하세요. 저희는 더 드릴 말씀 없습니다.") == "법대로 해. 우리는 더 할 말 없어."
+    assert perturb.banmal("현금으로는 못 돌려드리고 바꿔 드릴 수 있습니다.") == "현금으로는 못 돌려주고 바꿔 줄 수 있어."
+    assert perturb.banmal("위약금은 저희 규정상 20%입니다.") == "위약금은 우리 규정상 20%야."
     assert perturb.abbrev("네 회원님, 말씀하신 대로") == "ㅇㅇ 회원님, 말씀하신 대로"
     assert perturb.abbrev("환불이 안 됩니다.") == "환불이 ㄴㄴ."
     assert perturb.abbrev("그런 건 전화로 얘기하시죠.") is None
@@ -90,6 +97,13 @@ def test_amount_change_moves_only_the_offer():
     ch = one["c06~amount_change"]
     assert ch["text"] == "센터 방문해 주시면 35만원 환불해 드립니다."
     assert (ch["reply_type"], ch["amount"]) == ("low_offer", 350000)
+    tight = {v["id"]: v for v in perturb.variants(row("b04", "삼십만원까지는 맞춰 드릴 수 있어요.", "low_offer", 300000))}
+    assert tight["b04~amount_change"]["text"] == "이십오만원까지는 맞춰 드릴 수 있어요."  # 원문처럼 붙여 쓴다 (A 리뷰 #106)
+    assert perturb.same_spacing("사십만 원", "삼십오만 원") == "삼십오만 원"
+    assert perturb.same_spacing("28만 5천원", "23만 5천원") == "23만 5천원"
+    assert perturb.same_spacing("28만5천 원", "23만 5천원") == "23만5천 원"  # 수 안과 원 앞을 따로 (Codex 교차 검증)
+    assert perturb.same_spacing("이십팔만오천 원", "이십삼만 오천 원") == "이십삼만오천 원"
+    assert perturb.same_spacing("412,000원", "362,000원") == "362,000원"
     won = {v["id"]: v for v in perturb.variants(row("v04", "₩450,000 환불 가능합니다.", "low_offer", 450000))}
     assert won["v04~amount_change"]["text"] == "₩400,000 환불 가능합니다."
     r = row("c03", "결제하신 60만원에서 20만원 공제하고 40만원 돌려드립니다.", "low_offer", 400000)
@@ -133,3 +147,13 @@ def test_report_counts_broken_and_changed(monkeypatch):
     assert rep["emoji"]["broken"] == 1 and rep["emoji"]["fixed"] == 1 and rep["emoji"]["changed"] == 2
     assert rep["emoji"]["score"]["risk"] == {"high": 0, "mid": 0, "safe": 1}
     assert len(calls) == len(set(calls)) == 6  # 같은 문장은 한 번만 읽는다
+
+
+def test_cli_prints_interval_without_touching_the_real_file(monkeypatch, tmp_path, capsys):
+    """출력 줄마다 95% 구간이 나온다(A 리뷰 #106 3번). 실제 perturbed_c.jsonl 대신 임시 파일에 쓴다."""
+    monkeypatch.setattr(perturb, "OUT", tmp_path / "p.jsonl")
+    monkeypatch.setattr(agent, "llm", agent.llm)  # main이 FAKE로 바꾼 것을 테스트 뒤 되돌린다
+    perturb.main([])
+    lines = [l for l in capsys.readouterr().out.splitlines() if l.startswith(tuple(perturb.RULES))]
+    assert len(lines) == len(perturb.RULES) and all("(95% " in l for l in lines)
+    assert (tmp_path / "p.jsonl").read_text(encoding="utf-8") == perturb.OUT.read_text(encoding="utf-8")
