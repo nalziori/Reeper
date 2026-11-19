@@ -331,6 +331,21 @@ def industry_gate(browser, base):
     ctx.close()
 
 
+def good_offer(browser, base):
+    """업체가 받고 싶은 금액 이상을 말하면, 그 금액을 받겠다는 새 문자가 접히지 않고 보인다(보낸 적 없는 문자다)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").click()
+    btn(page, "문자로 보냈어요").click()
+    page.get_by_label("업체가 말한 금액(원)").fill("460000")
+    btn(page, "금액을 말했어요").click()
+    btn(page, "에 합의했어요").wait_for()
+    rec("좋은 제시액: 수락 문자가 펼쳐져 있음", page.get_by_text("원으로 환불받겠습니다").filter(visible=True).count() == 1
+        and page.get_by_text("보낸 문자 다시 보기").count() == 0)
+    ctx.close()
+
+
 def storage_recovery(browser, base):
     cases = {
         "깨진 JSON": "{bad",
@@ -365,6 +380,7 @@ def main() -> int:
             not_sent_drafts(browser, base)
             business_fault(browser, base)
             industry_gate(browser, base)
+            good_offer(browser, base)
             storage_recovery(browser, base)
         with server({"OPENAI_API_KEY": "harness-no-call", "LLM_DAILY_LIMIT": "0"}) as base:
             limit_flow(browser, base)

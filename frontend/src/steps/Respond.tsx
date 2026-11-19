@@ -64,9 +64,9 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
     return ok
   }
   const settlementAmount = Number(settlement)
-  // 한 화면에 할 일 하나. 보내거나 말할 글이 있으면(재요청, 반박, 내용증명, 1372 접수) 그 글과 '했어요' 버튼이 이 화면의 일이고,
+  // 한 화면에 할 일 하나. 보내거나 말할 글이 있으면(재요청, 반박, 수락, 내용증명, 1372 접수) 그 글과 '했어요' 버튼이 이 화면의 일이고,
   // 답장 기록은 접어 둔다. 보낼 것이 없으면 답장 기록이 이 화면의 일이고, 지난 문자를 접어 둔다
-  const sendFirst = ['follow_up', 'counter', 'certified_mail'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
+  const sendFirst = ['follow_up', 'counter', 'certified_mail', 'confirm_agreement'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
   const hasDock = sendFirst || (c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn)
   const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
   const [openReply, setOpenReply] = useState(false)
