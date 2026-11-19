@@ -396,9 +396,11 @@ def test_go_1372_requests_the_unpaid_agreed_amount():
     assert _request_line(handed) == _request_line(part)
     same = part.model_copy(update={"agreed_amount": 473_334})  # 계산액대로 합의했으면 참고 금액을 되풀이하지 않는다
     assert _request_line(same) == "- 요청 금액: 373,334원 (합의한 금액 473,334원 중 100,000원만 받음)"
+    more = unpaid.model_copy(update={"agreed_amount": 500_000})  # 계산액보다 많이 합의했으면 낮은 계산액을 먼저 꺼내지 않는다(A 리뷰 #116)
+    assert _request_line(more) == "- 요청 금액: 500,000원 (합의한 금액, 아직 입금받지 못함)"
     paid = unpaid.model_copy(update={"deposited": 450_000})  # 다 받았으면 못 받은 금액이 없으니 계산액 줄로 둔다
     assert _request_line(paid) == none
-    for c in (base, unpaid, part, handed, same, paid):
+    for c in (base, unpaid, part, handed, same, more, paid):
         assert agent.validate(agent.render("go_1372", c), c)
 
 

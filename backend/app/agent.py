@@ -436,7 +436,8 @@ def _request(case: Case, addon_part: str, deposit_note: str) -> str:
         if left > 0:
             got = (f"합의한 금액 {case.agreed_amount:,}원 중 {case.deposited:,}원만 받음" if case.deposited
                    else "합의한 금액, 아직 입금받지 못함")
-            ref = f". 참고: 계산한 환불액 {r.refund:,}원" if r.refund != case.agreed_amount else ""  # 같으면 되풀이하지 않는다
+            # 계산상 더 받을 수 있었을 때만 참고로 붙인다. 같으면 되풀이이고, 더 많이 합의했으면 낮은 금액을 먼저 꺼내는 셈이다(A 리뷰 #116)
+            ref = f". 참고: 계산한 환불액 {r.refund:,}원" if r.refund > case.agreed_amount else ""
             return f"{left:,}원 ({got}{ref})"
     return f"{r.refund:,}원 (이용분 {r.used_amount:,}원, 위약금 {r.penalty:,}원{addon_part} 공제{deposit_note})"
 
