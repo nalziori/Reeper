@@ -3,10 +3,12 @@
 OPENAI_API_KEY가 있으면 OpenAILLM을, 없으면 FakeLLM을 쓴다. 실제 호출이 실패하거나
 일일 상한을 넘으면 FakeLLM과 고정 양식으로 계속 간다. LLM은 사건을 바꾸지 않는다.
 """
+import hmac
 import json
 import logging
 import os
 import re
+from contextvars import ContextVar
 from datetime import date
 
 import httpx
@@ -217,17 +219,43 @@ FAKE = FakeLLM()
 llm = (OpenAILLM(os.environ["OPENAI_API_KEY"], os.environ.get("OPENAI_MODEL", "gpt-6.1-terra"))
        if os.environ.get("OPENAI_API_KEY", "").strip() else FAKE)
 
+# 심사용 잠금. UNLOCK_KEY가 있으면 그 값을 가진 요청만 실제 LLM을 쓰고, 나머지는 키가 있어도 FakeLLM으로 돈다.
+# 공개 주소로 들어온 사람이 하루 호출 상한을 다 쓰지 못하게 한다. UNLOCK_KEY가 없으면 예전처럼 모두 실제 LLM을 쓴다.
+# 요청마다 main.py가 set_unlocked로 정한다. 기본은 잠김이고, 전달이 안 되면 잠긴 쪽(FakeLLM)으로 틀린다.
+_unlocked: ContextVar[bool] = ContextVar("reeper_unlocked", default=False)
+
+
+def unlock_key() -> str:
+    return os.environ.get("UNLOCK_KEY", "").strip()
+
+
+def check_token(token: str | None) -> bool:
+    """요청이 가진 값이 UNLOCK_KEY와 같은지. 상수 시간 비교."""
+    key = unlock_key()
+    return bool(key) and token is not None and hmac.compare_digest(token.encode(), key.encode())
+
+
+def set_unlocked(token: str | None) -> None:
+    _unlocked.set(check_token(token))
+
+
+def _llm():
+    """이 요청이 쓸 구현. 잠금이 켜져 있고(UNLOCK_KEY 있음) 이 요청이 풀지 못했으면 FakeLLM."""
+    if llm is FAKE or not unlock_key() or _unlocked.get():
+        return llm
+    return FAKE
+
 
 def upload_enabled() -> bool:
     """계약서 사진 읽기. 기본은 꺼짐이고 ALLOW_UPLOAD=1로 켠다. 합성(가상) 계약서만 쓴다(운영사무국 답, 2026-11-16)."""
-    return os.environ.get("ALLOW_UPLOAD") == "1" and llm is not FAKE
+    return os.environ.get("ALLOW_UPLOAD") == "1" and _llm() is not FAKE
 
 
 def status() -> dict:
     """/api/health에 실을 값. 쓰는 구현, 사진 읽기 켜짐 여부, 오늘 남은 호출 수와 쓴 토큰."""
     u = OpenAILLM.usage
     today = u["day"] == date.today()
-    return {"llm": type(llm).__name__, "upload": upload_enabled(),
+    return {"llm": type(_llm()).__name__, "upload": upload_enabled(),
             "calls_left": max(DAILY_LIMIT - (u["calls"] if today else 0), 0),
             "tokens_today": u["tokens"] if today else 0}
 
@@ -239,10 +267,11 @@ def _fallback(e: Exception) -> None:
 def read_reply(text: str) -> tuple[ReplyType, int | None, bool]:
     """답장을 읽는다. 세 번째 값은 실제 LLM이 실패해 키워드 판단으로 대체했는지다."""
     text = text[:MAX_REPLY]
-    if llm is FAKE:
+    cur = _llm()
+    if cur is FAKE:
         return *FAKE.read_reply(text), False
     try:
-        kind, amount = llm.read_reply(text)
+        kind, amount = cur.read_reply(text)
     except Exception as e:
         _fallback(e)
         return *FAKE.read_reply(text), True
@@ -291,10 +320,11 @@ def _same_claims(out: str, base: str) -> bool:
 def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
     """고정 양식을 말투만 다듬는다. 숫자가 하나라도 달라지거나 검사를 못 넘으면 원래 양식을 돌려준다."""
     base = render(kind, case)  # 없는 양식이면 KeyError
-    if llm is FAKE or kind in NOT_SENT:
+    cur = _llm()
+    if cur is FAKE or kind in NOT_SENT:
         return base, False
     try:
-        out = llm.polish(base, TONES[tone]).strip()
+        out = cur.polish(base, TONES[tone]).strip()
     except Exception as e:
         _fallback(e)
         return base, False
@@ -315,7 +345,7 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
     if len(image) > MAX_IMAGE or not re.match(r"data:image/(png|jpeg|webp);base64,", image):
         raise ValueError("사진 형식이나 크기가 맞지 않는다")
     try:
-        raw, failed = llm.extract_contract(image), False
+        raw, failed = _llm().extract_contract(image), False
     except Exception as e:
         _fallback(e)
         raw, failed = {}, True
@@ -535,14 +565,15 @@ def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
     """
     empty = {"claims": [], "note": "", "fallback": False}
     reply = reply[:MAX_REPLY]
-    if llm is FAKE or not reply.strip():
+    cur = _llm()
+    if cur is FAKE or not reply.strip():
         return empty
     payload = {**_brief(case, today), "업체 답장": reply,
                "서버 판단": {"다음 행동": action.type, "이유": action.reason, "업체 제시액": case.offered,
                          "요청액과 제시액의 차이": _gap(case), "목표 금액": case.target, "최저 수용선": case.floor,
                          "제시액이 최저 수용선보다 적음": action.warn}}
     try:
-        out = llm._chat(ANALYZE_SYSTEM, json.dumps(payload, ensure_ascii=False), ANALYZE_SCHEMA)
+        out = cur._chat(ANALYZE_SYSTEM, json.dumps(payload, ensure_ascii=False), ANALYZE_SCHEMA)
     except Exception as e:
         _fallback(e)
         return {**empty, "fallback": True}
@@ -615,12 +646,13 @@ def plan(case: Case, situation: str, today: date) -> dict:
     empty = {"summary": "", "grounds": [], "contract_points": [], "objections": [], "cautions": [],
              "questions": [], "dropped": 0, "fallback": False}
     situation = situation[:MAX_SITUATION]
-    if llm is FAKE:
+    cur = _llm()
+    if cur is FAKE:
         return empty
     payload = {**_brief(case, today), "하루 늦게 알릴 때 줄어드는 금액": case.refund.per_day_loss,
                "목표 금액": case.target, "최저 수용선": case.floor, "소비자의 상황 설명": situation}
     try:
-        out = llm._chat(PLAN_SYSTEM, json.dumps(payload, ensure_ascii=False), PLAN_SCHEMA)
+        out = cur._chat(PLAN_SYSTEM, json.dumps(payload, ensure_ascii=False), PLAN_SCHEMA)
     except Exception as e:
         _fallback(e)
         return {**empty, "fallback": True}
