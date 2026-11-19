@@ -201,9 +201,12 @@ def test_unpaid_deposit_reminds_then_goes_to_1372():
     assert f.step(days=WAIT - 1, type="time_passed") == "remind_deposit"  # 기한 + wait_days: 독촉 기간 마지막 날
     assert f.step(days=1, type="time_passed") == "go_1372"
     assert "입금 기한이 지나도록 100,000원만 받음" in f.res["drafts"]["go_1372"]
+    # 그대로 옮겨 쓰는 요청 금액은 못 받은 합의 금액이다(계산액대로 합의해 참고 금액은 붙지 않는다)
+    assert "- 요청 금액: 373,334원 (합의한 금액 473,334원 중 100,000원만 받음)" in f.res["drafts"]["go_1372"]
     f.step(type="handoff_done")
     assert f.stage == "handed_off"
     assert "입금 기한이 지나도록 100,000원만 받음" in f.res["drafts"]["go_1372"]  # 접수 뒤에도 합의·입금 경과가 남는다
+    assert "- 요청 금액: 373,334원 (합의한 금액 473,334원 중 100,000원만 받음)" in f.res["drafts"]["go_1372"]
     f.step(type="agreement_recorded", amount=373_334)
     assert f.stage == "agreed" and f.res["case"]["deposited"] == 0  # 1372 뒤 합의 금액을 새로 받는다
     assert f.step(type="deposit_confirmed", amount=373_334) == "close"

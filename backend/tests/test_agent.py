@@ -345,6 +345,33 @@ def test_drafts_after_a_partial_deposit_pass_validate():
     assert "아직 확인되지 않습니다" in agent.render("remind_deposit", nothing) and agent.validate(agent.render("remind_deposit", nothing), nothing)
 
 
+def _request_line(case):
+    return next(l for l in agent.render("go_1372", case).splitlines() if l.startswith("- 요청 금액"))
+
+
+def test_go_1372_requests_the_unpaid_agreed_amount():
+    """합의 뒤 입금이 안 돼 1372에 갈 때, 그대로 옮겨 쓰는 요청 금액이 계산액이 아니라 못 받은 합의 금액이다.
+
+    계산액(473,334원)을 요청하면 합의(450,000원)보다 더 달라는 글이 되고, 일부를 받았으면 남은 금액도 안 보였다(Codex 교차 검증, #113 C 의견).
+    """
+    base = open_case(CONTRACT, D).model_copy(update={"notified_on": D, "deposit_due_on": D})
+    assert base.refund.refund == 473_334
+    none = _request_line(base)  # 합의가 없으면 지금처럼 계산액과 공제 내역
+    assert none.startswith("- 요청 금액: 473,334원 (이용분")
+    unpaid = base.model_copy(update={"stage": "agreed", "agreed_amount": 450_000, "deposited": 0})
+    assert _request_line(unpaid) == "- 요청 금액: 450,000원 (합의한 금액, 아직 입금받지 못함. 참고: 계산한 환불액 473,334원)"
+    part = unpaid.model_copy(update={"deposited": 100_000})
+    assert _request_line(part) == "- 요청 금액: 350,000원 (합의한 금액 450,000원 중 100,000원만 받음. 참고: 계산한 환불액 473,334원)"
+    handed = part.model_copy(update={"stage": "handed_off"})  # 1372에 접수한 뒤에도 같다
+    assert _request_line(handed) == _request_line(part)
+    same = part.model_copy(update={"agreed_amount": 473_334})  # 계산액대로 합의했으면 참고 금액을 되풀이하지 않는다
+    assert _request_line(same) == "- 요청 금액: 373,334원 (합의한 금액 473,334원 중 100,000원만 받음)"
+    paid = unpaid.model_copy(update={"deposited": 450_000})  # 다 받았으면 못 받은 금액이 없으니 계산액 줄로 둔다
+    assert _request_line(paid) == none
+    for c in (base, unpaid, part, handed, same, paid):
+        assert agent.validate(agent.render("go_1372", c), c)
+
+
 @pytest.mark.parametrize("text, want", [
     # 주겠다는 말이 붙은 금액 하나만 제시액이다
     ("25만원만 드릴게요", ("low_offer", 250_000)), ("계산해 보니 38만 5천원 환불됩니다", ("low_offer", 385_000)),

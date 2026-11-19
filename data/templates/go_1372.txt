@@ -3,5 +3,5 @@
 - 업체: {gym}
 - 계약: {start} 개시, 결제금액 {total}원
 - 해지 의사 전달일: {notified}
-- 요청 금액: {refund}원 (이용분 {used}원, 위약금 {penalty}원{addon_part} 공제{deposit_note})
+- 요청 금액: {request}
 - 경과: {history}
