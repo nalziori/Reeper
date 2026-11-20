@@ -1,6 +1,7 @@
 """실제 LLM 구현을 키 없이 검사한다. OpenAI 응답은 가짜로 끼운다."""
 import json
 from datetime import date, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -75,6 +76,20 @@ def test_penalty_rate_claim_gets_the_penalty_draft(real):
     assert list(reply("본사 규정상 어렵네요")["drafts"]) == ["counter_unknown"]  # 다른 unknown은 그대로다
 
 
+def test_penalty_draft_survives_a_reply_recorded_right_after():
+    """비율을 주장한 답 바로 뒤에 다른 답이 기록돼도(유형이 그대로 unknown이면) 비율 주장에 답하는 문안을 준다.
+
+    기록에는 답장 유형이 없다. 협상 중 미루는 답을 기록만 하는 경우(#126)에도 last_reply는 그대로다."""
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="위약금은 저희 규정상 20%입니다"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="본사에 확인해 보고 연락드릴게요"), D)
+    assert list(agent.drafts_for(case, next_action(case, D))) == ["counter_penalty"]
+    # 반박을 보낸 뒤에 온 답은 새로 본다. 지난 비율 주장을 끌고 오지 않는다
+    case = apply(case, Event(type="counter_sent"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="본사 규정상 어렵네요"), D)
+    assert list(agent.drafts_for(case, next_action(case, D))) == ["counter_unknown"]
+
+
 def test_failure_falls_back_to_keywords(real):
     real(httpx.ConnectError("down"))
     res = reply("20만원만 드릴게요")
@@ -106,6 +121,24 @@ def test_chat_sends_strict_schema_and_counts_tokens(real, monkeypatch):
     monkeypatch.setattr(agent, "llm", agent.OpenAILLM(' "test-key"\r\n', " test-model\n"))
     assert agent.read_reply("오셔야 해요") == ("visit", None, False)
     assert seen["model"] == "test-model" and seen["auth"] == "Bearer test-key"
+
+
+def test_polish_keeps_the_account_slot_as_written(real):
+    """화면이 계좌 자리 글자를 찾아 계좌로 바꾼다. 다듬은 글이 그 글자를 바꾸거나 빼면 원래 양식을 쓴다."""
+    case = open_case(CONTRACT, D).model_copy(update={"offered": 460_000, "agreed_amount": 460_000})
+    # 화면이 찾는 글자와 서버가 지키는 글자가 같아야 한다. 한쪽만 바뀌면 여기서 걸린다
+    screen = (Path(__file__).parents[2] / "frontend" / "src" / "account.ts").read_text(encoding="utf-8")
+    assert f"ACCOUNT_SLOT = '{agent.ACCOUNT_SLOT}'" in screen
+    for kind in ("accept_offer", "confirm_agreement"):
+        base = agent.render(kind, case)
+        assert base.count(agent.ACCOUNT_SLOT) == 1  # 양식의 자리 글자가 바뀌면 여기서 걸린다
+        real({"text": base.replace(agent.ACCOUNT_SLOT, "(은행/계좌번호/예금주)")})  # 띄어쓰기만 바꿨다
+        assert agent.polished(kind, case, "polite") == (base, False)
+        real({"text": base.replace(agent.ACCOUNT_SLOT, "(계좌)")})  # 자리를 줄였다
+        assert agent.polished(kind, case, "polite") == (base, False)
+        softer = base.replace("부탁드립니다", "부탁드리겠습니다", 1)  # 자리를 그대로 둔 글은 쓴다
+        real({"text": softer})
+        assert softer != base and agent.polished(kind, case, "polite") == (softer, True)
 
 
 def test_polish_keeps_only_text_with_the_same_numbers(real):

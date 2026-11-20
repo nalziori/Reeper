@@ -294,6 +294,9 @@ def _numbers(text: str) -> list[str]:
 THREATS = ("무효", "위법", "불법", "소송", "고소", "고발", "법적", "손해배상", "신고")  # 양식에 없으면 다듬은 글에도 없어야 한다
 
 
+# 합의 문자(accept_offer, confirm_agreement)의 계좌 자리. 화면이 이 글자를 사용자의 계좌로 바꾼다(frontend/src/account.ts와 같은 값).
+# 다듬은 글이 이 글자를 띄어쓰기만 바꿔도 화면이 못 찾아 빈칸이 든 글이 나가므로, 그대로 두지 않았으면 쓰지 않는다
+ACCOUNT_SLOT = "(은행 / 계좌번호 / 예금주)"
 NOT_SENT = ("call_card", "go_1372")  # 업체에 보내는 글이 아니라 사용자가 보는 메모와 상담 신청 내용이다. 다듬지 않는다
 
 
@@ -335,7 +338,7 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
         return base, False
     gym = facts(case)["gym"]  # 상호를 바꾸거나 빼면 쓰지 않는다
     ok = (bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
-          and out.count(gym) == base.count(gym))
+          and out.count(gym) == base.count(gym) and out.count(ACCOUNT_SLOT) == base.count(ACCOUNT_SLOT))
     return (out, True) if ok else (base, False)
 
 
@@ -464,8 +467,14 @@ def _counter_kind(case: Case) -> str:
     답장 유형은 늘리지 않는다(eval/README.md의 판정 기준). 금액 없이 "위약금은 20%"라고만 한 답은 unknown이다.
     """
     kind = COUNTER_KIND.get(case.last_reply or "", "counter_unknown")
-    said = next((r.text for r in reversed(case.timeline) if r.type == "reply_received"), "")
-    return "counter_penalty" if kind == "counter_unknown" and PENALTY_RATE.search(said) else kind
+    # 아직 답하지 않은 답장(마지막에 연달아 온 것)을 모두 본다. 비율을 주장한 뒤 "확인해 보고 연락드릴게요"가
+    # 이어서 기록돼도 비율 주장은 남아 있다. 기록에는 답장 유형이 없어 마지막 한 건만 보면 그 주장을 놓친다
+    said = []
+    for r in reversed(case.timeline):
+        if r.type != "reply_received":
+            break
+        said.append(r.text)
+    return "counter_penalty" if kind == "counter_unknown" and any(PENALTY_RATE.search(t) for t in said) else kind
 
 
 def drafts_for(case: Case, action: Action) -> dict[str, str]:
