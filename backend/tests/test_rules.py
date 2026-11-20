@@ -20,10 +20,19 @@ def test_day_unit_is_default():
     assert (r.used_amount, r.penalty, r.refund) == (66_666, 60_000, 473_334)
 
 
-def test_month_unit_counts_started_month():
+def test_month_unit_prorates_by_days():
+    # 월 단위 계약도 개월이 아니라 날짜로 일할한다. 결과가 일 단위와 같다.
     c = contract(unit="month", total_count=3)
-    assert calculate(c, date(2026, 1, 31)).refund == 340_000  # 1개월 이용
-    assert calculate(c, date(2026, 2, 1)).refund == 140_000  # 2월에 들어서면 2개월
+    assert calculate(c, date(2026, 1, 31)).refund == 333_334  # 90일 중 31일
+    assert calculate(c, date(2026, 2, 1)).refund == 326_667  # 2월에 들어서도 하루치만 더 빠진다
+    assert calculate(c, date(2026, 2, 1)) == calculate(contract(), date(2026, 2, 1))
+
+
+def test_month_unit_start_day_is_one_day():
+    # 개시 당일 해지는 한 달치가 아니라 하루치만 이용분이다(366일 중 1일).
+    c = contract(total_paid=240_000, start_date=date(2026, 11, 20), end_date=date(2027, 11, 20), unit="month")
+    r = calculate(c, date(2026, 11, 20))
+    assert (r.used_days, r.total_days, r.used_amount, r.penalty, r.refund) == (1, 366, 655, 24_000, 215_345)
 
 
 def test_count_unit_uses_used_count():
@@ -50,16 +59,18 @@ def test_security_deposit_returned_in_full():
 
 def test_per_day_loss_is_tomorrow_difference():
     assert calculate(contract(), date(2026, 1, 10)).per_day_loss == 6_667  # 473,334 − 466,667
-    assert calculate(contract(unit="month", total_count=3), date(2026, 1, 10)).per_day_loss == 0
-    assert calculate(contract(unit="month", total_count=3), date(2026, 1, 31)).per_day_loss == 200_000
+    assert calculate(contract(unit="month", total_count=3), date(2026, 1, 10)).per_day_loss == 6_667
+    assert calculate(contract(unit="month", total_count=3), date(2026, 1, 31)).per_day_loss == 6_667
     assert calculate(contract(unit="count", total_count=20, used_count=5), date(2026, 1, 10)).per_day_loss == 0
 
 
 def test_month_from_jan_31_start():
+    # 월말 시작이어도 날짜로 센다. 1/31~2/28은 29일
     c = contract(start_date=date(2026, 1, 31), end_date=date(2026, 4, 30), unit="month", total_count=3)
-    assert calculate(c, date(2026, 2, 28)).used_days == 1  # 2월엔 31일이 없어도 아직 첫 달
-    assert calculate(c, date(2026, 3, 1)).used_days == 2
+    assert calculate(c, date(2026, 2, 28)).used_days == 29
+    assert calculate(c, date(2026, 3, 1)).used_days == 30
 
 
 def test_unit_label():
     assert calculate(contract(unit="count", total_count=20, used_count=5), date(2026, 1, 10)).unit_label == "회"
+    assert calculate(contract(unit="month", total_count=3), date(2026, 1, 10)).unit_label == "일"

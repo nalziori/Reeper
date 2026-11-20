@@ -3,7 +3,7 @@
 실행: python eval/make_contracts.py eval/contracts.jsonl
 used_count는 계약서에 없는 사용자 입력이라 contract가 아니라 usage에 둔다.
 basis: kca_case(한국소비자원 조정 사례와 대조) / decision_table(docs/환불_규칙.md 팀 결정표)
-       / unverified_month(월 단위 해석, 팀 미확인). 정확도 평가에서는 unverified_month를 뺀다.
+월 단위 계약도 날짜로 일할한다(결정표 1번, 2026-11-20). 월 단위 5건은 이 규칙의 회귀 확인이다.
 """
 import json, sys
 from datetime import date
@@ -23,7 +23,7 @@ C = [
 ("k12","새봄피트니스","1개월 회원권","day",None,None,100000,None,"2026-03-01","2026-03-30","2026-03-30",None,10000,"","다 써도 보증금은 반환"),
 ("k13","바른몸헬스","12개월 회원권","day",None,None,1000000,None,"2026-01-01","2026-12-31","2026-02-14",("요가매트",40000),30000,"","부가상품 + 보증금 동시"),
 ("k14","가상짐 한빛점","3개월 회원권","month",3,None,600000,None,"2026-01-01","2026-03-31","2026-01-31",None,0,"월 단위로 이용료를 정산합니다.","월 단위 1개월째 마지막 날"),
-("k15","가상짐 한빛점","3개월 회원권","month",3,None,600000,None,"2026-01-01","2026-03-31","2026-02-01",None,0,"월 단위로 이용료를 정산합니다.","월 단위 2개월째 첫날(미확인 해석)"),
+("k15","가상짐 한빛점","3개월 회원권","month",3,None,600000,None,"2026-01-01","2026-03-31","2026-02-01",None,0,"월 단위로 이용료를 정산합니다.","월 단위 2개월째 첫날"),
 ("k16","온새필라테스","6개월 필라테스","month",6,None,900000,None,"2026-01-31","2026-07-30","2026-02-28",None,0,"월 단위로 이용료를 정산합니다.","1/31 시작 월말 경계"),
 ("k17","온새필라테스","12개월 필라테스","month",12,None,1440000,None,"2026-05-15","2027-05-14","2026-09-14",None,0,"월 단위로 이용료를 정산합니다.","4개월째 마지막 날"),
 ("k18","힘찬PT","PT 20회","count",20,5,1200000,None,"2026-01-05","2026-04-30","2026-02-10",None,0,"","PT 회 단위"),
@@ -41,20 +41,17 @@ C = [
 LAYOUT={**dict.fromkeys(["k09","k19","k26"],"A_table"),**dict.fromkeys(["k04","k11","k21"],"B_clauses"),
         **dict.fromkeys(["k01","k03","k10"],"C_short"),**dict.fromkeys(["k08","k13","k24"],"D_application")}
 def d(s): return date.fromisoformat(s)
-def months(a,b):
-    m=(b.year-a.year)*12+(b.month-a.month); return m+1 if b.day>=a.day else m
 out=[]
 for (i,gym,prod,unit,tot,usedc,paid,listp,s,e,n,addon,dep,sp,memo) in C:
     S,E,N=d(s),d(e),d(n)
-    if unit=="day": T=(E-S).days+1; U=(N-S).days+1
-    elif unit=="month": T=tot; U=months(S,N)
+    if unit in ("day","month"): T=(E-S).days+1; U=(N-S).days+1
     else: T=tot; U=usedc
     U=min(max(U,0),T)
     used=paid*U//T; pen=paid*10//100; av=addon[1] if addon and addon[1] else 0
     refund=max(paid-used-av-pen,0)+dep
     from datetime import timedelta
     N2=N+timedelta(days=1)
-    U2=(N2-S).days+1 if unit=="day" else months(S,N2) if unit=="month" else usedc
+    U2=(N2-S).days+1 if unit in ("day","month") else usedc
     U2=min(max(U2,0),T); refund2=max(paid-paid*U2//T-av-pen,0)+dep
     lines=["회원권 이용 계약서","",f"센터명: {gym}",f"상품: {prod}",
            (f"총 납부액: {paid+dep:,}원 (회원권 {paid:,}원 + 보증금 {dep:,}원)" if i=="k26" else f"결제금액: {paid:,}원")+(f" (정상가 {listp:,}원)" if listp else ""),
@@ -67,7 +64,7 @@ for (i,gym,prod,unit,tot,usedc,paid,listp,s,e,n,addon,dep,sp,memo) in C:
     if tot: contract["total_count"]=tot
     if av: contract["addon_value"]=av
     if dep: contract["security_deposit"]=dep
-    basis="unverified_month" if unit=="month" else "kca_case" if i=="k03" else "decision_table"
+    basis="kca_case" if i=="k03" else "decision_table"
     out.append({"id":i,"basis":basis,"note":memo,"text":"\n".join(lines),"contract":contract,"notified_on":n,"usage":({"used_count":usedc} if unit=="count" else {}),
                 "expected":{"used_days":U,"total_days":T,"used_amount":used,"penalty":pen,"refund":refund,"per_day_loss":refund-refund2}})
     if i in LAYOUT: out[-1]["photo_layout"]=LAYOUT[i]
