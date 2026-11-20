@@ -244,3 +244,51 @@ def test_confirmed_step_with_analyze_flag_still_moves_by_the_confirmed_type():
     res = api.post("/api/cases/step", json={"case": f.res["case"], "today": str(f.today), "analyze": True,
                                             "event": {"type": "reply_received", "text": "네 알겠습니다", "reply_type": "accept"}})
     assert res.status_code == 200 and res.json()["case"]["stage"] == "agreed"
+
+def test_late_notice_moves_default_limits_with_the_refund():
+    # 사건을 연 날보다 사흘 늦게 통지하면 환불액이 줄어든다. 비워 둔 희망 금액·하한선도 함께 따라간다
+    f = Flow()
+    assert f.step(days=3, type="notice_sent", channel="sms") == "wait"
+    case = f.res["case"]
+    late = calculate(CONTRACT, D + timedelta(days=3)).refund
+    assert case["refund"]["refund"] == case["target"] == case["floor"] == late < 473_334
+    # 경계: 업체가 법정액을 정확히 주면 합의, 1원 적으면 경고
+    assert f.step(type="reply_received", reply_type="low_offer", amount=late) == "confirm_agreement"
+    assert not f.res["action"]["warn"]
+    assert f.step(type="reply_received", reply_type="low_offer", amount=late - 1) == "counter"
+    assert f.res["action"]["warn"] and f.res["action"]["reason"] == "제시액이 예상 환불액보다 적어요"
+
+
+@pytest.mark.parametrize("limits, expected", [
+    ({"target": 500_000, "floor": 300_000}, (500_000, 300_000)),  # 직접 정한 값은 그대로
+    ({"floor": 470_000}, (470_000, 470_000)),  # 비워 둔 희망 금액이 하한선보다 작아지면 하한선까지 올린다
+])
+def test_late_notice_keeps_limits_the_user_set(limits, expected):
+    res = api.post("/api/cases", json={"contract": CONTRACT.model_dump(mode="json"), "today": str(D), **limits}).json()
+    res = api.post("/api/cases/step", json={"case": res["case"], "event": {"type": "notice_sent", "channel": "sms"},
+                                            "today": str(D + timedelta(days=3))}).json()
+    assert (res["case"]["target"], res["case"]["floor"]) == expected
+
+
+@pytest.mark.parametrize("reply_type", ["callback", "no_answer"])
+def test_putting_off_during_negotiation_keeps_the_counter(reply_type):
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    # 답변 기한이 지난 뒤 거절을 받아 반박할 차례다
+    assert f.step(days=POLICY["wait_days"] + 2, type="reply_received", reply_type="refuse") == "counter"
+    assert f.step(type="reply_received", reply_type=reply_type) == "counter"
+    assert f.stage == "negotiating" and "counter_refuse" in f.res["drafts"]
+    assert f.res["case"]["last_reply"] == "refuse" and f.res["case"]["timeline"][-1]["text"] == reply_type
+    # 금지된 전이: 협상 중에는 재요청(통지)을 기록할 수 없다. 반박은 그대로 보낼 수 있다
+    bad = api.post("/api/cases/step", json={"case": f.res["case"], "event": {"type": "notice_sent", "channel": "sms"},
+                                            "today": str(f.today)})
+    assert bad.status_code == 409
+    assert f.step(type="counter_sent") == "wait" and f.stage == "waiting"
+
+
+def test_putting_off_keeps_the_low_offer_warning():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    assert f.step(type="reply_received", reply_type="low_offer", amount=100_000) == "counter"
+    assert f.step(type="reply_received", reply_type="callback") == "counter"
+    assert f.res["action"]["warn"] and f.res["case"]["offered"] == 100_000

@@ -65,6 +65,7 @@ def apply(case: Case, event: Event, today: date) -> Case:
     if event.type == "time_passed":
         return case
     c = case.model_copy(deep=True)
+    stage_before = case.stage
 
     def log(text: str = "") -> None:
         c.timeline.append(Record(on=today, type=event.type, text=text))
@@ -72,7 +73,16 @@ def apply(case: Case, event: Event, today: date) -> Case:
     if event.type == "notice_sent":
         if c.notified_on is None:  # 첫 통지일이 도달일이고, 환불액은 이 날짜로 고정된다
             c.notified_on = today
+            before = c.refund.refund
             c.refund = calculate(c.contract, today)
+            # 비워 둬서 예상 환불액을 그대로 쓰던 희망 금액·하한선은 다시 계산한 금액을 따른다.
+            # 그대로 두면 사건을 연 날보다 늦게 통지했을 때 업체가 법정액을 정확히 줘도 하한선 미만 경고가 떴다.
+            # 직접 정한 값은 두되, 하한선이 희망 금액보다 커지면 희망 금액을 하한선까지 올린다(open_case의 불변식)
+            if c.target == before:
+                c.target = c.refund.refund
+            if c.floor == before:
+                c.floor = c.refund.refund
+            c.target = max(c.target, c.floor)
         c.attempts += 1
         c.stage = "waiting"
         c.deadline_on = today + timedelta(days=POLICY["wait_days"])
@@ -85,6 +95,11 @@ def apply(case: Case, event: Event, today: date) -> Case:
         reply_type = event.reply_type
         if reply_type == "accept" and event.amount is not None:
             reply_type = "low_offer"  # 금액이 있는 수용은 서버가 목표·수용선과 비교해 정한다
+        # 협상 중에 전화를 안 받거나 나중에 연락 준다고 미루면 기록만 한다. 단계·제시액·직전 답을 그대로 둬서
+        # 하던 반박을 이어 간다. 예전에는 답장 기다림으로 돌아가 지난 기한 때문에 곧바로 재요청이 떴다
+        if stage_before == "negotiating" and reply_type in ("no_answer", "callback"):
+            log(event.text or reply_type)
+            return c
         c.last_reply, c.offered = reply_type, event.amount
         log(event.text or reply_type or "")
         if event.reply_type in ("no_answer", "callback"):
