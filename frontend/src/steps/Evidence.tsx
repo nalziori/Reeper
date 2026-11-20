@@ -19,7 +19,7 @@ export function Evidence({ c, rules }: { c: Case; rules: Rules }) {
         {c.stage === 'ready' && r.per_day_loss > 0 && <Text weight="semibold">하루 늦으면 약 {won(r.per_day_loss)}씩 줄어요</Text>}
         <Divider />
         <Text type="supporting">근거: {r.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
-        {r.provisional && <Text type="supporting">일반 기준으로 계산했어요. 통보한 날 포함 여부, 끝전, 개월 수 세는 법은 아직 확인 중이에요. 다툼이 있으면 1372에 문의하세요</Text>}
+        {r.provisional && <Text type="supporting">일반 기준으로 계산했어요. 통보한 날을 포함할지와 원 단위 끝전 처리는 아직 확인 중이에요. 다툼이 있으면 1372에 문의하세요</Text>}
       </VStack>
     </Card>
   )

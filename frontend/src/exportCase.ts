@@ -30,7 +30,7 @@ export function buildSummary(c: Case, rules: Rules): string {
   if (c.deadline_on) lines.push(`답변 기한: ${c.deadline_on}`)
   if (c.deposit_due_on) lines.push(`입금 기한: ${c.deposit_due_on}`)
   if (refund.provisional) {
-    lines.push('', '이 금액은 일반적인 기준에 따른 예상 금액입니다. 해지 통보가 닿은 날의 포함 여부, 원 단위 끝전, 월 단위 개월 수는 아직 확인 중입니다.')
+    lines.push('', '이 금액은 일반적인 기준에 따른 예상 금액입니다. 해지 통보가 닿은 날의 포함 여부와 원 단위 끝전 처리는 아직 확인 중입니다.')
   }
   lines.push('', '지금까지의 기록')
   if (c.timeline.length === 0) lines.push('- (아직 없음)')

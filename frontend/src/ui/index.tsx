@@ -192,16 +192,16 @@ export function TextArea({ label, value, onChange, maxLength, isDisabled, disabl
 
 // 날짜는 브라우저 날짜 칸을 쓴다. 휴대폰에서는 달력이 열리고, 값은 늘 연-월-일이다
 export type DateEntryError = { kind: 'outOfRange' | 'nonexistent' | 'format' } | null
-export function DateInput({ label, value, onChange, min, status, onEntryErrorChange }: {
+export function DateInput({ label, description, value, onChange, min, status, onEntryErrorChange }: {
   label: string; value?: string; onChange: (v: string | undefined) => void; min?: string
-  status?: FieldStatus; onEntryErrorChange?: (e: DateEntryError) => void
+  description?: string; status?: FieldStatus; onEntryErrorChange?: (e: DateEntryError) => void
   format?: string; placeholder?: string; width?: string
 }) {
   const id = useId()
   return (
-    <Field id={id} label={label} status={status}>
+    <Field id={id} label={label} description={description} status={status}>
       <input id={id} type="date" className={cn(INPUT, 'h-12')} value={value ?? ''} min={min}
-        aria-invalid={status?.type === 'error' || undefined} aria-describedby={describedBy(id, '', status)}
+        aria-invalid={status?.type === 'error' || undefined} aria-describedby={describedBy(id, description, status)}
         onChange={(e) => {
           const v = e.target.value
           onEntryErrorChange?.(e.target.validity.badInput ? { kind: 'format' } : v && min && v < min ? { kind: 'outOfRange' } : null)
