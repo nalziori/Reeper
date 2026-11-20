@@ -1,6 +1,6 @@
 import { Button, ChoiceRow, HStack, Heading, TextInput, VStack, Waiting } from '../ui'
 import {
-  BuildingStorefrontIcon, CalculatorIcon, ClockIcon, HandThumbDownIcon, HandThumbUpIcon, PhoneXMarkIcon, QuestionMarkCircleIcon,
+  BanknotesIcon, BuildingStorefrontIcon, CalculatorIcon, ClockIcon, HandThumbDownIcon, HandThumbUpIcon, PhoneXMarkIcon, QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline'
 import { useState, type ComponentType, type SVGProps } from 'react'
 import type { ReplyType } from '../api'
@@ -27,26 +27,33 @@ const parseAmount = (v: string): number | null => {
 // 한 줄 전체가 버튼인 목록이다(바텀 시트 안에서 손가락으로 한 번에 고른다)
 export function ReplyButtons({ send, text = '', saving = false }: { send: Send; text?: string; saving?: boolean }) {
   const [amount, setAmount] = useState('')
+  // 금액 칸은 '금액을 말했어요'를 고른 사람만 쓴다. 늘 펼쳐 두면 시트가 길어져 무엇을 해야 할지 흐려졌다
+  const [amountOpen, setAmountOpen] = useState(false)
   const parsed = parseAmount(amount)
   const invalid = amount !== '' && parsed === null
+  const row = ({ type, label, Icon }: (typeof CHOICES)[number]) => (
+    <ChoiceRow key={type} icon={<Icon />} label={label} disabled={saving}
+      onClick={() => void send({ type: 'reply_received', reply_type: type, text: text.trim() || label })} />
+  )
   return (
     <VStack gap={3}>
       <Heading level={4}>업체가 뭐라고 했나요?</Heading>
       {saving && <Waiting message="기록하고 있어요" />}
       <div className="choice-list" role="group" aria-label="업체 답">
-        {CHOICES.map(({ type, label, Icon }) => (
-          <ChoiceRow key={type} icon={<Icon />} label={label} disabled={saving}
-            onClick={() => void send({ type: 'reply_received', reply_type: type, text: text.trim() || label })} />
-        ))}
-      </div>
-      <div className="choice-amount">
-        <TextInput label="업체가 말한 금액(원)" value={amount} onChange={setAmount} inputMode="numeric"
-          description="금액을 말했으면 적고 아래 버튼을 눌러요"
-          status={invalid ? { type: 'error', message: '0보다 큰 숫자만 적어 주세요' } : undefined} />
-        <HStack><Button label="금액을 말했어요" isDisabled={parsed === null || saving}
-          onClick={async () => {
-            if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: text.trim() || '금액을 제시했어요' })) setAmount('')
-          }} /></HStack>
+        {row(CHOICES[0])}
+        <ChoiceRow icon={<BanknotesIcon />} label="금액을 말했어요" disabled={saving} expanded={amountOpen}
+          onClick={() => setAmountOpen((o) => !o)} />
+        {amountOpen && (
+          <div className="choice-amount">
+            <TextInput label="업체 제시액(원)" value={amount} onChange={setAmount} inputMode="numeric"
+              status={invalid ? { type: 'error', message: '0보다 큰 숫자만 적어 주세요' } : undefined} />
+            <HStack><Button variant="primary" label="이 금액으로 기록" isDisabled={parsed === null || saving}
+              onClick={async () => {
+                if (parsed !== null && await send({ type: 'reply_received', reply_type: 'low_offer', amount: parsed, text: text.trim() || '금액을 제시했어요' })) setAmount('')
+              }} /></HStack>
+          </div>
+        )}
+        {CHOICES.slice(1).map(row)}
       </div>
     </VStack>
   )

@@ -48,6 +48,21 @@ def test_offer_at_negotiation_boundaries(offered, action, warn):
     assert (result["action"]["type"], result["action"]["warn"]) == (action, warn)
 
 
+
+# 소비자가 보는 이유 문장은 화면과 같은 말(제시액·희망 금액·하한선)을 쓴다. 하한선을 정하지 않았으면 기준은 예상 환불액이라 그렇게 부른다
+@pytest.mark.parametrize("limits, offered, reason", [
+    ({}, 100000, "제시액이 예상 환불액보다 적어요"),
+    ({"target": 400000, "floor": 300000}, 100000, "제시액이 하한선보다 적어요"),
+    ({"target": 400000, "floor": 300000}, 350000, "하한선은 넘지만 희망 금액보다 적어요. 받아들일지 정하세요"),
+    ({"target": 400000, "floor": 300000}, 400000, "제시액이 희망 금액 이상이에요"),
+])
+def test_offer_reason_uses_consumer_terms(limits, offered, reason):
+    case = open_case(**limits).json()["case"]
+    case = step(case, type="notice_sent", channel="sms")["case"]
+    result = step(case, type="reply_received", reply_type="low_offer", amount=offered)
+    assert result["action"]["reason"] == reason
+    assert "수용선" not in result["action"]["reason"]
+
 def test_explicit_zero_offer_is_preserved_but_zero_agreement_rejected(monkeypatch):
     monkeypatch.setattr(agent, "read_reply", lambda _: ("low_offer", 200000, False))
     case = open_case(target=0, floor=0).json()["case"]

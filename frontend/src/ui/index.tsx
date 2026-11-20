@@ -88,7 +88,8 @@ type ButtonProps = {
 export function Button({ label, variant = 'secondary', size = 'md', isDisabled, isLoading, onClick, href, icon, className }: ButtonProps) {
   const look = { variant: VARIANT[variant], size: size === 'md' ? 'default' as const : size }
   if (href) {
-    return <a href={href} aria-disabled={isDisabled || undefined}
+    // 꺼진 링크는 href를 빼서 키보드로도 열리지 않게 한다(href 없는 a는 초점을 받지 않는다)
+    return <a href={isDisabled ? undefined : href} aria-disabled={isDisabled || undefined}
       className={cn(buttonVariants(look), 'no-underline', isDisabled && 'pointer-events-none opacity-50', className)}>{icon}{label}</a>
   }
   return <UiButton type="button" {...look} disabled={isDisabled || isLoading} aria-busy={isLoading || undefined}

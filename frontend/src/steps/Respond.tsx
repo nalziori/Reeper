@@ -1,4 +1,4 @@
-import { Banner, BottomSheet, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack, Waiting } from '../ui'
+import { BottomSheet, Button, Card, Collapsible, Dock, HStack, Heading, Text, TextArea, TextInput, VStack, Waiting } from '../ui'
 import { InboxArrowDownIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
@@ -86,14 +86,10 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   // 업체가 나중에 연락하겠다고 미뤘을 때의 문자는 아직 보낸 적이 없다. '보낸 문자 다시 보기'에 접지 않고 펼쳐 둔다
   const askFirst = 'ask_callback_time' in drafts
 
-  const replyForm = (
+  // 붙여넣기 칸. 자동 읽기를 못 쓰면 버튼이 먼저고 이 칸은 접어 둔다(붙여넣은 글은 고른 답과 함께 기록된다)
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const paste = (
     <VStack gap={3}>
-      {autoReadOff && (
-        <>
-          <Banner status="info" collapsible={false} title="지금은 버튼으로 골라 주세요" />
-          <ReplyButtons send={sendReply} text={reply} saving={saving} />
-        </>
-      )}
       <TextArea label="받은 답장" description="받은 문자를 붙여넣거나 통화로 들은 말을 적어요"
         value={reply} onChange={setReply} maxLength={500} />
       <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
@@ -106,7 +102,21 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
             ...(read.amount != null ? { amount: read.amount } : {}) }, {}, { analyze: !read.llm_fallback })}
           onReject={clearRead} />
       )}
-      {!autoReadOff && <ReplyButtons send={sendReply} text={reply} saving={saving} />}
+    </VStack>
+  )
+  const replyForm = autoReadOff ? (
+    <VStack gap={4}>
+      <ReplyButtons send={sendReply} text={reply} saving={saving} />
+      <Collapsible isOpen={pasteOpen || Boolean(reply) || Boolean(read) || Boolean(readNote)} onOpenChange={setPasteOpen}
+        trigger={<VStack gap={1}><Text weight="semibold">받은 문자 붙여넣기(선택)</Text>
+          <Text type="supporting">무슨 답인지 모르겠으면 붙여넣어 보세요</Text></VStack>}>
+        <div className="fold-body">{paste}</div>
+      </Collapsible>
+    </VStack>
+  ) : (
+    <VStack gap={4}>
+      {paste}
+      <ReplyButtons send={sendReply} text={reply} saving={saving} />
     </VStack>
   )
 

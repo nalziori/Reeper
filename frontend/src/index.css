@@ -369,17 +369,15 @@ textarea:focus-visible,
 .bottom-stack > * { pointer-events: auto; }
 .dock-slot .action-dock { position: static; margin: 0 auto; max-width: 480px; border-top: 0; }
 .dock-slot:not(:empty) { background: var(--card); border-top: 1px solid var(--border); }
-.flash-slot { max-width: 480px; margin-inline: auto; padding-inline: 16px; pointer-events: none; }
+/* 방금 한 기록: 위 막대의 업체 줄 자리에 잠깐 보인다. 긴 기록은 한 줄로 자른다 */
 .flash {
-  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px;
-  padding: 12px 14px; border-radius: 12px;
-  background: var(--foreground); color: var(--card);
-  font-size: 14px; line-height: 1.45; word-break: keep-all;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  display: flex; align-items: center; gap: 6px; margin: 0; min-width: 0;
+  font-size: 14px; line-height: 1.45; font-weight: 500; color: var(--success);
   animation: flash-in 160ms ease-out;
 }
-.flash svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--success-soft); }
-@keyframes flash-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.flash span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flash svg { width: 16px; height: 16px; flex: none; }
+@keyframes flash-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
 .page:has(.dock-slot:not(:empty)) .tab-spacer { height: calc(var(--tab-h) + 80px); }
 
@@ -419,7 +417,7 @@ textarea:focus-visible,
 .choice-list { border: 1px solid var(--border); }
 .choice-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--secondary); color: var(--muted-foreground); flex: none; }
 .choice-icon svg { width: 18px; height: 18px; }
-.choice-amount { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.choice-amount { display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 16px; background: var(--card); }
 
 /* ── 영수증(예상 환불액) ─────────────────────────────── */
 .receipt { margin: 0; display: flex; flex-direction: column; border-top: 1px dashed var(--input); padding-top: 8px; }

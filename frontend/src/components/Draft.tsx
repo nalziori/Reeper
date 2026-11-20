@@ -1,9 +1,10 @@
 import { ChatBubbleBottomCenterTextIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline'
-import { Button, Card, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack, Waiting } from '../ui'
+import { Button, Card, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack, Waiting } from '../ui'
 import { useContext, useRef, useState } from 'react'
 import { api, type Tone } from '../api'
 import { DRAFT, won } from '../format'
 import { PolishContext } from './PolishContext'
+import { ACCOUNT_SLOT, loadAccount, saveAccount } from '../account'
 
 type Choice = 'base' | Tone
 
@@ -45,7 +46,9 @@ function useTone(kind: string, base: string) {
     try {
       const res = await api.polish(c, kind, next)
       if (ticket !== asked.current) return
-      if (res.polished) setCache((prev) => ({ ...prev, [next]: res.text }))
+      // 계좌 자리 글자가 바뀌면 계좌 칸이 사라지고 빈칸이 든 글이 나가므로, 다듬은 글이 자리를 그대로 두었을 때만 쓴다
+      const keepsSlot = base.split(ACCOUNT_SLOT).length === res.text.split(ACCOUNT_SLOT).length
+      if (res.polished && keepsSlot) setCache((prev) => ({ ...prev, [next]: res.text }))
       else { setChoice('base'); setNote('이번에는 말투를 못 바꿨어요. 기본 문자를 쓰세요') }
     } catch {
       if (ticket === asked.current) { setChoice('base'); setNote('말투를 못 바꿨어요. 기본 문자를 쓰세요') }
@@ -61,10 +64,34 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const tone = useTone(kind, base)
-  const text = tone.text
+  const needsAccount = base.includes(ACCOUNT_SLOT)
+  const [account, setAccountState] = useState(loadAccount)
+  const setAccount = (v: string) => {
+    setAccountState(v)
+    setCopied(false)
+    saveAccount(v)
+  }
+  const missingAccount = needsAccount && !account.trim()
+  const text = needsAccount && !missingAccount ? tone.text.split(ACCOUNT_SLOT).join(account.trim()) : tone.text
   const { c } = useContext(PolishContext)
   const sendable = !NOT_SENT.has(kind)
   const amount = c ? won(c.agreed_amount ?? c.refund.refund) : undefined
+  // 보낼 문자는 복사·문자 앱 버튼을 글 위에 둔다. 글이 길면 아래 버튼이 화면 밖으로 밀려 '보냈어요'부터 누르게 됐다
+  const actions = (
+    <HStack gap={2} wrap="wrap">
+      <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} isDisabled={missingAccount} onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text)
+          setCopied(true)
+          setCopyError('')
+        } catch {
+          setCopyError('복사하지 못했어요. 글을 길게 눌러 복사해 주세요')
+        }
+      }} />
+      {sendable && <Button label="문자 앱으로 열기" icon={<ChatBubbleBottomCenterTextIcon aria-hidden />} isDisabled={missingAccount}
+        href={`sms:?&body=${encodeURIComponent(text)}`} />}
+    </HStack>
+  )
   return (
     <Card>
       <VStack gap={3}>
@@ -77,22 +104,17 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
             <SegmentedControlItem value="firm" label="단호하게" />
           </SegmentedControl>
         )}
+        {needsAccount && (
+          <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
+            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
+        )}
+        {sendable && actions}
+        {missingAccount && <Text type="supporting">계좌를 적어야 복사하거나 보낼 수 있어요</Text>}
         <DraftText text={text} bubble={sendable} amount={sendable ? amount : undefined} />
         {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
         {tone.loading && <Waiting message="말투를 바꾸고 있어요. 금액과 근거는 그대로 둬요" />}
         {tone.note && <Text type="supporting" role="status">{tone.note}</Text>}
-        <HStack gap={2} wrap="wrap" hAlign={sendable ? 'end' : 'start'}>
-          <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(text)
-              setCopied(true)
-              setCopyError('')
-            } catch {
-              setCopyError('복사하지 못했어요. 글을 길게 눌러 복사해 주세요')
-            }
-          }} />
-          {sendable && <Button label="문자 앱으로 열기" icon={<ChatBubbleBottomCenterTextIcon aria-hidden />} href={`sms:?&body=${encodeURIComponent(text)}`} />}
-        </HStack>
+        {!sendable && actions}
         {copyError && <Text as="p" role="alert">{copyError}</Text>}
       </VStack>
     </Card>

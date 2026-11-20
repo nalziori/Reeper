@@ -54,9 +54,9 @@ def open_case(contract: Contract, today: date, target: int | None = None, floor:
     target = refund.refund if target is None else target
     floor = refund.refund if floor is None else floor
     if target < 0 or floor < 0:
-        raise ValueError("목표 금액과 최저 수용선은 0원 이상이어야 합니다.")
+        raise ValueError("희망 금액과 하한선은 0원 이상이어야 합니다.")
     if floor > target:
-        raise ValueError("최저 수용선은 목표 금액보다 높을 수 없습니다.")
+        raise ValueError("하한선은 희망 금액보다 클 수 없습니다.")
     return Case(contract=contract, refund=refund, target=target, floor=floor)
 
 
@@ -169,7 +169,7 @@ def next_action(case: Case, today: date) -> Action:
         return Action(type="certified_mail", reason="재요청에도 답이 없어요")
     if c.stage == "negotiating":
         if c.last_reply == "low_offer" and c.offered is not None and c.offered >= c.target:
-            return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이에요")
+            return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
         # 반박을 정한 횟수만큼 보냈는데도 받아들이지 않으면 반박을 되풀이하지 않고 내용증명, 그다음 1372로 간다
         counters = sum(r.type == "counter_sent" for r in c.timeline)
         if counters >= POLICY["max_counters"]:
@@ -180,10 +180,12 @@ def next_action(case: Case, today: date) -> Action:
             return Action(type="certified_mail", reason=f"반박을 {counters}번 보냈는데도 받아들이지 않아요", warn=low)
         if c.last_reply == "low_offer" and c.offered is not None:
             if c.offered < c.floor:
-                return Action(type="counter", reason="제시액이 최저 수용선보다 적어요", warn=True)
+                # 하한선을 따로 정하지 않았으면 예상 환불액이 기준이다. 화면 말과 같게 부른다
+                floor_name = "예상 환불액" if c.floor == c.refund.refund else "하한선"
+                return Action(type="counter", reason=f"제시액이 {floor_name}보다 적어요", warn=True)
             if c.offered >= c.target:
-                return Action(type="confirm_agreement", reason="제시액이 목표 금액 이상이에요")
-            return Action(type="counter", reason="수용선은 넘지만 목표 금액보다 적어요. 받아들일지 정하세요")
+                return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
+            return Action(type="counter", reason="하한선은 넘지만 희망 금액보다 적어요. 받아들일지 정하세요")
         return Action(type="counter", reason="근거를 들어 다시 요청하세요")
     if c.stage == "agreed":
         left = f" (남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""

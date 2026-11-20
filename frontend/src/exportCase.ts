@@ -22,7 +22,7 @@ export function buildSummary(c: Case, rules: Rules): string {
     `${settled ? '합의 환불액' : '예상 환불액'}: ${won(settled ? (c.agreed_amount as number) : refund.refund)}`,
   )
   if (settled) lines.push(`처음 계산한 예상 환불액: ${won(refund.refund)}`)
-  lines.push(`목표 금액: ${won(c.target)}`, `최저 수용선: ${won(c.floor)}`)
+  lines.push(`희망 금액: ${won(c.target)}`, `하한선: ${won(c.floor)}`)
   const refs = refund.refs.map((id) => rules[id]?.title ?? id)
   lines.push(`계산 근거: ${refs.length ? refs.join(', ') : '(없음)'}`)
   lines.push(`현재 단계: ${STAGE[c.stage] ?? c.stage}`)

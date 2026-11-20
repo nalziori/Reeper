@@ -30,6 +30,20 @@ def btn(page, name, exact=False):
     return page.get_by_role("button", name=name, exact=exact)
 
 
+def record_amount(page, amount: str) -> None:
+    """답장 시트에서 '금액을 말했어요' 줄을 펼쳐 금액을 적고 기록한다."""
+    btn(page, "금액을 말했어요").click()
+    page.get_by_label("업체 제시액(원)").fill(amount)
+    btn(page, "이 금액으로 기록").click()
+
+
+def open_paste(page) -> None:
+    """자동 읽기를 못 쓰면 붙여넣기 칸이 접혀 있다. 접혀 있으면 편다."""
+    if page.get_by_label("받은 답장").count() == 0:
+        btn(page, "받은 문자 붙여넣기").click()
+        page.get_by_label("받은 답장").wait_for()
+
+
 def open_reply(page):
     """답장 기록은 바텀 시트 안에 있다. 닫혀 있으면 연다."""
     if page.get_by_role("dialog").count() == 0:
@@ -118,16 +132,19 @@ def full_flow(browser, base, tag, viewport):
     # 버튼 경로: 금액 제시(수용선 미만). 답장 기록은 아래 주 버튼으로 여는 시트 안에 있다
     rec(f"{tag}: 답장 기다림 주 버튼이 시트를 연다", btn(page, "업체 답장 기록하기").count() == 1)
     open_reply(page)
-    page.get_by_label("업체가 말한 금액(원)").fill("100000")
-    btn(page, "금액을 말했어요").click()
-    page.get_by_text("거절 기준").first.wait_for()
-    rec(f"{tag}: 수용선 미만 경고", page.get_by_text(re.compile("거절 기준.*보다 적어요")).count() >= 1)
+    rec(f"{tag}: 금액 칸은 고르기 전엔 접힘", page.get_by_label("업체 제시액(원)").count() == 0)
+    record_amount(page, "100000")
+    page.get_by_text(re.compile("업체 제시액 .*원은")).first.wait_for()
+    # 하한선을 정하지 않았으니 정한 적 없는 '하한선'이 아니라 '예상 환불액'과 비교한다고 적는다
+    rec(f"{tag}: 수용선 미만 경고", page.get_by_text(re.compile("업체 제시액 .*원은 예상 환불액 .*보다 적어요")).count() >= 1
+        and page.get_by_text(re.compile("거절 기준|수용선")).count() == 0)
     rec(f"{tag}: negotiating에서 낡은 기한 줄 없음", page.get_by_text(re.compile("답장 기한 .*(남음|지났어요|오늘까지)")).count() == 0)
     page.screenshot(path=SHOTS / f"{tag}-5-lowoffer.png", full_page=True)
     btn(page, "이 문자를 보냈어요").click()
     btn(page, "하루 지남").wait_for()
     # 애매한 답장: 읽은 결과를 확정하지 않으면 단계가 바뀌지 않는다
     open_reply(page)
+    open_paste(page)
     page.get_by_label("받은 답장").fill("환불해 드릴게요. 위약금 30% 빼고요")
     btn(page, "답장 읽기").click()
     page.get_by_text("이렇게 읽었어요. 맞나요?").wait_for()
@@ -200,11 +217,13 @@ def limit_flow(browser, base):
     page.get_by_role("radio", name="전화로").check()
     rec(f"{tag}: 고정 통화 카드", page.get_by_text("[첫마디]").count() + page.get_by_text("첫마디").count() > 0)
     page.get_by_role("radio", name="문자로").check()
-    rec(f"{tag}: 전략 꺼짐 안내", page.get_by_text("버튼만으로도 끝까지 갈 수 있어요").count() >= 1)
+    rec(f"{tag}: 쓸 수 없는 조언 칸은 숨김", page.get_by_text("내 상황에 맞는 조언").count() == 0)
     btn(page, "문자로 보냈어요").click()
     open_reply(page)
-    page.get_by_text("지금은 버튼으로 골라 주세요").first.wait_for()
-    rec(f"{tag}: 자동 읽기 꺼짐 안내와 버튼", btn(page, "환불해 준대요").count() == 1)
+    btn(page, "환불해 준대요").wait_for()
+    rec(f"{tag}: 자동 읽기 꺼지면 버튼 먼저, 붙여넣기는 접힘", btn(page, "환불해 준대요").count() == 1
+        and page.get_by_label("받은 답장").count() == 0)
+    open_paste(page)
     page.get_by_label("받은 답장").fill("네 알겠습니다 환불해 드릴게요")
     btn(page, "답장 읽기").click()
     page.get_by_text("낱말로 짐작했어요").first.wait_for()
@@ -316,7 +335,7 @@ def business_fault(browser, base):
     page.get_by_role("radio", name=re.compile("업체 잘못")).check()
     page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
     rec(f"{tag}: 금액·협상 기준 숨김", page.get_by_role("heading", name="예상 환불액").count() == 0
-        and page.get_by_text("받을 금액 정하기").count() == 0)
+        and page.get_by_text("희망 금액 정하기").count() == 0)
     rec(f"{tag}: 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
     rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1)
     page.get_by_label("무슨 일이 있었나요").fill("11월부터 샤워실 운영 중단, 공지만 붙음")
@@ -331,7 +350,7 @@ def business_fault(browser, base):
     page.get_by_role("radio", name=re.compile("잘 모르겠어요")).check()
     rec(f"{tag}: 잘 모르겠어요는 금액·시작 버튼 유지", page.get_by_role("heading", name="예상 환불액").count() == 1
         and btn(page, "이 금액으로 시작").count() == 1)
-    rec(f"{tag}: 잘 모르겠어요는 전략 안내", page.get_by_text("내 상황에 맞는 조언").count() >= 1)
+    rec(f"{tag}: 잘 모르겠어요는 상담 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
     page.screenshot(path=SHOTS / "잘모르겠어요.png", full_page=True)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
@@ -366,8 +385,7 @@ def good_offer(browser, base):
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").click()
     open_reply(page)
-    page.get_by_label("업체가 말한 금액(원)").fill("460000")
-    btn(page, "금액을 말했어요").click()
+    record_amount(page, "460000")
     btn(page, "에 합의했어요").wait_for()
     rec("좋은 제시액: 수락 문자가 펼쳐져 있음", page.get_by_text("원으로 환불받겠습니다").filter(visible=True).count() == 1
         and page.get_by_text("보낸 문자 다시 보기").count() == 0)

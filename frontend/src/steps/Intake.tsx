@@ -34,9 +34,9 @@ const REASON_HINT = {
   unsure: '강사가 바뀌었는데 계약서에 강사 지정이 없는 경우 등',
 } as const
 
-type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
+type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean; advice: boolean }
 
-export function Intake({ onConfirm, rules, upload }: Props) {
+export function Intake({ onConfirm, rules, upload, advice }: Props) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
@@ -121,7 +121,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     const targetValid = validAmount(target)
     const floorValid = validAmount(floor)
     const limitsError = !targetValid || !floorValid ? '0 이상 숫자만 적어 주세요'
-      : floorAmount > targetAmount ? '거절 기준은 받고 싶은 금액보다 클 수 없어요' : ''
+      : floorAmount > targetAmount ? '하한선은 희망 금액보다 클 수 없어요' : ''
     const confirm = () => runIntake(async () => {
       const today = isoDate(0)
       if (today !== preview.today) {
@@ -196,12 +196,16 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
               <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
+              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '잘 모르겠어요'를 골라 계속할 수 있어요</Text>
             </VStack>
           </Card>
           <FaultSummary c={contract} />
         </>) : (<>
         {reason === 'unsure' && (
-          <Banner status="info" collapsible={false} title="애매하면 문자 보내기 전에 '내 상황에 맞는 조언'에 상황을 적어 보세요. 그래도 애매하면 1372에 물어보세요" />
+          // 조언을 받을 수 없으면 1372만 안내한다(쓸 수 없는 칸으로 보내지 않는다)
+          <Banner status="info" collapsible={false} title={advice
+            ? "애매하면 문자 보내기 전에 '내 상황에 맞는 조언'에 상황을 적어 보세요. 그래도 애매하면 1372에 물어보세요"
+            : '업체 잘못인지 애매하면 문자 보내기 전에 1372 소비자상담센터(국번 없이 1372)에 물어보세요'} />
         )}
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
         <Card>
@@ -219,12 +223,31 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               {refund.security_deposit > 0 && <div><dt>돌려받을 보증금</dt><dd>+{won(refund.security_deposit)}</dd></div>}
               <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
             </dl>
+            {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
+            <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
+              trigger={<VStack gap={1}>
+                <Text weight="semibold">희망 금액 정하기(선택)</Text>
+                <Text type="supporting">비우면 업체가 위 금액보다 적게 주겠다고 할 때 알려 드려요</Text>
+              </VStack>}>
+              <VStack gap={3}>
+                <TextInput label="희망 금액(원)" value={target} onChange={setTarget} inputMode="numeric"
+                  isDisabled={busy} status={!targetValid ? { type: 'error', message: limitsError } : undefined} />
+                <TextInput label="하한선(원)" description="업체가 이보다 적게 주겠다고 하면 받지 않아요" value={floor} onChange={setFloor} inputMode="numeric"
+                  isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
+              </VStack>
+            </Collapsible>
             {refund.per_day_loss > 0 && (
               <p className="m-0 flex w-fit items-center gap-1.5 rounded-lg bg-warn-soft px-2.5 py-1.5 text-[13px] font-medium text-warn">
                 <ClockIcon className="size-4" aria-hidden />하루 늦으면 {won(refund.per_day_loss)} 줄어요
               </p>
             )}
-            {contract.special_terms && <Text type="supporting">특약: {contract.special_terms}</Text>}
+            {/* 특약 원문만 두면 위 금액과 맞지 않아 보인다. 계산에 넣지 않았다는 것과 근거(R52 요약 그대로)를 함께 적는다 */}
+            {contract.special_terms && (
+              <VStack gap={1}>
+                <Text type="supporting">계약서 특약: {contract.special_terms}</Text>
+                <Text type="supporting">위 금액은 이 특약을 빼고 계산했어요. 소비자에게 불리한 특약은 효력이 없을 수 있지만, 이 특약이 그런지는 확인이 필요해요</Text>
+              </VStack>
+            )}
             {/* 근거 조문 이름이 길어 세 줄을 넘는다. 개수만 보이고 눌러야 펼친다(전체 근거는 '근거' 탭에도 있다) */}
             {refund.refs.length > 0 && (
               <Collapsible defaultIsOpen={false} trigger={<Text type="supporting">계산 근거 {refund.refs.length}개</Text>}>
@@ -233,21 +256,6 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             )}
             {refund.provisional && <Text type="supporting">일반 기준으로 계산했어요. 실제와 다를 수 있어요</Text>}
           </VStack>
-        </Card>
-        {/* 비우면 예상 환불액을 쓰는 칸이라 대부분 건드리지 않는다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
-        <Card>
-          <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
-            trigger={<VStack gap={1}>
-              <Text weight="semibold">받을 금액 정하기(선택)</Text>
-              <Text type="supporting">비우면 위 금액을 그대로 써요</Text>
-            </VStack>}>
-            <VStack gap={3}>
-              <TextInput label="받고 싶은 금액(원)" value={target} onChange={setTarget} inputMode="numeric"
-                isDisabled={busy} status={!targetValid ? { type: 'error', message: limitsError } : undefined} />
-              <TextInput label="이보다 적으면 거절(원)" value={floor} onChange={setFloor} inputMode="numeric"
-                isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
-            </VStack>
-          </Collapsible>
         </Card>
         </>)}
         {/* 근거를 다 읽지 않아도 시작할 수 있게 화면 아래에 붙여 둔다 */}
@@ -261,6 +269,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     )
   }
 
+  const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '종료일'].filter(Boolean)
+  const missing = blank.length ? `${blank.join(', ')}을 적으면 계산할 수 있어요` : extrasProblem(c).replace(/\.$/, '')
   return (
     <VStack gap={4}>
       <JourneyProgress current={1} />
@@ -315,7 +325,9 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               setChecks((prev) => { const s = new Set(prev); for (const f of EXTRAS) if (next[f] !== c[f]) s.delete(f); return s })
             }} />
           <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 계산하기' : '환불액 계산하기'}
-            isDisabled={busy || !c.total_paid || !c.start_date || !c.end_date || Boolean(extrasProblem(c))} onClick={() => review(c)} />
+            isDisabled={busy || Boolean(missing)} onClick={() => review(c)} />
+          {/* 버튼이 꺼진 이유를 버튼 바로 아래에 적는다. 어느 칸이 비었는지 몰라 멈추지 않게 한다 */}
+          {!busy && missing && <Text type="supporting" role="status">{missing}</Text>}
         </VStack>
       </Card>
     </VStack>
