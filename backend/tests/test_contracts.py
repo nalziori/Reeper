@@ -1,8 +1,7 @@
 """가상 계약서 정답 세트(eval/contracts.jsonl)와 rules.calculate가 일치하는지 본다.
 
 정답은 rules.py를 부르지 않고 따로 계산해 적었다. 두 계산이 어긋나면 어느 쪽이 틀렸는지 확인한다.
-여기서는 모든 건을 회귀 확인으로 본다. basis가 unverified_month인 건은 해석이 확인되지 않은 값이라
-정확도 평가(eval/run.py)에서는 뺀다.
+여기서는 모든 건을 회귀 확인으로 본다. 월 단위 건도 날짜로 일할한 값이다(docs/환불_규칙.md 결정표 1번).
 """
 import json
 from datetime import date
@@ -18,7 +17,7 @@ ROWS = [json.loads(l) for l in (Path(__file__).resolve().parents[2] / "eval" / "
 
 def test_set_size():
     assert 20 <= len(ROWS) <= 30
-    assert {r["basis"] for r in ROWS} <= {"kca_case", "decision_table", "unverified_month"}
+    assert {r["basis"] for r in ROWS} <= {"kca_case", "decision_table"}
     assert len({r["id"] for r in ROWS}) == len(ROWS)
 
 

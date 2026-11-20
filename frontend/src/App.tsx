@@ -19,7 +19,8 @@ import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
 import { Prepare } from './steps/Prepare'
 import { Respond } from './steps/Respond'
-import { useCase } from './useCase'
+import { isOldMonth, useCase } from './useCase'
+import { OldMonthNotice } from './components/OldMonthNotice'
 
 type TabKey = 'now' | 'basis' | 'log'
 const TABS = [
@@ -53,7 +54,7 @@ function TabBar({ value, onChange }: { value: TabKey; onChange: (v: TabKey) => v
 }
 
 export default function App() {
-  const { saved, error, busy, keep, send, plan } = useCase()
+  const { saved, error, busy, keep, send, plan, rebase } = useCase()
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
@@ -178,6 +179,7 @@ export default function App() {
     <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page has-tabs">
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
+      {isOldMonth(c) && <OldMonthNotice c={c} today={isoDate(saved.offset)} busy={busy} onChoose={(useNew) => void rebase(useNew)} />}
 
       {tab === 'basis' && <div id="panel-basis" role="tabpanel" aria-labelledby="tab-basis"><Evidence c={c} rules={rules} /></div>}
       {tab === 'log' && (
@@ -205,7 +207,8 @@ export default function App() {
       <VStack gap={3}>
         {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
         <ReplyReading step={saved.step} rules={rules} />
-        {phase === 3 && <Prepare saved={saved} send={send} />}
+        {/* 옛 월 단위 사건은 금액을 확인하기 전까지 옛 금액 문안과 발송 버튼을 보이지 않는다. 서버는 기록만 막고 발송은 막지 못한다 */}
+        {phase === 3 && !isOldMonth(c) && <Prepare saved={saved} send={send} />}
         {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
           settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff}
           read={read} readNote={readNote} reading={reading.busy} readReply={readReply}

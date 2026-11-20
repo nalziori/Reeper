@@ -10,13 +10,8 @@ RULES: dict[str, dict] = json.loads((DATA / "rules.json").read_text(encoding="ut
 POLICY: dict[str, int] = json.loads((DATA / "policy.json").read_text(encoding="utf-8"))
 
 
-def _used_months(start: date, on: date) -> int:
-    """도달일이 속한 달까지 이용한 것으로 센다(개시일 기준 한 달 단위)."""
-    months = (on.year - start.year) * 12 + (on.month - start.month)
-    return months + 1 if on.day >= start.day else months
-
-
-UNIT_LABEL = {"day": "일", "month": "개월", "count": "회"}
+# 월 단위 계약도 날짜로 일할하므로 단위 이름은 "일"이다(docs/환불_규칙.md 결정표 1번).
+UNIT_LABEL = {"day": "일", "month": "일", "count": "회"}
 
 
 def calculate(contract: Contract, notified_on: date) -> Refund:
@@ -31,19 +26,17 @@ def calculate(contract: Contract, notified_on: date) -> Refund:
 
 
 def _calculate(contract: Contract, notified_on: date) -> Refund:
-    if contract.unit == "day":
+    if contract.unit in ("day", "month"):
+        # 월 단위 계약도 개월이 아니라 날짜로 일할한다(공정위 의결 제2016-058호 등).
+        # 하루 단가는 실제 결제액 ÷ 계약 일수다(공정위 특수거래과 답변). docs/환불_규칙.md "월 단위 결정 변경"
         total = (contract.end_date - contract.start_date).days + 1
         if total <= 0:
             raise ValueError("종료일이 개시일보다 빠르다")
         # 도달일까지 지난 날은 가지 않았어도 이용한 것으로 본다(고시 제5조 제1항).
         used = (notified_on - contract.start_date).days + 1
-    elif contract.total_count is None:
-        raise ValueError("월·회 단위는 총 개월 수나 총 횟수가 필요하다")
-    elif contract.unit == "month":
-        total, used = contract.total_count, _used_months(contract.start_date, notified_on)
+    elif contract.total_count is None or contract.used_count is None:
+        raise ValueError("회 단위는 총 횟수와 이용 횟수가 필요하다")
     else:
-        if contract.used_count is None:
-            raise ValueError("회 단위는 이용 횟수가 필요하다")
         total, used = contract.total_count, contract.used_count
     used = min(max(used, 0), total)
     used_amount = contract.total_paid * used // total
