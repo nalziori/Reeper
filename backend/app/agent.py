@@ -294,6 +294,9 @@ def _numbers(text: str) -> list[str]:
 THREATS = ("무효", "위법", "불법", "소송", "고소", "고발", "법적", "손해배상", "신고")  # 양식에 없으면 다듬은 글에도 없어야 한다
 
 
+# 합의 문자(accept_offer, confirm_agreement)의 계좌 자리. 화면이 이 글자를 사용자의 계좌로 바꾼다(frontend/src/account.ts와 같은 값).
+# 다듬은 글이 이 글자를 띄어쓰기만 바꿔도 화면이 못 찾아 빈칸이 든 글이 나가므로, 그대로 두지 않았으면 쓰지 않는다
+ACCOUNT_SLOT = "(은행 / 계좌번호 / 예금주)"
 NOT_SENT = ("call_card", "go_1372")  # 업체에 보내는 글이 아니라 사용자가 보는 메모와 상담 신청 내용이다. 다듬지 않는다
 
 
@@ -335,7 +338,7 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
         return base, False
     gym = facts(case)["gym"]  # 상호를 바꾸거나 빼면 쓰지 않는다
     ok = (bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
-          and out.count(gym) == base.count(gym))
+          and out.count(gym) == base.count(gym) and out.count(ACCOUNT_SLOT) == base.count(ACCOUNT_SLOT))
     return (out, True) if ok else (base, False)
 
 

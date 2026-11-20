@@ -108,6 +108,21 @@ def test_chat_sends_strict_schema_and_counts_tokens(real, monkeypatch):
     assert seen["model"] == "test-model" and seen["auth"] == "Bearer test-key"
 
 
+def test_polish_keeps_the_account_slot_as_written(real):
+    """화면이 계좌 자리 글자를 찾아 계좌로 바꾼다. 다듬은 글이 그 글자를 바꾸거나 빼면 원래 양식을 쓴다."""
+    case = open_case(CONTRACT, D).model_copy(update={"offered": 460_000, "agreed_amount": 460_000})
+    for kind in ("accept_offer", "confirm_agreement"):
+        base = agent.render(kind, case)
+        assert base.count(agent.ACCOUNT_SLOT) == 1  # 양식의 자리 글자가 바뀌면 여기서 걸린다
+        real({"text": base.replace(agent.ACCOUNT_SLOT, "(은행/계좌번호/예금주)")})  # 띄어쓰기만 바꿨다
+        assert agent.polished(kind, case, "polite") == (base, False)
+        real({"text": base.replace(agent.ACCOUNT_SLOT, "(계좌)")})  # 자리를 줄였다
+        assert agent.polished(kind, case, "polite") == (base, False)
+        softer = base.replace("부탁드립니다", "부탁드리겠습니다", 1)  # 자리를 그대로 둔 글은 쓴다
+        real({"text": softer})
+        assert softer != base and agent.polished(kind, case, "polite") == (softer, True)
+
+
 def test_polish_keeps_only_text_with_the_same_numbers(real):
     case = open_case(CONTRACT, D)
     base = agent.render("notice_sms", case)
