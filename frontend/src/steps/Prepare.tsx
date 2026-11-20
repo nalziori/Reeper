@@ -49,7 +49,7 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
               <Button variant="primary" label="문자로 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />
             ) : (<>
               <Button variant="primary" label="통화 결과 기록" onClick={() => setSheet('outcome')} />
-              {drafts.call_card && <Button label="업체 답변 보기" onClick={() => setSheet('answers')} />}
+              {drafts.call_card && <Button label="상황별 대답 보기" onClick={() => setSheet('answers')} />}
             </>)}
           </HStack>
         </Dock>

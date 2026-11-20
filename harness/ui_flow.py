@@ -110,14 +110,15 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 인사와 해지 요청을 첫 순서에 함께 표시", len(steps) == 5
         and "안녕하세요" in steps[0] and "오늘 날짜로 해지하겠습니다" in steps[0]
         and "문자 확인" in steps[-1]
-        and page.get_by_text("해지 접수일과 환불 처리 일정을 다시 확인하세요.", exact=False).is_visible())
+        and page.get_by_text("해지 접수일과 환불 처리 일정을 다시 확인하세요.", exact=False).is_visible()
+        and page.get_by_text("통화한 사람 이름과 시각을 적어 두세요. 끊은 뒤 바로 확인 문자를 보내세요.", exact=False).is_visible())
     first_line = page.get_by_text("오늘 날짜로 해지하겠습니다", exact=False).bounding_box()
     rec(f"{tag}: 첫마디 다음 문장도 하단 버튼 위에 보임", first_line is not None and box is not None
         and first_line["y"] + first_line["height"] <= box["y"])
     page.screenshot(path=SHOTS / f"{tag}-3-call.png")
     call_heading.locator("../..").screenshot(path=SHOTS / f"{tag}-3-call-script.png",
         style=".app-bar, .dock-slot, .tab-bar, .action-dock { display: none !important; }")
-    responses = btn(page, "업체 답변 보기")
+    responses = btn(page, "상황별 대답 보기")
     objection = page.get_by_text("정상가로 계산해야 합니다")
     initially_hidden = not objection.is_visible()
     responses.click()

@@ -69,7 +69,7 @@ function CallScript({ text, answers }: { text: string; answers?: CallAnswers }) 
         if (title === '첫마디' || title === '꼭 말해야 할 것') return null
         if (title === '상대가 이렇게 말하면') {
           return (
-            <BottomSheet key={title} title="업체 반응별 답변" open={answers?.open ?? false}
+            <BottomSheet key={title} title="상황별 대답" open={answers?.open ?? false}
               onOpenChange={(open) => answers?.onOpenChange(open)}>
               <dl className="call-script-list">
                 {lines.map((line) => {
