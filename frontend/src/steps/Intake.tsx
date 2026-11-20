@@ -3,7 +3,7 @@ import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, Segmente
 import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
-import { extrasProblem } from '../contractCheck'
+import { extrasProblem, withSuggestedMonthCount } from '../contractCheck'
 import { FaultSummary } from '../components/FaultSummary'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
@@ -104,11 +104,11 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
     }
   }
 
-  const review = (contract: Contract) => runIntake(async () => {
+  const review = (contract: Contract, sample = false) => runIntake(async () => {
     const today = isoDate(0)
     const refund = await api.preview(contract, today)
     setPreview({ contract, refund, today })
-    setC(contract)
+    if (sample) setC(contract)
     setTarget('')
     setFloor('')
   })
@@ -270,7 +270,9 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
   }
 
   const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '종료일'].filter(Boolean)
-  const missing = blank.length ? `${blank.join(', ')}을 적으면 계산할 수 있어요` : extrasProblem(c).replace(/\.$/, '')
+  const contractToReview = withSuggestedMonthCount(c)
+  const suggestedCount = c.total_count === undefined ? contractToReview.total_count ?? undefined : undefined
+  const missing = blank.length ? `${blank.join(', ')}을 적으면 계산할 수 있어요` : extrasProblem(contractToReview).replace(/\.$/, '')
   return (
     <VStack gap={4}>
       <JourneyProgress current={1} />
@@ -279,7 +281,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       <Card>
         <VStack gap={3}>
           <Heading level={2}>가상 계약서로 해 보기</Heading>
-          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract)} />)}
+          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract, true)} />)}
         </VStack>
       </Card>
       <Card>
@@ -319,13 +321,13 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
               onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
               status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
           </div>
-          <ContractExtras c={c} isDisabled={busy} statusOf={(f) => checks.has(f) ? CHECK : undefined}
+          <ContractExtras c={c} suggestedCount={suggestedCount} isDisabled={busy} statusOf={(f) => checks.has(f) ? CHECK : undefined}
             onChange={(next) => {
               setC(next)
               setChecks((prev) => { const s = new Set(prev); for (const f of EXTRAS) if (next[f] !== c[f]) s.delete(f); return s })
             }} />
           <Button label={busy ? '계산 중…' : checks.size ? '확인했어요, 계산하기' : '환불액 계산하기'}
-            isDisabled={busy || Boolean(missing)} onClick={() => review(c)} />
+            isDisabled={busy || Boolean(missing)} onClick={() => review(contractToReview)} />
           {/* 버튼이 꺼진 이유를 버튼 바로 아래에 적는다. 어느 칸이 비었는지 몰라 멈추지 않게 한다 */}
           {!busy && missing && <Text type="supporting" role="status">{missing}</Text>}
         </VStack>

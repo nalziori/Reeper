@@ -17,16 +17,16 @@ type Status = { type: 'warning' | 'error'; message: string }
 type Field = 'unit' | 'total_count' | 'special_terms' | 'addon_value' | 'security_deposit'
 
 // statusOf: 사진에서 읽어 사람이 확인할 칸의 표시. 없으면 표시하지 않는다
-export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undefined }: {
-  c: Contract; onChange: (next: Contract) => void; isDisabled: boolean; statusOf?: (field: Field) => Status | undefined
+export function ContractExtras({ c, suggestedCount, onChange, isDisabled, statusOf = () => undefined }: {
+  c: Contract; suggestedCount?: number; onChange: (next: Contract) => void; isDisabled: boolean; statusOf?: (field: Field) => Status | undefined
 }) {
   const unit: Unit = c.unit ?? 'day'
   const setUnit = (v: string) => {
     const next = v as Unit
-    onChange({ ...c, unit: next, total_count: next === 'day' ? undefined : c.total_count,
+    onChange({ ...c, unit: next, total_count: undefined,
       used_count: next === 'count' ? c.used_count : undefined })
   }
-  const problem = extrasProblem(c)
+  const problem = extrasProblem(suggestedCount === undefined ? c : { ...c, total_count: suggestedCount })
   const usedTooMany = unit === 'count' && c.used_count != null && c.total_count != null && c.used_count > c.total_count
   // 특약·부가상품·보증금은 계약서에 있을 때만 적는 칸이라 접어 둔다. 값이 있거나 사진에서 읽어 확인할 칸이면 펼쳐 둔다
   const [open, setOpen] = useState(false)
@@ -43,7 +43,8 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
       {statusOf('unit') && <Text type="supporting">{statusOf('unit')!.message}</Text>}
       {unit !== 'day' && (
         <TextInput label={unit === 'month' ? '총 개월 수' : '총 횟수'} inputMode="numeric" isDisabled={isDisabled}
-          value={shown(c.total_count)} onChange={(v) => onChange({ ...c, total_count: digits(v) || undefined })}
+          description={suggestedCount === undefined ? undefined : '이용 날짜로 채웠어요. 계약서와 다르면 고쳐 주세요'}
+          value={shown(c.total_count ?? suggestedCount)} onChange={(v) => onChange({ ...c, total_count: digits(v) || null })}
           status={statusOf('total_count')} />
       )}
       {unit === 'count' && (
