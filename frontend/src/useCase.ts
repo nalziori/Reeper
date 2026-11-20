@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, type CaseEvent, type Step } from './api'
+import { api, type Case, type CaseEvent, type Step } from './api'
 import { STORAGE_KEY, isoDate } from './format'
 
 // 사건은 서버가 아니라 이 브라우저에만 보관한다.
@@ -57,15 +57,16 @@ const parse = (raw: string | null): Saved | null => {
   const v: unknown = JSON.parse(raw)
   if (!isObj(v) || !isStep(v.step)) return null
   if (v.version !== undefined && v.version !== VERSION) return null
-  // 옛 규칙(개월로 셈)으로 연 월 단위 사건은 첫 통지 때 예상 환불액만 새 규칙(일할)으로 바뀌고
-  // 희망 금액·하한선은 옛 금액에 남는다. 첫 통지 전이면 버리고 새로 계산하게 한다(#137).
-  // 새 규칙은 unit_label "개월"을 만들지 않는다. 첫 통지 뒤에는 금액이 고정돼 서로 어긋나지 않는다.
-  if (v.step.case.refund.unit_label === '개월' && v.step.case.notified_on === null) return null
   if (typeof v.offset !== 'number' || !Number.isFinite(v.offset)) return null
   if (v.note !== undefined && typeof v.note !== 'string') return null
   if (v.actionDate !== undefined && typeof v.actionDate !== 'string') return null
   return { step: v.step, offset: v.offset, note: v.note, actionDate: v.actionDate }
 }
+
+// 옛 규칙(개월로 셈)으로 열고 아직 통지하지 않은 월 단위 사건. 첫 통지 때 예상 환불액만 일할로 바뀌고
+// 희망 금액·하한선은 옛 금액에 남으므로, 통지 전에 새 금액을 보여 주고 기준을 다시 정하게 한다(#137).
+// 새 규칙은 unit_label "개월"을 만들지 않는다. 첫 통지 뒤에는 금액이 고정돼 서로 어긋나지 않는다.
+export const isOldMonth = (c: Case): boolean => c.refund.unit_label === '개월' && c.notified_on === null
 
 const load = (): Saved | null => {
   try {
@@ -168,5 +169,18 @@ export function useCase() {
     return empty ? 'empty' : 'ok'
   }
 
-  return { saved, error, busy, keep, send, plan }
+  // 옛 월 단위 사건의 예상 환불액을 새 규칙으로 바꾼다. useNew면 희망 금액·하한선도 새 금액으로 맞춘다.
+  // 기록·전략 등 나머지는 그대로 두고, 바뀐 금액으로 다음 행동과 문안을 다시 받는다.
+  const rebase = async (useNew: boolean): Promise<boolean> => {
+    if (pending.current || !saved) return false
+    const base = saved.step.case
+    const today = isoDate(saved.offset)
+    const p = api.preview(base.contract, today).then((refund) => {
+      const c = { ...base, refund, ...(useNew ? { target: refund.refund, floor: refund.refund } : {}) }
+      return api.step(c, { type: 'time_passed' }, today)
+    })
+    return run(p, today)
+  }
+
+  return { saved, error, busy, keep, send, plan, rebase }
 }

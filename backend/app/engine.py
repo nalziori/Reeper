@@ -23,8 +23,8 @@ def validate_transition(case: Case, event: Event, today: date) -> None:
     if event.type == "notice_sent":
         if case.notified_on is None and case.refund.unit_label == "개월":
             # 옛 규칙(개월로 셈)으로 연 사건. 첫 통지에서 예상 환불액만 일할로 바뀌고 희망 금액·하한선은
-            # 옛 금액에 남는다. 배포 전에 열어 둔 탭이 보낸 요청이다. 새로 열게 한다(#137)
-            raise InvalidTransition("환불 계산 방식이 바뀌었어요. 새로고침한 뒤 계약을 다시 입력해 주세요.")
+            # 옛 금액에 남는다. 화면(OldMonthNotice)에서 새 금액과 기준을 확인한 뒤에 받는다(#137)
+            raise InvalidTransition("환불 계산 방식이 바뀌었어요. 새로고침한 뒤 화면 위 안내에서 새 예상 환불액과 기준을 먼저 확인해 주세요.")
         allowed = stage == "ready" or (stage == "waiting" and next_action(case, today).type == "follow_up")
     elif event.type == "call_attempted":
         allowed = stage == "ready"

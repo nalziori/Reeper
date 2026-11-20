@@ -19,7 +19,8 @@ import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
 import { Prepare } from './steps/Prepare'
 import { Respond } from './steps/Respond'
-import { useCase } from './useCase'
+import { isOldMonth, useCase } from './useCase'
+import { OldMonthNotice } from './components/OldMonthNotice'
 
 type TabKey = 'now' | 'basis' | 'log'
 const TABS = [
@@ -53,7 +54,7 @@ function TabBar({ value, onChange }: { value: TabKey; onChange: (v: TabKey) => v
 }
 
 export default function App() {
-  const { saved, error, busy, keep, send, plan } = useCase()
+  const { saved, error, busy, keep, send, plan, rebase } = useCase()
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
@@ -178,6 +179,7 @@ export default function App() {
     <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page has-tabs">
       {header}
       {error && <Banner status="error" title={error} collapsible={false} />}
+      {isOldMonth(c) && <OldMonthNotice c={c} today={isoDate(saved.offset)} busy={busy} onChoose={(useNew) => void rebase(useNew)} />}
 
       {tab === 'basis' && <div id="panel-basis" role="tabpanel" aria-labelledby="tab-basis"><Evidence c={c} rules={rules} /></div>}
       {tab === 'log' && (

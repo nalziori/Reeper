@@ -296,3 +296,11 @@ def test_old_month_case_cannot_send_first_notice():
     old = new | {"refund": new["refund"] | {"unit_label": "개월"}}
     r = api.post("/api/cases/step", json={"case": old, "event": notice, "today": str(D)})
     assert r.status_code == 409 and "새로고침" in r.json()["detail"]
+    # 화면에서 새 예상 환불액으로 바꾸면(rebase) 기록과 사용자가 정한 하한선을 그대로 둔 채 통지할 수 있다
+    old = old | {"floor": 275_000, "target": 300_000,
+                 "timeline": [{"on": str(D), "type": "call_attempted", "text": "안 받음"}]}
+    preview = api.post("/api/refund-preview", json={"contract": body["contract"], "today": str(D)}).json()
+    r = api.post("/api/cases/step", json={"case": old | {"refund": preview}, "event": notice, "today": str(D)})
+    assert r.status_code == 200
+    kept = r.json()["case"]
+    assert (kept["floor"], kept["target"], kept["timeline"][0]["type"]) == (275_000, 300_000, "call_attempted")
