@@ -77,11 +77,16 @@ def full_flow(browser, base, tag, viewport):
     errors: list[str] = []
     ctx, page = new_page(browser, base, viewport, errors)
     t0 = time.time()
+    rec(f"{tag}: 시작일과 마지막 이용일 안내",
+        page.get_by_label("이용 시작일").get_attribute("aria-describedby") is not None
+        and page.get_by_label("마지막 이용일").get_attribute("aria-describedby") is not None
+        and page.get_by_role("radio", name="일수", exact=True).is_checked())
     page.screenshot(path=SHOTS / f"{tag}-1-intake.png", full_page=True)
     # 샘플 버튼: 가상 계약서로 해 보기 카드 안의 첫 primary 버튼
     sample_buttons = page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button")
     sample_buttons.first.click()
     page.get_by_text("예상 환불액").first.wait_for()
+    rec(f"{tag}: 예상 환불액에 계산 단위 표시", page.get_by_text("일수 기준으로 계산", exact=True).is_visible())
     rec(f"{tag}: 예상 환불액 표시", page.get_by_text("원").count() > 0)
     page.screenshot(path=SHOTS / f"{tag}-2-preview.png", full_page=True)
     btn(page, "이 금액으로 시작").click()

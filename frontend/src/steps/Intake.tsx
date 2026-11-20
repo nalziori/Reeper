@@ -115,6 +115,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
 
   if (preview) {
     const { contract, refund } = preview
+    const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : '개월 수'
     const targetAmount = target === '' ? refund.refund : Number(target)
     const floorAmount = floor === '' ? refund.refund : Number(floor)
     const validAmount = (value: string) => value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)))
@@ -213,6 +214,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
             <VStack gap={1}>
               <Heading level={2} className="text-[15px] font-medium text-muted-foreground">예상 환불액</Heading>
               <Text type="display-3">{won(refund.refund)}</Text>
+              <Text type="supporting">{unitName} 기준으로 계산</Text>
               <Text type="supporting">{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
             </VStack>
             <dl className="receipt">
@@ -313,9 +315,11 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
           {/* 시작일과 종료일은 한 줄에 둔다. 아주 좁은 화면에서는 index.css가 두 줄로 내린다 */}
           <div className="date-pair">
             <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)} width="100%"
+              description="계약일과 다르면 계약서에 적힌 이용 시작일을 입력해 주세요."
               onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
               status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
-            <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
+            <DateInput label="마지막 이용일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
+              description="일수로 계산할 때는 시작일과 마지막 이용일을 모두 포함해요."
               onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
               status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
           </div>

@@ -34,9 +34,9 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
     || statusOf('special_terms') || statusOf('addon_value') || statusOf('security_deposit'))
   return (
     <>
-      <RadioList label="어떻게 세나요" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
-        description="계약서에 적힌 대로 골라요">
-        <RadioListItem value="day" label="기간" />
+      <RadioList label="이용분 계산 단위" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
+        description="계약서에서 이용분을 어떤 단위로 세는지 확인해 주세요">
+        <RadioListItem value="day" label="일수" />
         <RadioListItem value="month" label="개월 수" />
         <RadioListItem value="count" label="횟수(PT·레슨)" />
       </RadioList>
