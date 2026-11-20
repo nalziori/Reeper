@@ -185,7 +185,7 @@ def next_action(case: Case, today: date) -> Action:
                 return Action(type="counter", reason=f"제시액이 {floor_name}보다 적어요", warn=True)
             if c.offered >= c.target:
                 return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
-            return Action(type="counter", reason="하한선은 넘지만 희망 금액보다 적어요. 받아들일지 정하세요")
+            return Action(type="counter", reason="제시액이 하한선 이상이지만 희망 금액보다 적어요. 받아들일지 정하세요")
         return Action(type="counter", reason="근거를 들어 다시 요청하세요")
     if c.stage == "agreed":
         left = f" (남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""
