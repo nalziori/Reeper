@@ -1,6 +1,7 @@
 """실제 LLM 구현을 키 없이 검사한다. OpenAI 응답은 가짜로 끼운다."""
 import json
 from datetime import date, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -125,6 +126,9 @@ def test_chat_sends_strict_schema_and_counts_tokens(real, monkeypatch):
 def test_polish_keeps_the_account_slot_as_written(real):
     """화면이 계좌 자리 글자를 찾아 계좌로 바꾼다. 다듬은 글이 그 글자를 바꾸거나 빼면 원래 양식을 쓴다."""
     case = open_case(CONTRACT, D).model_copy(update={"offered": 460_000, "agreed_amount": 460_000})
+    # 화면이 찾는 글자와 서버가 지키는 글자가 같아야 한다. 한쪽만 바뀌면 여기서 걸린다
+    screen = (Path(__file__).parents[2] / "frontend" / "src" / "account.ts").read_text(encoding="utf-8")
+    assert f"ACCOUNT_SLOT = '{agent.ACCOUNT_SLOT}'" in screen
     for kind in ("accept_offer", "confirm_agreement"):
         base = agent.render(kind, case)
         assert base.count(agent.ACCOUNT_SLOT) == 1  # 양식의 자리 글자가 바뀌면 여기서 걸린다
