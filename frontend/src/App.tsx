@@ -114,14 +114,17 @@ export default function App() {
   const sc = saved?.step.case
   const appBar = (
     <header className="app-bar">
-      <VStack gap={2}>
+      {/* 이름 줄만 대표색으로 칠한다. 진행 표시까지 칠하면 주황 동그라미가 배경에 묻힌다 */}
+      <div className="app-bar-brand">
         <HStack hAlign="between" vAlign="center">
           <Heading level={1}>Reeper</Heading>
           {saved && <Button variant="ghost" size="sm" label="새로 시작" icon={<PlusIcon aria-hidden />} isDisabled={busy}
             onClick={() => saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
         </HStack>
-        {sc && (
-          <>
+      </div>
+      {sc && (
+        <div className="app-bar-body">
+          <VStack gap={2}>
             <HStack hAlign="between" vAlign="center">
               {/* 방금 기록한 것은 잠깐 이 줄에 보인다. 아래쪽에 띄우면 문안·안내를 가렸다. 화면 읽기 프로그램에도 읽힌다 */}
               <div role="status" aria-live="polite" className="min-w-0 flex-1">
@@ -134,9 +137,9 @@ export default function App() {
             {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
             {/* 끝난 사건은 다섯 단계가 모두 지난 것으로(6) 그려 마지막 단계도 체크로 보인다 */}
             <JourneyProgress current={sc.stage === 'closed' ? 6 : sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
-          </>
-        )}
-      </VStack>
+          </VStack>
+        </div>
+      )}
       {/* 서버에 묻는 동안 위 막대 아래로 줄이 흐른다. 어느 화면에 있어도 돌아가는 중인 것이 보인다 */}
       {(busy || reading.busy) && <div className="busy-bar" role="progressbar" aria-label="처리하고 있어요" />}
     </header>
