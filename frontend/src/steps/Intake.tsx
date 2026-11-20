@@ -66,8 +66,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
     const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
     const num = (f: ExtractField) => typeof fields[f]?.value === 'number' ? fields[f]!.value as number : undefined
     const read = fields.unit?.value
-    // 계약서에 단위가 없으면 null이 온다. 그때는 기간(일) 단위로 둔다
-    const unit = read === 'month' || read === 'count' ? read : 'day'
+    const unit = read === 'count' ? 'count' : 'day'
     setC({
       gym_name: str('gym_name'),
       total_paid: num('total_paid') ?? 0,
@@ -80,12 +79,14 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       addon_value: num('addon_value') ?? 0,
       security_deposit: num('security_deposit') ?? 0,
     })
-    setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) => fields[f]?.check && fields[f]?.value != null)))
+    setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) =>
+      (f !== 'total_count' || unit === 'count') && fields[f]?.check && fields[f]?.value != null)))
     // 계약서에 없어서 비었는지 못 읽어서 비었는지 구별할 수 없다. 비어 온 금액 칸은 사용자가 계약서를 다시 보게 한다
     const missed = [num('addon_value') ? '' : '부가상품', num('security_deposit') ? '' : '보증금'].filter(Boolean)
     setPhotoNote(llm_fallback
       ? '사진을 읽지 못했어요. 아래 칸에 직접 입력해 주세요'
       : '사진에서 읽어 채웠어요. 비었거나 표시된 칸은 계약서와 맞춰 보세요'
+        + (read === 'month' ? '. 개월 단위 회원권은 이용 시작일과 마지막 이용일을 확인해 주세요. 일수로 계산해요' : '')
         + (missed.length ? `. ${missed.join('이나 ')}이 계약서에 적혀 있으면 직접 적어 주세요` : ''))
   })
   useEffect(() => {
@@ -115,6 +116,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
 
   if (preview) {
     const { contract, refund } = preview
+    const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : refund.unit_label
     const targetAmount = target === '' ? refund.refund : Number(target)
     const floorAmount = floor === '' ? refund.refund : Number(floor)
     const validAmount = (value: string) => value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)))
@@ -213,6 +215,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
             <VStack gap={1}>
               <Heading level={2} className="text-[15px] font-medium text-muted-foreground">예상 환불액</Heading>
               <Text type="display-3">{won(refund.refund)}</Text>
+              <Text type="supporting">{unitName} 기준으로 계산</Text>
               <Text type="supporting">{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
             </VStack>
             <dl className="receipt">
@@ -269,7 +272,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
     )
   }
 
-  const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '종료일'].filter(Boolean)
+  const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '마지막 이용일'].filter(Boolean)
   const missing = blank.length ? `${blank.join(', ')}을 적으면 계산할 수 있어요` : extrasProblem(c).replace(/\.$/, '')
   return (
     <VStack gap={4}>
@@ -313,9 +316,11 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
           {/* 시작일과 종료일은 한 줄에 둔다. 아주 좁은 화면에서는 index.css가 두 줄로 내린다 */}
           <div className="date-pair">
             <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)} width="100%"
+              description="계약일과 다르면 계약서에 적힌 이용 시작일을 입력해 주세요."
               onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
               status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
-            <DateInput label="이용 종료일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
+            <DateInput label="마지막 이용일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
+              description="일수로 계산할 때는 시작일과 마지막 이용일을 모두 포함해요."
               onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
               status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
           </div>
