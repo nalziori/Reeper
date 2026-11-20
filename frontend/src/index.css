@@ -123,6 +123,24 @@ textarea:focus-visible,
   margin-top: 0.25em;
 }
 
+.call-script-opening {
+  background: var(--brand-soft);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.call-script-list, .call-script-line {
+  font-size: 1rem;
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.call-script-line { white-space: pre-wrap; }
+.call-script-list { display: grid; gap: 12px; }
+ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
+.call-script-list strong, .call-script-list dt { display: block; font-weight: 600; }
+
 /* ── 고르기 칸 ─────────────────────────────────────── */
 .segmented-item {
   position: relative;
@@ -319,6 +337,12 @@ textarea:focus-visible,
 .app-bar-brand h1, .app-bar-brand button { color: var(--primary-foreground); }
 .app-bar-brand button:hover, .app-bar-brand button:active { background: color-mix(in srgb, var(--primary-foreground) 10%, transparent); }
 .app-bar-body { padding: 12px 16px; }
+
+/* 모바일 통화 화면은 스크롤할 때 상단 막대도 함께 올려 대본을 읽을 공간을 확보한다. */
+@media (max-width: 480px) {
+  .page:has(.call-preparation) .app-bar { position: static; }
+  .page:has(.call-preparation) .app-bar-body { display: none; }
+}
 
 /* 아래 탭. 화면 아래에 고정하고, 한 열 폭(480px)에 맞춰 가운데 둔다 */
 .tab-bar {
