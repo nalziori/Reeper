@@ -25,12 +25,15 @@ export function OldMonthNotice({ c, today, busy, onChoose }: {
         <Heading level={2} className="text-[16px] font-semibold">환불 계산 방식이 바뀌었어요</Heading>
         <Text>
           월 단위 계약도 이제 개월이 아니라 날짜로 나눠 계산해요. 업체에 알리기 전에 금액을 다시 확인해 주세요.
-          지금까지의 기록은 그대로 남아요.
+          지금까지의 기록은 그대로 남아요. 고르기 전에는 업체에 보낼 문자를 보여 주지 않아요.
         </Text>
         <Text type="supporting">
           예전 예상 환불액 {won(c.refund.refund)} → 새 예상 환불액 {next === null ? (failed ? '불러오지 못했어요' : '계산 중') : won(next)}
         </Text>
         <Text type="supporting">지금 기준: 희망 금액 {won(c.target)} · 하한선 {won(c.floor)}</Text>
+        <Text type="supporting">
+          새 금액으로 맞추면 희망 금액과 하한선이 모두 새 예상 환불액으로 바뀌어요. 유지하면 지금 기준 그대로 협상해요.
+        </Text>
         <HStack gap={2} wrap="wrap">
           <Button variant="primary" label="새 예상 환불액으로 맞추기" isDisabled={busy || next === null}
             onClick={() => onChoose(true)} />

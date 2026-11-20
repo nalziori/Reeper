@@ -207,7 +207,8 @@ export default function App() {
       <VStack gap={3}>
         {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
         <ReplyReading step={saved.step} rules={rules} />
-        {phase === 3 && <Prepare saved={saved} send={send} />}
+        {/* 옛 월 단위 사건은 금액을 확인하기 전까지 옛 금액 문안과 발송 버튼을 보이지 않는다. 서버는 기록만 막고 발송은 막지 못한다 */}
+        {phase === 3 && !isOldMonth(c) && <Prepare saved={saved} send={send} />}
         {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
           settlement={settlement} setSettlement={setSettlement} autoReadOff={autoReadOff}
           read={read} readNote={readNote} reading={reading.busy} readReply={readReply}
