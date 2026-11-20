@@ -75,6 +75,20 @@ def test_penalty_rate_claim_gets_the_penalty_draft(real):
     assert list(reply("본사 규정상 어렵네요")["drafts"]) == ["counter_unknown"]  # 다른 unknown은 그대로다
 
 
+def test_penalty_draft_survives_a_reply_recorded_right_after():
+    """비율을 주장한 답 바로 뒤에 다른 답이 기록돼도(유형이 그대로 unknown이면) 비율 주장에 답하는 문안을 준다.
+
+    기록에는 답장 유형이 없다. 협상 중 미루는 답을 기록만 하는 경우(#126)에도 last_reply는 그대로다."""
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="위약금은 저희 규정상 20%입니다"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="본사에 확인해 보고 연락드릴게요"), D)
+    assert list(agent.drafts_for(case, next_action(case, D))) == ["counter_penalty"]
+    # 반박을 보낸 뒤에 온 답은 새로 본다. 지난 비율 주장을 끌고 오지 않는다
+    case = apply(case, Event(type="counter_sent"), D)
+    case = apply(case, Event(type="reply_received", reply_type="unknown", text="본사 규정상 어렵네요"), D)
+    assert list(agent.drafts_for(case, next_action(case, D))) == ["counter_unknown"]
+
+
 def test_failure_falls_back_to_keywords(real):
     real(httpx.ConnectError("down"))
     res = reply("20만원만 드릴게요")

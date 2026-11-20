@@ -467,8 +467,14 @@ def _counter_kind(case: Case) -> str:
     답장 유형은 늘리지 않는다(eval/README.md의 판정 기준). 금액 없이 "위약금은 20%"라고만 한 답은 unknown이다.
     """
     kind = COUNTER_KIND.get(case.last_reply or "", "counter_unknown")
-    said = next((r.text for r in reversed(case.timeline) if r.type == "reply_received"), "")
-    return "counter_penalty" if kind == "counter_unknown" and PENALTY_RATE.search(said) else kind
+    # 아직 답하지 않은 답장(마지막에 연달아 온 것)을 모두 본다. 비율을 주장한 뒤 "확인해 보고 연락드릴게요"가
+    # 이어서 기록돼도 비율 주장은 남아 있다. 기록에는 답장 유형이 없어 마지막 한 건만 보면 그 주장을 놓친다
+    said = []
+    for r in reversed(case.timeline):
+        if r.type != "reply_received":
+            break
+        said.append(r.text)
+    return "counter_penalty" if kind == "counter_unknown" and any(PENALTY_RATE.search(t) for t in said) else kind
 
 
 def drafts_for(case: Case, action: Action) -> dict[str, str]:
