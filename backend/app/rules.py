@@ -27,7 +27,8 @@ def calculate(contract: Contract, notified_on: date) -> Refund:
 
 def _calculate(contract: Contract, notified_on: date) -> Refund:
     if contract.unit in ("day", "month"):
-        # 월 단위 계약도 개월이 아니라 날짜로 일할한다(공정위 의결 제2016-058호, 체육시설업 표준약관).
+        # 월 단위 계약도 개월이 아니라 날짜로 일할한다(공정위 의결 제2016-058호 등).
+        # 하루 단가는 실제 결제액 ÷ 계약 일수다(공정위 특수거래과 답변). docs/환불_규칙.md "월 단위 결정 변경"
         total = (contract.end_date - contract.start_date).days + 1
         if total <= 0:
             raise ValueError("종료일이 개시일보다 빠르다")
