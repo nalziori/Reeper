@@ -80,7 +80,8 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 시작일과 마지막 이용일 안내",
         page.get_by_label("이용 시작일").get_attribute("aria-describedby") is not None
         and page.get_by_label("마지막 이용일").get_attribute("aria-describedby") is not None
-        and page.get_by_role("radio", name="일수", exact=True).is_checked())
+        and page.get_by_role("radio", name="일수", exact=True).is_checked()
+        and page.get_by_role("radio", name="개월 수", exact=True).count() == 0)
     page.screenshot(path=SHOTS / f"{tag}-1-intake.png", full_page=True)
     # 샘플 버튼: 가상 계약서로 해 보기 카드 안의 첫 primary 버튼
     sample_buttons = page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button")
@@ -286,6 +287,17 @@ def photo_fill(browser, base):
     btn(page, "계산하기").click()
     page.get_by_text("예상 환불액").first.wait_for()
     rec(f"{tag}: 회 단위로 계산", page.get_by_text(re.compile(r"\d+회 중 \d+회")).count() >= 1)
+    btn(page, "계약 수정").click()
+    fields.update(unit=f("month", False), total_count=f(6, True))
+    page.locator("input[type=file]").set_input_files({"name": "month.png", "mimeType": "image/png", "buffer": png})
+    page.get_by_text("개월 단위 회원권은 이용 시작일과 마지막 이용일을 확인해 주세요. 일수로 계산해요").wait_for()
+    rec(f"{tag}: 개월 단위 사진은 일수로 검토",
+        page.get_by_role("radio", name="일수", exact=True).is_checked()
+        and page.get_by_label("총 개월 수").count() == 0 and page.get_by_label("총 횟수").count() == 0)
+    btn(page, "계산하기").click()
+    day_basis = page.get_by_text("일수 기준으로 계산", exact=True)
+    day_basis.wait_for()
+    rec(f"{tag}: 개월 단위 사진의 결과는 일수 기준", day_basis.is_visible())
     rec(f"{tag}: 실제 서버는 사진 읽기 꺼짐", real_health.get("upload") is False)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()

@@ -66,8 +66,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
     const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
     const num = (f: ExtractField) => typeof fields[f]?.value === 'number' ? fields[f]!.value as number : undefined
     const read = fields.unit?.value
-    // 계약서에 단위가 없으면 null이 온다. 그때는 기간(일) 단위로 둔다
-    const unit = read === 'month' || read === 'count' ? read : 'day'
+    const unit = read === 'count' ? 'count' : 'day'
     setC({
       gym_name: str('gym_name'),
       total_paid: num('total_paid') ?? 0,
@@ -80,12 +79,14 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       addon_value: num('addon_value') ?? 0,
       security_deposit: num('security_deposit') ?? 0,
     })
-    setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) => fields[f]?.check && fields[f]?.value != null)))
+    setChecks(new Set((Object.keys(fields) as ExtractField[]).filter((f) =>
+      (f !== 'total_count' || unit === 'count') && fields[f]?.check && fields[f]?.value != null)))
     // 계약서에 없어서 비었는지 못 읽어서 비었는지 구별할 수 없다. 비어 온 금액 칸은 사용자가 계약서를 다시 보게 한다
     const missed = [num('addon_value') ? '' : '부가상품', num('security_deposit') ? '' : '보증금'].filter(Boolean)
     setPhotoNote(llm_fallback
       ? '사진을 읽지 못했어요. 아래 칸에 직접 입력해 주세요'
       : '사진에서 읽어 채웠어요. 비었거나 표시된 칸은 계약서와 맞춰 보세요'
+        + (read === 'month' ? '. 개월 단위 회원권은 이용 시작일과 마지막 이용일을 확인해 주세요. 일수로 계산해요' : '')
         + (missed.length ? `. ${missed.join('이나 ')}이 계약서에 적혀 있으면 직접 적어 주세요` : ''))
   })
   useEffect(() => {
@@ -271,7 +272,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
     )
   }
 
-  const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '종료일'].filter(Boolean)
+  const blank = [!c.total_paid && '낸 돈', !c.start_date && '시작일', !c.end_date && '마지막 이용일'].filter(Boolean)
   const missing = blank.length ? `${blank.join(', ')}을 적으면 계산할 수 있어요` : extrasProblem(c).replace(/\.$/, '')
   return (
     <VStack gap={4}>

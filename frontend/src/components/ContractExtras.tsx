@@ -3,8 +3,6 @@ import { useState } from 'react'
 import type { Contract } from '../api'
 import { extrasProblem } from '../contractCheck'
 
-type Unit = NonNullable<Contract['unit']>
-
 // 숫자만 남긴다. 비우면 undefined
 const digits = (v: string): number | undefined => {
   const d = v.replace(/\D/g, '')
@@ -20,9 +18,9 @@ type Field = 'unit' | 'total_count' | 'special_terms' | 'addon_value' | 'securit
 export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undefined }: {
   c: Contract; onChange: (next: Contract) => void; isDisabled: boolean; statusOf?: (field: Field) => Status | undefined
 }) {
-  const unit: Unit = c.unit ?? 'day'
+  const unit = c.unit === 'count' ? 'count' : 'day'
   const setUnit = (v: string) => {
-    const next = v as Unit
+    const next = v === 'count' ? 'count' : 'day'
     onChange({ ...c, unit: next, total_count: next === 'day' ? undefined : c.total_count,
       used_count: next === 'count' ? c.used_count : undefined })
   }
@@ -35,14 +33,13 @@ export function ContractExtras({ c, onChange, isDisabled, statusOf = () => undef
   return (
     <>
       <RadioList label="이용분 계산 단위" value={unit} onChange={setUnit} isDisabled={isDisabled} orientation="horizontal"
-        description="계약서에서 이용분을 어떤 단위로 세는지 확인해 주세요">
+        description="기간제 회원권은 일수로, 횟수제 회원권은 이용 횟수로 세어요">
         <RadioListItem value="day" label="일수" />
-        <RadioListItem value="month" label="개월 수" />
         <RadioListItem value="count" label="횟수(PT·레슨)" />
       </RadioList>
       {statusOf('unit') && <Text type="supporting">{statusOf('unit')!.message}</Text>}
-      {unit !== 'day' && (
-        <TextInput label={unit === 'month' ? '총 개월 수' : '총 횟수'} inputMode="numeric" isDisabled={isDisabled}
+      {unit === 'count' && (
+        <TextInput label="총 횟수" inputMode="numeric" isDisabled={isDisabled}
           value={shown(c.total_count)} onChange={(v) => onChange({ ...c, total_count: digits(v) || undefined })}
           status={statusOf('total_count')} />
       )}
