@@ -96,6 +96,12 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
     <Card>
       <VStack gap={3}>
         <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
+        {needsAccount && (
+          <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
+            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
+        )}
+        {sendable && actions}
+        {missingAccount && <Text type="supporting">계좌를 적어야 복사하거나 보낼 수 있어요</Text>}
         {tone.canPolish && (
           <SegmentedControl label="말투" size="sm" value={tone.choice} isDisabled={tone.loading}
             onChange={(v) => { setCopied(false); void tone.select(v as Choice) }}>
@@ -104,12 +110,6 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
             <SegmentedControlItem value="firm" label="단호하게" />
           </SegmentedControl>
         )}
-        {needsAccount && (
-          <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
-            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
-        )}
-        {sendable && actions}
-        {missingAccount && <Text type="supporting">계좌를 적어야 복사하거나 보낼 수 있어요</Text>}
         <DraftText text={text} bubble={sendable} amount={sendable ? amount : undefined} />
         {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
         {tone.loading && <Waiting message="말투를 바꾸고 있어요. 금액과 근거는 그대로 둬요" />}
