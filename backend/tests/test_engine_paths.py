@@ -283,3 +283,16 @@ def test_guidance_is_polite_and_dates_have_no_leading_zero():
     waiting = Case.model_validate(Flow().res["case"]).model_copy(
         update={"stage": "waiting", "deadline_on": date(2027, 1, 5), "notified_on": D})
     assert next_action(waiting, date(2027, 1, 2)).reason.startswith("1월 5일까지")
+
+
+def test_old_month_case_cannot_send_first_notice():
+    """옛 규칙의 월 단위 사건(unit_label "개월")은 첫 통지를 거절한다. 희망 금액·하한선이 옛 금액에 남기 때문이다(#137)."""
+    body = {"contract": CONTRACT.model_copy(update={"unit": "month", "total_count": 3}).model_dump(mode="json"),
+            "today": str(D)}
+    new = api.post("/api/cases", json=body).json()["case"]
+    assert new["refund"]["unit_label"] == "일"
+    notice = {"type": "notice_sent", "channel": "sms"}
+    assert api.post("/api/cases/step", json={"case": new, "event": notice, "today": str(D)}).status_code == 200
+    old = new | {"refund": new["refund"] | {"unit_label": "개월"}}
+    r = api.post("/api/cases/step", json={"case": old, "event": notice, "today": str(D)})
+    assert r.status_code == 409 and "새로고침" in r.json()["detail"]
