@@ -1,5 +1,6 @@
 """소개서.md → 소개서.docx. 같은 폴더에서 `python build_docx.py`.
 마크다운을 HTML로 바꿔 워드로 저장한 뒤(md2docx_img.ps1), 그림 자리를 실제 그림으로 바꾸고 작성자 속성을 비운다."""
+import json
 import re
 import subprocess
 import tempfile
@@ -16,6 +17,14 @@ CSS = ("body{font-family:'맑은 고딕';font-size:10.5pt;line-height:1.5}h1{fon
        "th{background:#eee}code{font-family:Consolas;background:#fff2cc}blockquote{color:#555}")
 
 md = re.sub(r"!\[[^\]]*\]\(([^)]+)\)", r"[[IMG:\1]]", SRC.read_text(encoding="utf-8"))
+# 저장소에 적지 않는 값(팀원 이름, 심사용 주소)은 같은 폴더의 제출값.json에서 채운다. 이 파일은 .gitignore로 빠진다.
+# 예: {"[이름 A]": "…", "[이름 B]": "…", "[이름 C]": "…", "[심사용 주소]": "https://…/unlock/…"}
+LOCAL = HERE / "제출값.json"
+if LOCAL.exists():
+    for key, value in json.loads(LOCAL.read_text(encoding="utf-8")).items():
+        md = md.replace(f"`{key}`", value)
+else:
+    print("제출값.json이 없어 이름과 심사용 주소 자리를 그대로 둔다")
 html = Path(tempfile.gettempdir()) / "intro_draft.html"
 html.write_text(f"<html><head><meta charset='utf-8'><style>{CSS}</style></head><body>"
                 + markdown.markdown(md, extensions=["tables", "fenced_code"]) + "</body></html>", encoding="utf-8")
