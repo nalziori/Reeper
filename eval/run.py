@@ -39,8 +39,8 @@ RISK_LABEL = {"high": "위험", "mid": "중간", "safe": "안전"}
 def risk(r: dict, kind: str, amount: int | None) -> str:
     """틀린 한 건의 위험 등급. 위에서부터 처음 걸리는 것을 쓴다(docs/어려운_답장_작업_분담.md C1).
     high: 수용이 아닌데 accept(금액 없는 accept는 예상 환불액으로 합의된다, engine.py),
-          제시가 아닌데 금액을 읽음, 금액을 틀리게 읽음(수용선 경고와 반박 금액이 틀어진다)
-    safe: unknown(합의·수용선 경고를 만들지 않는다. 합의는 accept와 반박 뒤 합의뿐, engine.apply)
+          제시가 아닌데 금액을 읽음, 금액을 틀리게 읽음(하한선 경고와 반박 금액이 틀어진다)
+    safe: unknown(합의·하한선 경고를 만들지 않는다. 합의는 accept와 반박 뒤 합의뿐, engine.apply)
     mid:  나머지. 유형끼리 혼동, low_offer인데 금액을 못 읽음(사용자가 금액을 넣는다)"""
     want, allowed = r["reply_type"], {r["reply_type"], *r.get("also", [])}
     if kind == "accept" and "accept" not in allowed:
