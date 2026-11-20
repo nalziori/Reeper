@@ -46,7 +46,9 @@ function useTone(kind: string, base: string) {
     try {
       const res = await api.polish(c, kind, next)
       if (ticket !== asked.current) return
-      if (res.polished) setCache((prev) => ({ ...prev, [next]: res.text }))
+      // 계좌 자리 글자가 바뀌면 계좌 칸이 사라지고 빈칸이 든 글이 나가므로, 다듬은 글이 자리를 그대로 두었을 때만 쓴다
+      const keepsSlot = base.split(ACCOUNT_SLOT).length === res.text.split(ACCOUNT_SLOT).length
+      if (res.polished && keepsSlot) setCache((prev) => ({ ...prev, [next]: res.text }))
       else { setChoice('base'); setNote('이번에는 말투를 못 바꿨어요. 기본 문자를 쓰세요') }
     } catch {
       if (ticket === asked.current) { setChoice('base'); setNote('말투를 못 바꿨어요. 기본 문자를 쓰세요') }
@@ -62,7 +64,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState('')
   const tone = useTone(kind, base)
-  const needsAccount = tone.text.includes(ACCOUNT_SLOT)
+  const needsAccount = base.includes(ACCOUNT_SLOT)
   const [account, setAccountState] = useState(loadAccount)
   const setAccount = (v: string) => {
     setAccountState(v)
@@ -104,7 +106,7 @@ export function Draft({ kind, text: base }: { kind: string; text: string }) {
         )}
         {needsAccount && (
           <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
-            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남아요" />
+            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
         )}
         {sendable && actions}
         {missingAccount && <Text type="supporting">계좌를 적어야 복사하거나 보낼 수 있어요</Text>}

@@ -196,6 +196,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
               <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
+              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '잘 모르겠어요'를 골라 계속할 수 있어요</Text>
             </VStack>
           </Card>
           <FaultSummary c={contract} />

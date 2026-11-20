@@ -103,6 +103,9 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [flash])
   const reset = () => { forgetAccount(); setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
+  // 환불이 끝나면 계좌는 더 쓸 데가 없다. 같이 쓰는 PC에서 다음 사람이 보지 않게 브라우저에서 지운다
+  const closed = saved?.step.case.stage === 'closed'
+  useEffect(() => { if (closed) forgetAccount() }, [closed])
   const tab: TabKey = saved && tabAt?.stage === saved.step.case.stage ? tabAt.tab : 'now'
   // 단계가 바뀌거나 탭을 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 새 단계 안내가 가려진다
   const view = saved ? `${journeyPhase(saved.step.case.stage)}:${tab}` : 'intake'
