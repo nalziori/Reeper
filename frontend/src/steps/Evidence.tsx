@@ -12,7 +12,7 @@ export function Evidence({ c, rules }: { c: Case; rules: Rules }) {
           <Badge label={STAGE[c.stage]} variant={c.stage === 'closed' ? 'success' : 'info'} />
         </HStack>
         <Text type="display-3">{won(c.agreed_amount ?? r.refund)}</Text>
-        <Text type="supporting">받고 싶은 금액 {won(c.target)} · 거절 기준 {won(c.floor)}</Text>
+        <Text type="supporting">희망 금액 {won(c.target)} · 하한선 {won(c.floor)}</Text>
         <Text type="supporting">
           결제 {won(c.contract.total_paid)} − 이용분 {won(r.used_amount)} ({r.total_days}{r.unit_label} 중 {r.used_days}{r.unit_label}) − 위약금 {won(r.penalty)}
         </Text>

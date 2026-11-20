@@ -24,11 +24,12 @@ export function BottomSheet({ open, onOpenChange, title, children }: {
 }
 
 // 시트 안의 한 줄 선택지. 줄 전체가 버튼이고 손가락으로 누르기 좋은 높이(56px)다
-export function ChoiceRow({ icon, label, onClick, disabled }: {
-  icon: ReactNode; label: string; onClick: () => void; disabled?: boolean
+// expanded를 주면 아래에 칸을 펼치는 줄이다(화면 읽기 프로그램에 펼침 상태를 알린다)
+export function ChoiceRow({ icon, label, onClick, disabled, expanded }: {
+  icon: ReactNode; label: string; onClick: () => void; disabled?: boolean; expanded?: boolean
 }) {
   return (
-    <button type="button" className="choice-row" onClick={onClick} disabled={disabled}>
+    <button type="button" className="choice-row" onClick={onClick} disabled={disabled} aria-expanded={expanded}>
       <span className="choice-icon" aria-hidden>{icon}</span>
       <span className="min-w-0 flex-1 text-left">{label}</span>
     </button>

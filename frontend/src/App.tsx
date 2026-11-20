@@ -1,6 +1,7 @@
-import { Banner, Button, Card, DockProvider, HStack, Heading, Text, VStack } from './ui'
+import { Banner, BottomSheet, Button, Card, DockProvider, HStack, Heading, Text, VStack } from './ui'
 import { CheckCircleIcon, ClockIcon, FlagIcon, PlusIcon, ScaleIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { forgetAccount } from './account'
 import { api, type Health, type ReadReply, type Rules, type Step } from './api'
 import { DeadlineLine } from './components/DeadlineLine'
 import { DemoPanel } from './components/DemoPanel'
@@ -101,7 +102,7 @@ export default function App() {
     const t = window.setTimeout(() => setFlash(null), 5000)
     return () => window.clearTimeout(t)
   }, [flash])
-  const reset = () => { setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
+  const reset = () => { forgetAccount(); setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
   const tab: TabKey = saved && tabAt?.stage === saved.step.case.stage ? tabAt.tab : 'now'
   // 단계가 바뀌거나 탭을 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 새 단계 안내가 가려진다
   const view = saved ? `${journeyPhase(saved.step.case.stage)}:${tab}` : 'intake'
@@ -119,7 +120,12 @@ export default function App() {
         {sc && (
           <>
             <HStack hAlign="between" vAlign="center">
-              <Text type="supporting">{sc.contract.gym_name || '내 회원권'} · {STAGE[sc.stage]}</Text>
+              {/* 방금 기록한 것은 잠깐 이 줄에 보인다. 아래쪽에 띄우면 문안·안내를 가렸다. 화면 읽기 프로그램에도 읽힌다 */}
+              <div role="status" aria-live="polite" className="min-w-0 flex-1">
+                {flash
+                  ? <p key={flash.n} className="flash"><CheckCircleIcon aria-hidden /><span>기록했어요 · {flash.text}</span></p>
+                  : <Text type="supporting">{sc.contract.gym_name || '내 회원권'} · {STAGE[sc.stage]}</Text>}
+              </div>
               <Text weight="semibold">{won(sc.agreed_amount ?? sc.refund.refund)}</Text>
             </HStack>
             {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
@@ -136,18 +142,16 @@ export default function App() {
   const header = (
     <>
       {appBar}
-      {saved && confirmReset && (
-        <Card>
-          <VStack gap={3}>
-            <Heading level={2}>지금 기록을 지울까요?</Heading>
-            <Text as="p">이 브라우저에만 있어서 되돌릴 수 없어요. 남기려면 아래 '기록' 탭에서 먼저 저장하세요</Text>
-            <HStack gap={2} wrap="wrap">
-              <Button label="계속하기" variant="primary" onClick={() => setConfirmReset(false)} />
-              <Button label="지우고 새로 시작" onClick={reset} />
-            </HStack>
-          </VStack>
-        </Card>
-      )}
+      {/* 화면 안 카드로 두면 위 막대 아래에 끼어 내려간 화면에서는 보이지 않았다. 시트로 띄워 누른 곳에서 바로 답하게 한다 */}
+      <BottomSheet open={!!saved && confirmReset} onOpenChange={setConfirmReset} title="지금 기록을 지울까요?">
+        <VStack gap={3}>
+          <Text as="p">이 브라우저에만 있어서 되돌릴 수 없어요. 남기려면 아래 '기록' 탭에서 먼저 저장하세요</Text>
+          <HStack gap={2} wrap="wrap">
+            <Button label="계속하기" variant="primary" onClick={() => setConfirmReset(false)} />
+            <Button label="지우고 새로 시작" onClick={reset} />
+          </HStack>
+        </VStack>
+      </BottomSheet>
     </>
   )
   if (!saved) {
@@ -155,7 +159,7 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page">
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
+        <Intake rules={rules} upload={health?.upload === true} advice={!autoReadOff} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
       </VStack>
     )
   }
@@ -193,7 +197,7 @@ export default function App() {
       </Card>
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>
-        {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} />}
+        {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
         <ReplyReading step={saved.step} rules={rules} />
         {phase === 3 && <Prepare saved={saved} send={send} />}
         {phase === 4 && <Respond saved={saved} send={send} reply={reply} setReply={setReply}
@@ -201,7 +205,8 @@ export default function App() {
           read={read} readNote={readNote} reading={reading.busy} readReply={readReply}
           clearRead={() => setReading((r) => ({ ...r, result: null }))} />}
         {phase === 5 && <Deposit saved={saved} send={send} />}
-        {(phase === 3 || phase === 4) && !handedOff && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
+        {/* 조언을 받을 수 없으면(키 없음·한도 초과) 쓸 수 없는 칸을 보이지 않는다. 이미 받은 조언은 그대로 보여 준다 */}
+        {(phase === 3 || phase === 4) && !handedOff && (!autoReadOff || c.strategy) && <StrategyCard c={c} rules={rules} autoReadOff={autoReadOff} plan={plan} />}
         {DEMO && !handedOff && <DemoPanel stage={c.stage} offset={saved.offset} send={send}
           ownerSays={(t) => { setReply(t); void readReply(t) }} />}
       </VStack>
@@ -212,10 +217,6 @@ export default function App() {
       {/* 주 버튼 자리. 탭 바로 위에 고정된다 */}
       {/* 저장 중에는 이 버튼들도 잠근다(카드 쪽 fieldset 밖으로 옮겨 그리므로 따로 잠근다) */}
       <div className="bottom-stack">
-        {/* 방금 기록한 것. 화면 읽기 프로그램에도 읽힌다 */}
-        <div role="status" aria-live="polite" className="flash-slot">
-          {flash && <p key={flash.n} className="flash"><CheckCircleIcon aria-hidden />기록했어요 · {flash.text}</p>}
-        </div>
         <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
           <div ref={setDockEl} className="dock-slot" />
         </fieldset>
