@@ -116,7 +116,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
 
   if (preview) {
     const { contract, refund } = preview
-    const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : '개월 수'
+    const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : refund.unit_label
     const targetAmount = target === '' ? refund.refund : Number(target)
     const floorAmount = floor === '' ? refund.refund : Number(floor)
     const validAmount = (value: string) => value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)))
