@@ -96,16 +96,35 @@ def full_flow(browser, base, tag, viewport):
     page.get_by_role("radio", name="전화로").check()
     call_heading.wait_for()
     rec(f"{tag}: 전화로 고르면 통화 카드와 전화 기록 버튼", page.get_by_role("heading", name="보낼 문자", exact=True).count() == 0
-        and btn(page, "전화로 말했어요").count() == 1 and btn(page, "문자로 보냈어요").count() == 0)
+        and btn(page, "통화 결과 기록").count() == 1 and btn(page, "문자로 보냈어요").count() == 0)
     # 긴 통화 카드를 내리지 않아도 기록 버튼이 화면 안에 있다(하단 고정 행동 바)
     page.evaluate("window.scrollTo(0, 0)")
-    box = btn(page, "전화로 말했어요").bounding_box()
+    box = btn(page, "통화 결과 기록").bounding_box()
     rec(f"{tag}: 맨 위에서도 기록 버튼이 화면 안", box is not None and 0 <= box["y"] and box["y"] + box["height"] <= page.viewport_size["height"],
         f"y={round(box['y']) if box else '없음'} / {page.viewport_size['height']}")
-    card = page.locator(".draft-section").first.locator("xpath=ancestor::*[self::div][1]").inner_text()
+    script = page.get_by_role("list", name="통화 순서")
+    card = script.inner_text()
     musts = [m for m in MUSTS if m not in card]
     rec(f"{tag}: 통화 카드 꼭 말할 다섯 가지", not musts, "빠짐: " + ", ".join(musts) if musts else "")
-    rec(f"{tag}: 통화 카드 구역 제목 굵게", page.locator(".draft-section").count() >= 3, f"{page.locator('.draft-section').count()}개")
+    steps = script.get_by_role("listitem").all_text_contents()
+    rec(f"{tag}: 인사와 해지 요청을 첫 순서에 함께 표시", len(steps) == 5
+        and "안녕하세요" in steps[0] and "오늘 날짜로 해지하겠습니다" in steps[0]
+        and "문자 확인" in steps[-1]
+        and page.get_by_text("해지 접수일과 환불 처리 일정을 다시 확인하세요.", exact=False).is_visible())
+    first_line = page.get_by_text("오늘 날짜로 해지하겠습니다", exact=False).bounding_box()
+    rec(f"{tag}: 첫마디 다음 문장도 하단 버튼 위에 보임", first_line is not None and box is not None
+        and first_line["y"] + first_line["height"] <= box["y"])
+    page.screenshot(path=SHOTS / f"{tag}-3-call.png")
+    call_heading.locator("../..").screenshot(path=SHOTS / f"{tag}-3-call-script.png",
+        style=".app-bar, .dock-slot, .tab-bar, .action-dock { display: none !important; }")
+    responses = btn(page, "업체 답변 보기")
+    objection = page.get_by_text("정상가로 계산해야 합니다")
+    initially_hidden = not objection.is_visible()
+    responses.click()
+    rec(f"{tag}: 업체 반응별 답변을 필요할 때 펼침", initially_hidden and objection.is_visible()
+        and page.get_by_text("실제 결제한 금액 기준으로 계산해 주세요").is_visible())
+    page.screenshot(path=SHOTS / f"{tag}-3-call-answers.png", animations="disabled")
+    close_sheet(page)
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     page.get_by_role("button", name="복사", exact=True).last.click()
     copied = page.evaluate("navigator.clipboard.readText()")
@@ -114,7 +133,8 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 키보드 포커스 이동", page.evaluate("document.activeElement && document.activeElement !== document.body"))
     rec(f"{tag}: 시연 패널에 날짜 버튼(ready)", btn(page, "하루 지남").count() == 1 and btn(page, "사장:").count() == 0)
     # 단계가 그대로인 기록도 눌렸다는 게 보여야 한다. 연결이 안 됐으면 문자 문안으로 바꿔 보여 준다
-    btn(page, "전화 연결이 안 됐어요").click()
+    btn(page, "통화 결과 기록").click()
+    page.get_by_role("dialog").get_by_role("button", name="연결이 안 됐어요").click()
     flash = page.locator(".flash", has_text="연결되지 않음")
     flash.wait_for()
     rec(f"{tag}: 전화 연결 안 됨을 누르면 기록 알림", flash.count() == 1, flash.inner_text()[:40])
@@ -215,7 +235,8 @@ def limit_flow(browser, base):
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
     page.get_by_role("radio", name="전화로").check()
-    rec(f"{tag}: 고정 통화 카드", page.get_by_text("[첫마디]").count() + page.get_by_text("첫마디").count() > 0)
+    rec(f"{tag}: 고정 통화 카드", page.get_by_role("list", name="통화 순서")
+        .get_by_text("인사하고 해지 의사 전하기").is_visible())
     page.get_by_role("radio", name="문자로").check()
     rec(f"{tag}: 쓸 수 없는 조언 칸은 숨김", page.get_by_text("내 상황에 맞는 조언").count() == 0)
     btn(page, "문자로 보냈어요").click()

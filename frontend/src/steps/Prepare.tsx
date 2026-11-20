@@ -1,7 +1,7 @@
-import { Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
+import { BottomSheet, Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
 import { useState } from 'react'
 import type { Step } from '../api'
-import { DraftList } from '../components/Draft'
+import { Draft, DraftList } from '../components/Draft'
 import type { Saved, Send } from '../useCase'
 
 type Channel = 'sms' | 'call'
@@ -12,11 +12,16 @@ type Channel = 'sms' | 'call'
 export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
   const { action, drafts }: Step = saved.step
   const [channel, setChannel] = useState<Channel>('sms')
-  const shown = Object.fromEntries(Object.entries(drafts).filter(([k]) => channel === 'call' ? k === 'call_card' : k !== 'call_card'))
+  const [sheet, setSheet] = useState<'answers' | 'outcome' | null>(null)
+  const callMode = action.type === 'send_notice' && channel === 'call'
+  const shown = Object.fromEntries(Object.entries(drafts).filter(([k]) => k !== 'call_card'))
   return (
     <>
       {/* 알리는 방법과 그 방법의 문안은 한 장에 둔다(고르고 바로 본다) */}
-      <VStack gap={3}>
+      <VStack gap={3} className={callMode ? 'call-preparation' : undefined}>
+        {action.type === 'send_notice' && channel === 'sms' && (
+          <Card><Heading level={2}>{action.reason}</Heading></Card>
+        )}
         {action.type === 'send_notice' && (
           <Card>
             <VStack gap={3}>
@@ -26,12 +31,15 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
                 <SegmentedControlItem value="call" label="전화로" />
               </SegmentedControl>
               <Text type="supporting">
-                {channel === 'sms' ? '복사하거나 문자 앱으로 열어 보내요' : '대본을 보며 말해요. 끊은 뒤 보낼 문자도 만들어 드려요'}
+                {channel === 'sms' ? '복사하거나 문자 앱으로 열어 보내요' : '스피커폰을 켜고 아래 대본을 순서대로 읽어요'}
               </Text>
             </VStack>
           </Card>
         )}
-        <DraftList drafts={action.type === 'send_notice' ? shown : drafts} note={saved.note} />
+        {callMode && drafts.call_card
+          ? <Draft kind="call_card" text={drafts.call_card}
+              callAnswers={{ open: sheet === 'answers', onOpenChange: (open) => setSheet(open ? 'answers' : null) }} />
+          : <DraftList drafts={action.type === 'send_notice' ? shown : drafts} note={saved.note} />}
       </VStack>
       {/* 보냈거나 말했으면 바로 누를 수 있게 탭 바로 위에 붙여 둔다(문안 카드를 넘기지 않아도 된다) */}
       {action.type === 'send_notice' && (
@@ -40,13 +48,25 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
             {channel === 'sms' ? (
               <Button variant="primary" label="문자로 보냈어요" onClick={() => send({ type: 'notice_sent', channel: 'sms' })} />
             ) : (<>
-              <Button variant="primary" label="전화로 말했어요" onClick={() => send({ type: 'notice_sent', channel: 'call' }, { note: drafts.after_call_sms })} />
-              {/* 연결이 안 됐으면 다음 할 일은 문자다. 기록한 뒤 문자 문안으로 바꿔 보여 준다 */}
-              <Button label="전화 연결이 안 됐어요" onClick={async () => { if (await send({ type: 'call_attempted' })) setChannel('sms') }} />
+              <Button variant="primary" label="통화 결과 기록" onClick={() => setSheet('outcome')} />
+              {drafts.call_card && <Button label="업체 답변 보기" onClick={() => setSheet('answers')} />}
             </>)}
           </HStack>
         </Dock>
       )}
+      <BottomSheet title="통화 결과 기록" open={sheet === 'outcome'}
+        onOpenChange={(open) => setSheet(open ? 'outcome' : null)}>
+        <VStack gap={2}>
+          <Button variant="primary" label="해지 의사를 전했어요" onClick={() => {
+            setSheet(null)
+            void send({ type: 'notice_sent', channel: 'call' }, { note: drafts.after_call_sms })
+          }} />
+          <Button label="연결이 안 됐어요" onClick={async () => {
+            setSheet(null)
+            if (await send({ type: 'call_attempted' })) setChannel('sms')
+          }} />
+        </VStack>
+      </BottomSheet>
     </>
   )
 }

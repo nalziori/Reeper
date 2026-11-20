@@ -195,12 +195,12 @@ export default function App() {
       <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
       {/* 지금 할 일 한 문장과 기한 */}
-      <Card className="mb-3">
+      {!(phase === 3 && action.type === 'send_notice') && <Card className="mb-3">
         <VStack gap={3}>
           <Heading level={2}>{action.reason}</Heading>
           <DeadlineLine c={c} offset={saved.offset} />
         </VStack>
-      </Card>
+      </Card>}
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>
         {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
