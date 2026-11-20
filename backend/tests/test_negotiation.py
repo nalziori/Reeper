@@ -53,7 +53,8 @@ def test_offer_at_negotiation_boundaries(offered, action, warn):
 @pytest.mark.parametrize("limits, offered, reason", [
     ({}, 100000, "제시액이 예상 환불액보다 적어요"),
     ({"target": 400000, "floor": 300000}, 100000, "제시액이 하한선보다 적어요"),
-    ({"target": 400000, "floor": 300000}, 350000, "하한선은 넘지만 희망 금액보다 적어요. 받아들일지 정하세요"),
+    ({"target": 400000, "floor": 300000}, 300000, "제시액이 하한선 이상이지만 희망 금액보다 적어요. 받아들일지 정하세요"),
+    ({"target": 400000, "floor": 300000}, 350000, "제시액이 하한선 이상이지만 희망 금액보다 적어요. 받아들일지 정하세요"),
     ({"target": 400000, "floor": 300000}, 400000, "제시액이 희망 금액 이상이에요"),
 ])
 def test_offer_reason_uses_consumer_terms(limits, offered, reason):
