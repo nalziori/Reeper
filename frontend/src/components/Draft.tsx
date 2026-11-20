@@ -141,6 +141,7 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
     saveAccount(v)
   }
   const missingAccount = needsAccount && !account.trim()
+  const actionsDisabled = missingAccount || tone.loading
   const text = needsAccount && !missingAccount ? tone.text.split(ACCOUNT_SLOT).join(account.trim()) : tone.text
   const { c } = useContext(PolishContext)
   const sendable = !NOT_SENT.has(kind)
@@ -148,7 +149,7 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
   // 보낼 문자는 복사·문자 앱 버튼을 글 위에 둔다. 글이 길면 아래 버튼이 화면 밖으로 밀려 '보냈어요'부터 누르게 됐다
   const actions = (
     <HStack gap={2} wrap="wrap">
-      <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} isDisabled={missingAccount} onClick={async () => {
+      <Button label={copied ? '복사됨' : '복사'} icon={<DocumentDuplicateIcon aria-hidden />} isDisabled={actionsDisabled} onClick={async () => {
         try {
           await navigator.clipboard.writeText(text)
           setCopied(true)
@@ -157,7 +158,7 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
           setCopyError('복사하지 못했어요. 글을 길게 눌러 복사해 주세요')
         }
       }} />
-      {sendable && <Button label="문자 앱으로 열기" icon={<ChatBubbleBottomCenterTextIcon aria-hidden />} isDisabled={missingAccount}
+      {sendable && <Button label="문자 앱으로 열기" icon={<ChatBubbleBottomCenterTextIcon aria-hidden />} isDisabled={actionsDisabled}
         href={`sms:?&body=${encodeURIComponent(text)}`} />}
     </HStack>
   )
@@ -165,6 +166,11 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
     <Card>
       <VStack gap={3}>
         <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
+        {needsAccount && (
+          <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
+            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
+        )}
+        {sendable && actions}
         {tone.canPolish && (
           <SegmentedControl label="말투" size="sm" value={tone.choice} isDisabled={tone.loading}
             onChange={(v) => { setCopied(false); void tone.select(v as Choice) }}>
@@ -173,11 +179,6 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
             <SegmentedControlItem value="firm" label="단호하게" />
           </SegmentedControl>
         )}
-        {needsAccount && (
-          <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
-            description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />
-        )}
-        {sendable && actions}
         {missingAccount && <Text type="supporting">계좌를 적어야 복사하거나 보낼 수 있어요</Text>}
         {kind === 'call_card' && callAnswers
           ? <CallScript text={text} answers={callAnswers} />
