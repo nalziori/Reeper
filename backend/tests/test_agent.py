@@ -607,6 +607,22 @@ def test_an_offer_that_only_takes_the_penalty_off_gets_the_penalty_answer():
     assert list(after(open_case(CONTRACT, D), 300_000)[1]) == ["counter_low_offer"]
 
 
+def test_refusal_counter_mentions_the_reason_only_for_business_cases():
+    cases = (open_case(CONTRACT, D), fault_case("trainer_change"))
+    texts = []
+    for case in cases:
+        case = apply(case, Event(type="notice_sent", channel="sms"), D)
+        case = apply(case, Event(type="reply_received", reply_type="refuse"), D)
+        text = agent.drafts_for(case, next_action(case, D))["counter_refuse"]
+        assert agent.validate(text, case)
+        texts.append(text)
+
+    consumer, business = texts
+    reason = "계약할 때 약속한 강사에게 수업을 받을 수 없게 되어"
+    assert reason not in consumer and f"{reason} " in business
+    assert "개인 사정으로" not in business
+
+
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:
