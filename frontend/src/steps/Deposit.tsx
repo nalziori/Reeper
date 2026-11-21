@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Divider, HStack, Heading, Text, TextInput, VStack } from '../ui'
 import { useState } from 'react'
 import { DraftList } from '../components/Draft'
+import { Guide1372 } from '../components/Guide1372'
 import { Timeline } from '../components/Timeline'
 import { isoDate, won } from '../format'
 import type { Saved, Send } from '../useCase'
@@ -33,6 +34,8 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
           </VStack>
         </Card>
       )}
+      {/* 1372에 접수한 뒤(handed_off)에는 엔진이 계속 go_1372를 주지만 절차·전화 안내는 다시 보이지 않는다(Respond와 같다) */}
+      {action.type === 'go_1372' && c.stage !== 'handed_off' && <Guide1372 />}
       {c.stage !== 'closed' && <DraftList drafts={drafts} note={saved.note} />}
       {c.stage === 'agreed' && (
       <Card>

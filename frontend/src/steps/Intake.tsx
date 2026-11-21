@@ -1,11 +1,12 @@
 import { ClockIcon } from '@heroicons/react/24/outline'
 import { Banner, Button, Card, Collapsible, DateInput, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, TextInput, VStack, Waiting } from '../ui'
 import { type ComponentProps, useEffect, useState } from 'react'
-import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
+import { api, type Contract, type FaultKind, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
 import { FaultCases } from '../components/FaultCases'
 import { FaultSummary } from '../components/FaultSummary'
+import { Guide1372 } from '../components/Guide1372'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
@@ -65,6 +66,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [reason, setReason] = useState<'mine' | 'business'>('mine')
   const [busy, setBusy] = useState(false)
   const [why, setWhy] = useState<'used' | 'penalty' | 'deposit' | null>(null)
+  // 업체 잘못일 때 고른 업체 사정 유형과, 그 계약으로 서버가 다시 계산한 금액. 금액은 rules.py만 만든다
+  const [kind, setKind] = useState<FaultKind | ''>('')
+  // 어떤 미리보기·유형으로 계산한 값인지 같이 둔다. 계약이나 유형이 바뀌면 옛 값은 쓰지 않는다
+  // refund가 null이면 계산을 받지 못한 것이다(1372 안내로 남는다)
+  const [biz, setBiz] = useState<{ of: unknown; kind: string; refund: Refund | null } | null>(null)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
@@ -74,6 +80,14 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [limitsOpen, setLimitsOpen] = useState(false)
   // 계약 입력과 근거 확인을 오가면 맨 위에서 시작한다
   useEffect(() => { window.scrollTo({ top: 0 }) }, [preview === null])
+  // 업체 잘못 + 유형이면 같은 계약을 업체 잘못으로 다시 계산한다. 폐쇄 유형도 연다(시설 일부만 닫고 영업 중인 경우가 있다, #154 B 리뷰)
+  useEffect(() => {
+    if (!preview || reason !== 'business' || !kind) return
+    let active = true
+    api.preview({ ...preview.contract, cancel_reason: 'business', fault_kind: kind }, preview.today)
+      .then((r) => { if (active) setBiz({ of: preview, kind, refund: r }) }, () => { if (active) setBiz({ of: preview, kind, refund: null }) })
+    return () => { active = false }
+  }, [preview, reason, kind])
   const edit = (field: ExtractField, next: Contract) => {
     setC(next)
     setChecks((prev) => { const s = new Set(prev); s.delete(field); return s })
@@ -133,7 +147,17 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   })
 
   if (preview) {
-    const { contract, refund } = preview
+    // 업체 잘못 계산은 서버가 위약금 0원으로 돌려줄 때만 쓴다(rules.py가 아직 업체 잘못을 계산하지 않으면 1372 안내로 둔다)
+    const got = biz && biz.of === preview && biz.kind === kind ? biz : null
+    const bizRefund = got?.refund ?? null
+    // 유형을 고르고 계산을 기다리는 동안에는 옛 안내 카드를 잠깐 보이지 않는다
+    const bizPending = reason === 'business' && kind !== '' && got === null
+    // 위약금 0원만으로는 계산 분기가 들어왔는지 모른다(결제액 10원 미만이면 내 사정도 0원). C의 분기는 업체 사정이면
+    // disputed_refund를 늘 채우므로(0원 포함) 그것까지 보고 연다. 양식(문안)도 같은 C PR로 들어온다(#154 C 리뷰)
+    const isBiz = reason === 'business' && kind !== '' && bizRefund !== null && bizRefund.penalty === 0 && bizRefund.disputed_refund != null
+    const base = preview
+    const contract: Contract = isBiz ? { ...base.contract, cancel_reason: 'business', fault_kind: kind as FaultKind } : base.contract
+    const refund = isBiz && bizRefund ? bizRefund : base.refund
     const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : refund.unit_label
     const targetAmount = target === '' ? refund.refund : Number(target)
     const floorAmount = floor === '' ? refund.refund : Number(floor)
@@ -145,8 +169,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     const confirm = () => runIntake(async () => {
       const today = isoDate(0)
       if (today !== preview.today) {
-        const recalculated = await api.preview(contract, today)
-        setPreview({ contract, refund: recalculated, today })
+        const recalculated = await api.preview(base.contract, today)
+        setPreview({ contract: base.contract, refund: recalculated, today })
         setError('날짜가 바뀌어 다시 계산했어요. 금액을 확인해 주세요')
         return
       }
@@ -179,7 +203,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       <VStack gap={2}>
         <Text weight="semibold">해지하려는 이유</Text>
         <SegmentedControl label="해지하려는 이유" layout="fill" size="sm" value={reason} isDisabled={busy}
-          onChange={(v) => setReason(v as 'mine' | 'business')}>
+          onChange={(v) => { setReason(v as 'mine' | 'business'); setWhy(null) }}>
           <SegmentedControlItem value="mine" label="내 사정" />
           <SegmentedControlItem value="business" label="업체 잘못" />
         </SegmentedControl>
@@ -215,12 +239,12 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {reasonPicker}
           </VStack>
         </Card>
-        {reason === 'business' ? (<>
+        {reason === 'business' && <FaultCases kind={kind} onKind={(k) => setKind(k as FaultKind | '')} />}
+        {reason === 'business' && bizPending ? <Waiting message="금액을 계산하고 있어요" /> : reason === 'business' && !isBiz ? (<>
           <Card>
             <VStack gap={2}>
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
-              <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
               <Text type="supporting">1372에 물어볼 만한 경우예요</Text>
               <ul className="list-disc pl-5 text-sm text-muted-foreground" aria-label="애매한 상황 예시">
                 {UNSURE_CASES.map((t) => <li key={t}>{t}</li>)}
@@ -228,14 +252,16 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 업체 잘못인지 애매하면 업체에 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
           </Card>
-          <FaultCases />
+          <Guide1372 scriptLabel="1372에 말할 내용 정리" tracked={false} />
           <FaultSummary c={contract} />
         </>) : (<>
+        {/* 휴업·폐업이나 시설 일부 폐쇄: 영업 중이면 문자를 보낼 수 있다. 아예 문을 닫았을 때만 1372로 안내한다 */}
+        {isBiz && kind === 'closure' && <Banner status="info" collapsible={false} title="업체가 아예 문을 닫아 연락이 안 되면 문자 대신 1372에 상담하세요" />}
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
         <Card>
           <VStack gap={3}>
             <VStack gap={1}>
-              <Heading level={2} className="text-[15px] font-medium text-muted-foreground">예상 환불액</Heading>
+              <Heading level={2} className="text-[15px] font-medium text-muted-foreground">{isBiz ? '예상 환불액(업체 잘못이 인정되면)' : '예상 환불액'}</Heading>
               <Text type="display-3">{won(refund.refund)}</Text>
               <Text type="supporting">{unitName} 기준으로 계산</Text>
               <Text type="supporting">{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
@@ -255,8 +281,13 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               </WhyBox></div>}
               <div><dt>{whyButton('penalty', '위약금')}</dt><dd>−{won(refund.penalty)}</dd></div>
               {/* 시작 전 해지인데 위약금이 빠지는 것이 가장 헷갈리는 지점이라, 누르지 않아도 한 줄로 먼저 알린다 */}
-              {refund.used_days === 0 && why !== 'penalty' && <div className="receipt-note"><Text type="supporting">{byCount ? '아직 받은 횟수가 없어 쓴 돈은 없지만' : '아직 이용 전이라 쓴 돈은 없지만'}, 위약금은 빠져요. 위약금을 눌러 이유를 보세요</Text></div>}
-              {why === 'penalty' &&<div className="receipt-why"><WhyBox ids={['G10']} rules={rules}>
+              {!isBiz && refund.used_days === 0 && why !== 'penalty' && <div className="receipt-note"><Text type="supporting">{byCount ? '아직 받은 횟수가 없어 쓴 돈은 없지만' : '아직 이용 전이라 쓴 돈은 없지만'}, 위약금은 빠져요. 위약금을 눌러 이유를 보세요</Text></div>}
+              {why === 'penalty' && isBiz && <div className="receipt-why"><WhyBox ids={['G4']} rules={rules}>
+                {/* 문구는 C 확인 대상이다(G4: 사업자의 귀책사유 없이 해지된 경우의 위약금) */}
+                <Text as="p" type="supporting">위약금은 업체 잘못 없이 해지될 때 업체가 받을 수 있는 돈이에요. 업체 사정으로 해지하면 위약금을 빼지 않고 계산했어요</Text>
+                <Text as="p" type="supporting">업체가 자기 잘못이 아니라고 다투면 위약금이 빠질 수 있어요. 그때는 1372에 물어보세요</Text>
+              </WhyBox></div>}
+              {why === 'penalty' && !isBiz && <div className="receipt-why"><WhyBox ids={['G10']} rules={rules}>
                 <Text as="p" type="supporting">내 사정으로 해지하면 총 계약대금의 10%를 위약금으로 뺄 수 있어요. 이용 시작 전이든 후든 같은 기준이라, 시작 전에 해지해도 빠져요</Text>
                 <Text as="p" type="supporting">업체 잘못으로 해지하는 경우에는 이 위약금을 내지 않을 수 있어요. 그때는 위에서 '업체 잘못'을 골라 주세요</Text>
               </WhyBox></div>}
@@ -267,6 +298,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               </WhyBox></div>}
               <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
             </dl>
+            {/* 업체가 다툴 때 금액은 rules.py가 채운 disputed_refund다(isBiz면 늘 있다) */}
+            {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(refund.disputed_refund ?? 0)}이 될 수 있어요</Text>}
             {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
             <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
               trigger={<VStack gap={1}>
@@ -300,7 +333,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         <div className="action-dock">
           <HStack gap={2} wrap="wrap">
             <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-            {reason !== 'business' && <Button variant="primary" label={busy ? '확인 중…' : '이 금액으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
+            {(reason !== 'business' || isBiz) && <Button variant="primary" label={busy ? '확인 중…' : '이 금액으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
           </HStack>
         </div>
       </VStack>
