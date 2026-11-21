@@ -515,6 +515,20 @@ def test_only_a_bounded_slice_of_the_contract_goes_to_the_model(real):
     assert "가" * (agent.MAX_NAME + 1) not in sent["user"]
 
 
+def test_the_model_is_given_the_screen_names_for_target_and_floor(real):
+    """화면은 희망 금액·하한선(정하지 않았으면 예상 환불액)이라고 부른다. 모델에 옛 이름을 주면 글에 샌다."""
+    sent = {}
+    agent.llm._chat = lambda system, user, schema: sent.update(user=user, system=system) or {}
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    case = apply(case, Event(type="reply_received", text=REPLY, reply_type="low_offer", amount=200_000), D)
+    for c, name in ((case, "예상 환불액"), (case.model_copy(update={"floor": 300_000}), "하한선")):
+        agent.analyze_reply(c, REPLY, next_action(c, D), D)
+        assert f'"비교 기준 이름": "{name}"' in sent["user"] and "희망 금액" in sent["user"]
+        assert "최저 수용선" not in sent["user"] + sent["system"] and "목표 금액" not in sent["user"]
+        agent.plan(c, "상황", D)
+        assert "최저 수용선" not in sent["user"] + sent["system"] and "목표 금액" not in sent["user"]
+
+
 def test_extract_blanks_absurd_values_and_keeps_the_name_on_one_line(real, monkeypatch):
     monkeypatch.setenv("ALLOW_UPLOAD", "1")
     f = lambda v: {"value": v, "confidence": 0.99, "quote": ""}  # noqa: E731
