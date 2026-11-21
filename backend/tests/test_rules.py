@@ -82,3 +82,5 @@ def test_cancel_reason_defaults_to_consumer_and_old_cases_still_load():
     assert (c.cancel_reason, c.fault_kind) == ("consumer", None)
     b = c.model_copy(update={"cancel_reason": "business", "fault_kind": "closure"})
     assert Contract.model_validate(b.model_dump(mode="json")) == b
+    # 다퉈질 때의 금액은 계산 분기가 채우기 전까지 비어 있다
+    assert calculate(c, date(2026, 2, 1)).disputed_refund is None and calculate(b, date(2026, 2, 1)).disputed_refund is None
