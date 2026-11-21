@@ -351,6 +351,12 @@ def not_sent_drafts(browser, base):
     rec(f"{tag}: 1372 카드에 문자 앱 버튼 없음", card.get_by_role("link", name="문자 앱으로 열기").count() == 0
         and card.get_by_role("button", name="문자 앱으로 열기").count() == 0)
     rec(f"{tag}: 1372 카드 복사는 있음", card.get_by_role("button", name="복사", exact=True).count() == 1)
+    # 1372 안내: 절차, 사용자가 거는 전화 링크, 챙길 것 체크(저장하지 않음). 말할 내용보다 위에 있다
+    guide = page.get_by_role("heading", name="1372에 상담하기")
+    rec(f"{tag}: 1372 안내 카드", guide.count() == 1
+        and page.locator("a[href='tel:1372']").count() == 1
+        and page.get_by_role("checkbox").count() == 4)
+    rec(f"{tag}: 1372 안내가 말할 내용 위", guide.bounding_box()["y"] < card.first.bounding_box()["y"])
     ctx.close()
     # 대조: 업체에 보내는 첫 문자에는 말투 선택이 보인다
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
@@ -377,7 +383,8 @@ def business_fault(browser, base):
     rec(f"{tag}: 금액·협상 기준 숨김", page.get_by_role("heading", name="예상 환불액").count() == 0
         and page.get_by_text("희망 금액 정하기").count() == 0)
     rec(f"{tag}: 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
-    rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1)
+    rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1
+        and page.locator("a[href='tel:1372']").count() == 1)
     # 비슷한 1372 조정례(data/mediation_cases.json): 유형을 고르면 사례가 어떻게 끝났는지, 없으면 1372 안내
     page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
     page.get_by_text("PT 수강 및 헬스장 이용계약", exact=False).first.wait_for()

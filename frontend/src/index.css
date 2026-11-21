@@ -522,3 +522,9 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
   .spinner, .skeleton, .busy-bar::after { animation: none; }
   .busy-bar::after { width: 100%; left: 0; opacity: 0.5; }
 }
+
+/* ── 체크 상자(1372 준비물) ─────────────────────────── */
+.check-item { display: flex; align-items: center; gap: 12px; min-height: 40px; font-size: 15px; cursor: pointer; }
+.check-item input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+.check-item input:checked + span { color: var(--muted-foreground); text-decoration: line-through; }
+.guide-steps { margin: 0; padding-left: 20px; list-style: decimal; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }

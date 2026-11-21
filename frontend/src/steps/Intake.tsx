@@ -6,6 +6,7 @@ import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
 import { FaultCases } from '../components/FaultCases'
 import { FaultSummary } from '../components/FaultSummary'
+import { Guide1372 } from '../components/Guide1372'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
@@ -220,7 +221,6 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             <VStack gap={2}>
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
-              <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
               <Text type="supporting">1372에 물어볼 만한 경우예요</Text>
               <ul className="list-disc pl-5 text-sm text-muted-foreground" aria-label="애매한 상황 예시">
                 {UNSURE_CASES.map((t) => <li key={t}>{t}</li>)}
@@ -229,6 +229,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             </VStack>
           </Card>
           <FaultCases />
+          <Guide1372 scriptLabel="1372에 말할 내용 정리" />
           <FaultSummary c={contract} />
         </>) : (<>
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
