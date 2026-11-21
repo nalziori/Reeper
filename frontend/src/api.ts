@@ -87,7 +87,7 @@ export type Rules = Record<string, { title: string; summary: string; url: string
 // data/mediation_cases.json. 표시용 참고 자료이고 금액 계산에 쓰지 않는다
 export type MediationCase = {
   id: string; title: string; url: string; kinds: string[]; business_fault: string
-  facts: string; result: string; penalty_deducted: boolean; decided_refund: number; usage_method: string
+  facts: string; result: string; penalty_deducted: boolean; money_note: string; decided_refund: number; usage_method: string
 }
 export type MediationCases = { cases: MediationCase[]; kinds: Record<string, { label: string; cases: string[] }> }
 

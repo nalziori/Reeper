@@ -383,8 +383,11 @@ def business_fault(browser, base):
     page.get_by_text("PT 수강 및 헬스장 이용계약", exact=False).first.wait_for()
     rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
         and page.get_by_role("link", name="1372 원문 보기 (새 창)").get_attribute("target") == "_blank")
-    page.get_by_role("radio", name="휴업·폐업·운영 중단").check()
-    rec(f"{tag}: 조정례 없는 유형은 1372 안내", page.get_by_text("아직 찾은 조정례가 없어요", exact=False).is_visible())
+    rec(f"{tag}: 인정되지 않은 사례도 함께 보임", page.get_by_text("업체 잘못으로 인정되지 않았어요", exact=False).count() >= 1
+        and page.get_by_text("업체 책임에 대한 판단은 사례마다 달랐어요", exact=False).is_visible())
+    page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
+    rec(f"{tag}: 폐쇄 유형은 결정 금액에 10%가 더해진 사례", page.get_by_text("552,000원", exact=False).count() >= 1
+        and page.get_by_role("link", name="소비자24 원문 보기 (새 창)").count() >= 1)
     page.get_by_label("무슨 일이 있었나요").fill("11월부터 샤워실 운영 중단, 공지만 붙음")
     summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
     rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary
