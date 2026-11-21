@@ -296,8 +296,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               </WhyBox></div>}
               <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
             </dl>
-            {/* 업체가 다툴 때 금액도 rules.py가 계산한 내 사정 기준 금액이다 */}
-            {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(base.refund.refund)}이 될 수 있어요</Text>}
+            {/* 업체가 다툴 때 금액은 rules.py가 채운 disputed_refund를 쓴다. 아직 비어 있으면 같은 날짜의 내 사정 계산값을 쓴다 */}
+            {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(refund.disputed_refund ?? base.refund.refund)}이 될 수 있어요</Text>}
             {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
             <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
               trigger={<VStack gap={1}>
