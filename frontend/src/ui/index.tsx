@@ -96,6 +96,12 @@ export function Button({ label, variant = 'secondary', size = 'md', isDisabled, 
     onClick={onClick} className={className}>{isLoading ? <Spinner /> : icon}{label}</UiButton>
 }
 
+// ── 새 창 링크 ────────────────────────────────────────
+// 원문 같은 바깥 페이지를 새 창으로 연다. 이름에 "(새 창)"을 붙여 화면 낭독기에도 알린다
+export function ExternalLink({ href, label }: { href: string; label: string }) {
+  return <a href={href} target="_blank" rel="noopener noreferrer" className="text-[14px] underline">{label} (새 창)</a>
+}
+
 // ── 기다리는 표시 ────────────────────────────────────
 // 실제 모델을 부르면 몇 초가 걸린다. 멈춘 것처럼 보이지 않게 도는 표시와 자리 표시 줄을 보여 준다
 export function Spinner() {

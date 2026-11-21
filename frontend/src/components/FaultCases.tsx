@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type MediationCase, type MediationCases } from '../api'
 import { won } from '../format'
-import { Card, Heading, RadioList, RadioListItem, Text, VStack } from '../ui'
+import { Card, ExternalLink, Heading, RadioList, RadioListItem, Text, VStack } from '../ui'
 
 // 업체 잘못을 고르면 어떤 일이 있었는지 묻고, 비슷한 조정례(1372·소비자24)에서 어떻게 판단했는지 보여 준다.
 // 원문은 결정 내용만 담고 실제 입금 여부는 담지 않으므로 '돌려받았다'고 쓰지 않는다.
@@ -27,7 +27,7 @@ function CaseView({ c }: { c: MediationCase }) {
         <b>결정에 적힌 환급액</b> · {won(c.decided_refund)}. {c.money_note}
       </Text>
       <Text type="supporting">이용분 계산: {c.usage_method}</Text>
-      <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-[14px] underline">{sourceName(c.url)} 원문 보기 (새 창)</a>
+      <ExternalLink href={c.url} label={`${sourceName(c.url)} 원문 보기`} />
     </VStack>
   )
 }
@@ -48,7 +48,7 @@ export function FaultCases() {
     <Card>
       <VStack gap={3}>
         <Heading level={2}>비슷한 일은 어떻게 판단했을까요</Heading>
-        <RadioList label="어떤 일이 있었나요" value={kind} onChange={setKind}
+        <RadioList label="어떤 경우와 비슷한가요" value={kind} onChange={setKind}
           description="한국소비자원 조정례(1372·소비자24)에서 비슷한 사례를 찾아 보여 드려요">
           {Object.entries(data.kinds).map(([id, k]) => <RadioListItem key={id} value={id} label={k.label} />)}
         </RadioList>
