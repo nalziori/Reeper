@@ -13,7 +13,8 @@ const CHECKLIST = [
   '업체 공지나 안내문 사진(업체 사정이 바뀌었다면)',
 ] as const
 
-export function Guide1372({ scriptLabel = '1372에 말할 내용' }: { scriptLabel?: string }) {
+// tracked: 사건이 열려 있어 상담 뒤 금액을 기록할 수 있는 화면인지. 접수 화면(폐업 등 사건을 열지 않는 경우)은 거짓이다
+export function Guide1372({ scriptLabel = '1372에 말할 내용', tracked = true }: { scriptLabel?: string; tracked?: boolean }) {
   const [done, setDone] = useState<Record<string, boolean>>({})
   return (
     <Card>
@@ -22,7 +23,7 @@ export function Guide1372({ scriptLabel = '1372에 말할 내용' }: { scriptLab
         <ol className="guide-steps">
           <li>국번 없이 1372로 전화하거나 www.1372.go.kr에서 상담을 신청해요</li>
           <li>아래 '{scriptLabel}'을 보며 상담원에게 말해요</li>
-          <li>상담으로 금액이 정해지면 Reeper에 적어 두세요. 입금될 때까지 챙겨 드려요</li>
+          {tracked && <li>상담으로 금액이 정해지면 Reeper에 적어 두세요. 입금될 때까지 챙겨 드려요</li>}
         </ol>
         {/* 오른손 엄지가 닿는 오른쪽에 둔다 */}
         <HStack hAlign="end">
