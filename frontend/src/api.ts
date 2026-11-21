@@ -11,8 +11,9 @@ export type Contract = {
   addon_value?: number
   security_deposit?: number
   cancel_reason?: 'consumer' | 'business'
-  fault_kind?: 'trainer_change' | 'schedule_cut' | 'closure' | 'relocation' | 'other' | null
+  fault_kind?: FaultKind | null
 }
+export type FaultKind = 'trainer_change' | 'schedule_cut' | 'closure' | 'relocation' | 'other'
 export type Refund = {
   total_days: number
   used_days: number
