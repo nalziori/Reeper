@@ -13,6 +13,8 @@ EventType = Literal[
     "notice_sent", "call_attempted", "reply_received", "counter_sent", "time_passed",
     "agreement_recorded", "deposit_confirmed", "escalation_sent", "handoff_done",
 ]
+# 업체 쪽 사정의 유형. data/mediation_cases.json의 kinds와 같은 이름에 other를 더했다
+FaultKind = Literal["trainer_change", "schedule_cut", "closure", "relocation", "other"]
 ActionType = Literal[
     "send_notice", "wait", "follow_up", "counter", "confirm_agreement",
     "certified_mail", "go_1372", "remind_deposit", "close",
@@ -30,6 +32,10 @@ class Contract(BaseModel):
     used_count: int | None = Field(default=None, ge=0)  # 회 단위에서 이미 쓴 횟수
     addon_value: int = Field(default=0, ge=0)  # 계약서에 가액이 적힌 부가상품만(고시 제6조 제2항)
     security_deposit: int = Field(default=0, ge=0)  # 보증금. 전액 돌려받는다(고시 제5조 제2항)
+    # 해지 이유. 사용자가 고른 값이고 서버는 업체 잘못이 맞는지 판단하지 않는다. 금액에 어떻게 반영할지는 rules.py가 정한다
+    # (아직 계산에 반영하지 않는다. rules.py의 계산 분기가 들어오기 전에는 business로 보내도 금액이 같다)
+    cancel_reason: Literal["consumer", "business"] = "consumer"
+    fault_kind: FaultKind | None = None  # 업체 쪽 사정일 때의 유형. 문안의 사유 구절을 고르는 데만 쓴다
 
 
 class Refund(BaseModel):
@@ -43,6 +49,9 @@ class Refund(BaseModel):
     unit_label: str = "일"  # total_days·used_days의 단위: 일·개월·회
     security_deposit: int = 0  # 환불액에 더한 보증금
     refs: list[str]  # data/rules.json의 id
+    # 업체 쪽 사정으로 요청한 사건에서, 업체가 다퉈 소비자 사정으로 계산될 때의 환불액(같은 날짜 기준). rules.py가 채운다.
+    # 소비자 사정 사건이면 None이다. 조언과 화면이 "업체가 다투면 ○원"을 알려 줄 때 쓴다
+    disputed_refund: int | None = None
     provisional: bool = True  # 고시 원문 확인 전
 
 
