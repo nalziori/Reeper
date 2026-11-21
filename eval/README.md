@@ -9,6 +9,8 @@
 | `hard_replies_a.jsonl` | 실제 업체 수법(소비자원 사례, FTC 소장)을 본뜬 역할 카드로 쓴 어려운 답장 20건(A1). 8건은 사람(A)이 직접, 7건은 Claude가 쓰고, 5건은 사람이 쓴 문장을 Claude가 변형했다. `author`에 적는다. `run.py`의 기본 30건에는 들어가지 않는다 | A |
 | `situations_real_b.jsonl` | 공개된 분쟁조정·상담 사례의 구조를 본떠 새로 쓴 가상 상황 12건. `source`, `decided`가 붙는다. `run.py --plans`의 기본 파일이 아니다 | B |
 | `real_cases.md` | 위 12건이 본뜬 사례 13건의 정리(구조와 출처만)와 계산 대조 | B |
+| `case_pool.jsonl` | 소비자24의 분쟁조정·피해구제·상담 사례 185건(헬스·요가·필라테스, 환불 관련). 한 줄에 사정·판단·결과·출처 주소와 `read`(원문을 읽었는지)가 있다. 81건은 읽고 요지를 적었고 104건은 미독이다. 설명과 한계는 `real_cases.md`의 "사례 풀 넓히기" | B |
+| `fetch_cases.py` | 위 사례의 원문을 소비자24에서 다시 받는 스크립트(표준 라이브러리만). 원문은 저장소에 넣지 않는다 | B |
 | `contracts.jsonl` | 가상 계약서 27건과 정답 필드·금액 (`make_contracts.py`로 생성) | C |
 | `contract_photos/` | 그중 12건의 계약서 이미지(`k01.jpg` 식)와 원본 `print.docx`. 계약서 추출(`agent.extract_contract`) 평가용. `unseen/`에 프롬프트를 고칠 때 보지 않은 10건, `month/`에 월 단위 계약 5건 | B |
 | `situations_b.jsonl` | 상황 설명과 계약 10건. 전략(`agent.plan`) 평가용 근거 정답 포함 | B |
