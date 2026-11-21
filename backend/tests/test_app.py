@@ -228,7 +228,7 @@ def test_read_reply_does_not_touch_the_case_and_step_uses_the_confirmed_type():
     read = api.post("/api/replies/read", json={"text": text}).json()
     assert set(read) == {"reply_type", "amount", "llm_fallback"}
     assert f.stage == "waiting"  # 읽기만으로는 아무 일도 없다
-    # 사용자가 "수용"이 아니라 "잘 모르겠어요"로 고쳐 확정하면 합의로 가지 않는다
+    # 사용자가 "수용"이 아니라 "어느 쪽도 아니에요"(unknown)로 고쳐 확정하면 합의로 가지 않는다
     assert f.step(type="reply_received", text=text, reply_type="unknown") == "counter"
     assert f.stage == "negotiating" and f.res["case"]["agreed_amount"] is None
     assert f.res["case"]["timeline"][-1]["text"] == text  # 원문은 기록에 남는다
