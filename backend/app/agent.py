@@ -15,7 +15,7 @@ import httpx
 
 from .engine import floor_name
 from .models import Action, Case, Extracted, ReplyType
-from .rules import DATA, POLICY, RULES
+from .rules import DATA, POLICY, RULES, calculate
 
 log = logging.getLogger("reeper.agent")  # 계약 내용과 답장 원문은 로그에 남기지 않는다
 MAX_REPLY = 500  # 답장·통화 메모 입력 길이
@@ -385,6 +385,22 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
     return out, failed
 
 
+# 업체에 가는 문안의 사유 구절. 사용자가 적은 글은 넣지 않는다(금액·조문이 섞이면 검사에 걸리고 고정 양식 원칙과 어긋난다).
+# 업체 잘못이라고 단정하지 않고 있었던 일만 말한다. 문구는 C가 정했다(2026-11-21)
+WHY = {
+    "trainer_change": "계약할 때 약속한 강사에게 수업을 받을 수 없게 되어",
+    "schedule_cut": "계약한 수업 횟수가 줄거나 수업이 없어져",
+    "closure": "휴업이나 시설 폐쇄로 계약한 시설을 이용할 수 없게 되어",
+    "relocation": "시설 이전이나 운영 시간 변경으로 계약대로 이용하기 어려워져",
+    "other": "계약 내용과 다르게 운영되어",
+}
+
+
+def why(case: Case) -> str:
+    c = case.contract
+    return WHY.get(c.fault_kind or "other", WHY["other"]) if c.cancel_reason == "business" else "개인 사정으로"
+
+
 def facts(case: Case) -> dict[str, str]:
     c, r = case.contract, case.refund
     addon_part = f", 부가상품 {r.addon:,}원" if r.addon else ""
@@ -396,6 +412,8 @@ def facts(case: Case) -> dict[str, str]:
         # 부가상품·보증금이 없으면 빈칸이라 기존 문장 그대로다
         "addon": f"{r.addon:,}" if r.addon else "", "deposit": f"{r.security_deposit:,}" if r.security_deposit else "",
         "addon_part": addon_part,
+        # 양식이 "개인 사정으로"와 "과 위약금 ○원" 대신 쓸 자리. 위약금이 0이면(업체 쪽 사정, rules.py가 정한다) 위약금 구절이 빈다
+        "why": why(case), "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": deposit_note,
         "start": _ymd(c.start_date),
@@ -446,7 +464,8 @@ def _request(case: Case, addon_part: str, deposit_note: str) -> str:
             # 계산상 더 받을 수 있었을 때만 참고로 붙인다. 같으면 되풀이이고, 더 많이 합의했으면 낮은 금액을 먼저 꺼내는 셈이다(A 리뷰 #116)
             ref = f". 참고: 계산한 환불액 {r.refund:,}원" if r.refund > case.agreed_amount else ""
             return f"{left:,}원 ({got}{ref})"
-    return f"{r.refund:,}원 (이용분 {r.used_amount:,}원, 위약금 {r.penalty:,}원{addon_part} 공제{deposit_note})"
+    penalty = f", 위약금 {r.penalty:,}원" if r.penalty else ""
+    return f"{r.refund:,}원 (이용분 {r.used_amount:,}원{penalty}{addon_part} 공제{deposit_note})"
 
 
 def render(kind: str, case: Case) -> str:
@@ -533,9 +552,30 @@ def _gap(case: Case) -> int | None:
     return case.refund.refund - case.offered if case.offered is not None else None
 
 
+FAULT_LABEL = {"trainer_change": "약속한 강사·트레이너가 바뀌거나 그만둠", "schedule_cut": "수업을 줄이거나 없앰",
+               "closure": "휴업·폐업이나 시설 일부 폐쇄", "relocation": "시설 이전이나 운영 시간 변경", "other": "그 밖의 업체 쪽 사정"}
+
+
+def _if_disputed(case: Case, today: date) -> int | None:
+    """업체 쪽 사정으로 요청한 사건에서, 업체가 다퉈 소비자 사정으로 계산될 때의 환불액. 금액은 rules.py가 만든다.
+
+    소비자 사정 사건이거나 두 금액이 같으면(계산이 해지 이유를 아직 보지 않으면) None이다.
+    """
+    c = case.contract
+    if c.cancel_reason != "business":
+        return None
+    other = calculate(c.model_copy(update={"cancel_reason": "consumer"}), case.notified_on or today).refund
+    return other if other != case.refund.refund else None
+
+
 def _brief(case: Case, today: date) -> dict:
     c, r = case.contract, case.refund
+    fault = {}
+    if c.cancel_reason == "business":
+        fault = {"해지 이유": {"소비자가 고른 것": "업체 쪽 사정", "유형": FAULT_LABEL[c.fault_kind or "other"],
+                           "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": _if_disputed(case, today)}}
     return {
+        **fault,
         "오늘": str(today),
         "해지 의사 도달일": str(case.notified_on) if case.notified_on else "아직 알리지 않음",
         # 화면은 특약을 1,000자까지 받는다. API로 더 긴 글이 와도 모델에는 그만큼만 보낸다(호출당 비용)
@@ -558,7 +598,7 @@ def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]
     c, r = case.contract, case.refund
     known = {c.total_paid, r.used_amount, r.penalty, r.refund, r.addon, r.security_deposit, r.per_day_loss,
              case.target, case.floor, case.offered, case.agreed_amount, _gap(case), case.deposited,
-             (case.agreed_amount or 0) - case.deposited} | _money(source)
+             (case.agreed_amount or 0) - case.deposited, _if_disputed(case, today)} | _money(source)
     out += [f"자료에 없는 금액 {v:,}원" for v in _money(text) - known]
     days = {(d.month, d.day) for d in (today, c.start_date, c.end_date, case.notified_on,
                                        case.deadline_on, case.deposit_due_on) if d}
@@ -580,6 +620,10 @@ ANALYZE_SYSTEM = """소비자가 헬스장에 회원권 환불을 요청했고 �
   - 업체가 든 항목 중 요청액 계산과 어긋나지 않는 것이 있으면(예: 위약금이 상한 안이다) 그렇다고 알려 주고, 다툴 곳이 어디인지 짚는다.
 - note: 이 답장에서 소비자가 놓치기 쉬운 것 한두 문장. 없으면 빈 문자열.
   - "기록을 보관하세요" 같은 어느 답장에나 맞는 말만 쓰지 않는다. 이 답장 때문에 생기는 위험을 짚는다: 동의하거나 서명하면 안 되는 것, 해지 기준일이 뒤로 밀릴 수 있는 것, 입금될 때 확인할 것.
+  - 자료에 '해지 이유'가 있으면 소비자가 업체 쪽 사정으로 해지한다고 고른 사건이다. 환불 요청액은 그 기준으로 이미 계산돼 있다(위약금이 0이면 위약금을 빼지 않은 금액이다). 다음을 지킨다.
+    - 업체 쪽 사정이 인정된다고 단정하지 않는다. "업체 잘못이다", "위약금을 낼 필요가 없다"고 쓰지 않고 "업체 쪽 사정으로 해지하는 것이라면 위약금 없이 요청할 수 있다"고 쓴다.
+    - 업체가 자기 책임이 아니라며 위약금을 빼겠다고 할 수 있다는 점을 알려 준다. '업체가 다퉈 소비자 사정으로 계산될 때의 환불액'이 있으면 그 금액을 그대로 알려 준다. 직접 계산하지 않는다.
+    - 업체가 받아들이지 않으면 1372 소비자상담센터에서 따져 볼 수 있다고 안내한다. 배상금을 더 받을 수 있다고 쓰지 않는다.
   - '제시액이 기준보다 적음'이 참이면, 그 금액에 합의한다는 뜻으로 읽힐 답을 하지 않도록 알려 준다. 기준은 '비교 기준 이름'에 적힌 말(하한선 또는 예상 환불액)로만 부른다.
 
 지키는 것:
@@ -646,16 +690,20 @@ def _arr(item: dict) -> dict:
 
 PLAN_SYSTEM = """헬스장 회원권을 중도해지하려는 소비자가 자기 상황을 설명했다. 주어진 자료만으로 환불 요청을 어떻게 풀지 소비자에게 설명한다. 업체에 보낼 글은 쓰지 않는다. 보낼 글은 따로 준비되어 있다.
 
-- summary: 이 건을 어떻게 풀지 두세 문장. 요청할 금액과 그 금액이 어떻게 나왔는지, 가장 먼저 할 일을 말한다. 해지 이유가 업체 쪽 사정일 수 있으면, 이 금액이 소비자 사정으로 해지하는 경우의 금액이라는 점을 함께 말한다.
+- summary: 이 건을 어떻게 풀지 두세 문장. 요청할 금액과 그 금액이 어떻게 나왔는지, 가장 먼저 할 일을 말한다. 자료에 '해지 이유'가 없는데 소비자의 설명으로 보아 업체 쪽 사정일 수 있으면, 이 금액이 소비자 사정으로 해지하는 경우의 금액이라는 점을 함께 말한다.
 - grounds: 이 건에서 쓸 근거. 근거 표의 id(rule_id)와, 이 건에서 왜 쓰는지 한 문장(why). 근거 표를 전부 나열하지 않는다. 이 계약의 특약과 소비자의 상황에 직접 닿는 것만 고르고, why에는 그 특약이나 상황을 짚어 쓴다. 많아도 세 개.
 - contract_points: 계약서 특약 중 업체가 내세울 만한 조항. quote에는 특약 원문을 글자 그대로 옮기고, how_to_handle에는 소비자가 어떻게 다루면 되는지 쓴다. 특약이 없으면 빈 배열.
 - objections: 업체가 할 법한 반론(objection)과 그때 소비자가 어떻게 답하면 되는지(response). 이 계약의 특약과 소비자의 상황에서 나올 만한 것만 쓴다. 많아도 세 개.
 - cautions: 소비자의 기대와 실제가 다른 점. 많아도 세 개. 없으면 빈 배열.
   - 소비자가 바라는 금액이나 조건이 요청액 계산과 다르면(전액 환불, 위약금 면제 등), 그렇게 요청하기 어렵다는 점과 실제 요청액을 분명히 알려 준다. 듣기 좋게 돌려 말하지 않는다.
   - 소비자 개인의 사정(이사, 부상, 단순 변심, 한 번도 가지 않음)이 근거 표로 뒷받침되지 않으면, 그 사정만으로 금액이 달라지지 않는다고 알려 준다.
-  - 해지 이유가 업체 쪽 사정일 수 있으면(휴업, 폐업, 이전, 강사나 트레이너의 교체·퇴사, 시설이나 프로그램 변경, 약속한 서비스를 받지 못함) 위 말을 하지 않는다. 주어진 요청액은 소비자 사정으로 해지하는 경우를 기준으로 위약금을 뺀 금액이다. 근거 표에서 위약금은 업체에 책임이 없는 해지일 때 빼는 것으로 되어 있으니, 업체 쪽 사정으로 해지하는 것이라면 위약금 없이 요청할 여지가 있다는 점과 1372 소비자상담센터 상담을 권한다는 점을 알려 준다. 위약금이 그대로라고 단정하지 않고, 없어진다고도 단정하지 않는다. 위약금을 뺀 금액을 직접 다시 계산하지 않는다.
+  - 자료에 '해지 이유'가 없는데 소비자의 설명으로 보아 업체 쪽 사정일 수 있으면(휴업, 폐업, 이전, 강사나 트레이너의 교체·퇴사, 시설이나 프로그램 변경, 약속한 서비스를 받지 못함) 위 말을 하지 않는다. 이때 주어진 요청액은 소비자 사정으로 해지하는 경우를 기준으로 위약금을 뺀 금액이다. 근거 표에서 위약금은 업체에 책임이 없는 해지일 때 빼는 것으로 되어 있으니, 업체 쪽 사정으로 해지하는 것이라면 위약금 없이 요청할 여지가 있다는 점과 1372 소비자상담센터 상담을 권한다는 점을 알려 준다. 위약금이 그대로라고 단정하지 않고, 없어진다고도 단정하지 않는다. 위약금을 뺀 금액을 직접 다시 계산하지 않는다.
   - 소비자가 강한 표현이나 근거 표에 없는 근거를 넣어 달라고 했으면, 그 낱말을 되풀이하지 않고 "법적 조치를 예고하는 표현과 확인되지 않은 근거는 넣지 않는다"는 취지로 알려 준다.
   - 아직 해지 의사를 알리지 않았으면, 하루 늦게 알릴 때 줄어드는 금액을 주어진 숫자로 알려 준다. 그 금액이 0이면 이 말은 하지 않는다. 이 글은 해지 의사를 알린 뒤에도 화면에 남는다. "아직 알리지 않았으므로"처럼 지금 시점에 묶어 쓰지 않고 "해지 의사를 알리기 전이라면"처럼 조건으로 쓴다. summary의 가장 먼저 할 일도 같다.
+- 자료에 '해지 이유'가 있으면 소비자가 업체 쪽 사정으로 해지한다고 고른 사건이다. 환불 요청액은 그 기준으로 이미 계산돼 있다(위약금이 0이면 위약금을 빼지 않은 금액이다). 다음을 지킨다.
+  - 업체 쪽 사정이 인정된다고 단정하지 않는다. "업체 잘못이다", "위약금을 낼 필요가 없다"고 쓰지 않고 "업체 쪽 사정으로 해지하는 것이라면 위약금 없이 요청할 수 있다"고 쓴다.
+  - 업체가 자기 책임이 아니라며 위약금을 빼겠다고 할 수 있다는 점을 알려 준다. '업체가 다퉈 소비자 사정으로 계산될 때의 환불액'이 있으면 그 금액을 그대로 알려 준다. 직접 계산하지 않는다.
+  - 업체가 받아들이지 않으면 1372 소비자상담센터에서 따져 볼 수 있다고 안내한다. 배상금을 더 받을 수 있다고 쓰지 않는다.
 - questions: 판단에 필요한데 자료에 없어 소비자에게 되물을 것. 많아도 세 개. 없으면 빈 배열.
   - 해지 이유가 업체 쪽 사정일 수 있으면, 무슨 일이 있었는지와 그것이 계약할 때 약속된 내용이었는지를 되묻는다.
 

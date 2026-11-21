@@ -570,3 +570,61 @@ def test_keyword_reading_does_not_accept_non_cash_or_caveated_replies(text, kind
 ])
 def test_keyword_reading_catches_refusals_without_the_word_impossible(text, kind):
     assert agent.FAKE.read_reply(text) == (kind, None)
+
+
+# ---- 업체 쪽 사정으로 해지하는 사건 ---------------------------------------------------------
+def fault_case(kind="closure", no_penalty=True):
+    """업체 쪽 사정 사건. no_penalty면 rules.py가 위약금을 빼지 않게 된 뒤의 모양을 흉내 낸다(계산 분기는 C 몫)."""
+    case = open_case(CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": kind}), D)
+    if no_penalty:
+        r = case.refund
+        r = r.model_copy(update={"penalty": 0, "refund": r.refund + r.penalty})
+        case = case.model_copy(update={"refund": r, "target": r.refund, "floor": r.refund})
+    return case
+
+
+NOTICE = ("안녕하세요, {gym} 회원입니다. {why} 회원권을 중도해지하려고 합니다. 결제금액 {total}원에서 "
+          "이용분 {used}원{penalty_part}{addon_part}을 뺀{deposit_part} {refund}원의 환불을 요청드립니다.")
+
+
+def test_drafts_can_say_why_and_drop_the_penalty_phrase():
+    mine, theirs = open_case(CONTRACT, D), fault_case()
+    a, b = NOTICE.format(**agent.facts(mine)), NOTICE.format(**agent.facts(theirs))
+    assert "개인 사정으로 회원권" in a and "과 위약금 60,000원을 뺀" in a and agent.validate(a, mine)
+    assert "휴업이나 시설 폐쇄로 계약한 시설을 이용할 수 없게 되어 회원권" in b and "위약금" not in b and agent.validate(b, theirs)
+    # 유형을 고르지 않았으면 단정하지 않는 말로 쓴다. 위약금이 아직 빠지는 계산이면 구절도 그대로 나온다
+    assert agent.facts(fault_case(None))["why"] == "계약 내용과 다르게 운영되어"
+    assert agent.facts(fault_case(no_penalty=False))["penalty_part"] == "과 위약금 60,000원"
+
+
+def test_every_template_still_passes_for_a_business_fault_case():
+    case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
+    for kind in agent.TEMPLATES:
+        assert agent.validate(agent.render(kind, case), case), kind
+
+
+def test_1372_request_line_has_no_penalty_when_none_was_deducted():
+    assert "위약금" not in agent.facts(fault_case())["request"]
+    assert "위약금 60,000원" in agent.facts(open_case(CONTRACT, D))["request"]
+
+
+def test_the_model_learns_the_cancel_reason_only_for_business_cases(real):
+    sent = {}
+    agent.llm._chat = lambda system, user, schema: sent.update(user=user) or {}
+    agent.plan(open_case(CONTRACT, D), "상황", D)
+    assert "해지 이유" not in sent["user"]  # 소비자 사정 사건의 자료는 그대로다
+    agent.plan(fault_case(), "상황", D)
+    told = json.loads(sent["user"])["해지 이유"]
+    # 업체가 다퉈 소비자 사정으로 계산될 때의 금액은 rules.py가 계산한 값이다
+    assert told == {"소비자가 고른 것": "업체 쪽 사정", "유형": "휴업·폐업이나 시설 일부 폐쇄",
+                    "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": open_case(CONTRACT, D).refund.refund}
+    # 계산이 해지 이유를 아직 보지 않으면 두 금액이 같아 그 줄은 비운다
+    agent.plan(fault_case(no_penalty=False), "상황", D)
+    assert json.loads(sent["user"])["해지 이유"]["업체가 다퉈 소비자 사정으로 계산될 때의 환불액"] is None
+
+
+def test_advice_may_quote_the_amount_if_the_fault_is_disputed():
+    case, other = fault_case(), open_case(CONTRACT, D).refund.refund
+    assert agent._problems(f"업체가 다투면 {other:,}원이 될 수 있어요.", case, D) == []
+    assert agent._problems(f"업체가 다투면 {other:,}원이 될 수 있어요.", open_case(CONTRACT, D), D) == []  # 같은 금액
+    assert agent._problems("업체가 다투면 400,000원이 될 수 있어요.", case, D)
