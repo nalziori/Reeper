@@ -80,3 +80,10 @@ def test_api_serves_cases():
     from app.main import app
     r = TestClient(app).get("/api/mediation-cases")
     assert r.status_code == 200 and r.json() == CASES
+
+
+def test_fault_kinds_match_the_contract_field():
+    # 계약의 fault_kind는 조정례 유형과 같은 이름을 쓴다(화면이 같은 선택지로 사례도 보여 주고 사유 구절도 고른다)
+    from typing import get_args
+    from app.models import FaultKind
+    assert set(get_args(FaultKind)) == set(CASES["kinds"]) | {"other"}

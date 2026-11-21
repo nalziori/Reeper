@@ -10,8 +10,11 @@ export type Contract = {
   used_count?: number | null
   addon_value?: number
   security_deposit?: number
+  cancel_reason?: 'consumer' | 'business'
+  fault_kind?: 'trainer_change' | 'schedule_cut' | 'closure' | 'relocation' | 'other' | null
 }
 export type Refund = {
+  disputed_refund?: number | null
   total_days: number
   used_days: number
   used_amount: number
