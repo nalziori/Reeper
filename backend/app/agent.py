@@ -386,19 +386,13 @@ def extract_contract(image: str) -> tuple[dict[str, Extracted], bool]:
 
 
 # 업체에 가는 문안의 사유 구절. 사용자가 적은 글은 넣지 않는다(금액·조문이 섞이면 검사에 걸리고 고정 양식 원칙과 어긋난다).
-# 업체 잘못이라고 단정하지 않고 있었던 일만 말한다. 문구는 C가 정했다(2026-11-21)
-WHY = {
-    "trainer_change": "계약할 때 약속한 강사에게 수업을 받을 수 없게 되어",
-    "schedule_cut": "계약한 수업 횟수가 줄거나 수업이 없어져",
-    "closure": "휴업이나 시설 폐쇄로 계약한 시설을 이용할 수 없게 되어",
-    "relocation": "시설 이전이나 운영 시간 변경으로 계약대로 이용하기 어려워져",
-    "other": "계약 내용과 다르게 운영되어",
-}
+# 문구는 양식처럼 data/에 둔다(data/why.json, C가 정한다)
+WHY: dict[str, str] = json.loads((DATA / "why.json").read_text(encoding="utf-8"))
 
 
 def why(case: Case) -> str:
     c = case.contract
-    return WHY.get(c.fault_kind or "other", WHY["other"]) if c.cancel_reason == "business" else "개인 사정으로"
+    return WHY[c.fault_kind or "other"] if c.cancel_reason == "business" else WHY["consumer"]
 
 
 def facts(case: Case) -> dict[str, str]:

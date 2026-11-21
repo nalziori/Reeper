@@ -632,3 +632,14 @@ def test_advice_may_quote_the_amount_if_the_fault_is_disputed():
     assert agent._problems(f"업체가 다투면 {other:,}원이 될 수 있어요.", case, D) == []
     assert agent._problems(f"업체가 다투면 {other:,}원이 될 수 있어요.", open_case(CONTRACT, D), D) == []  # 같은 금액
     assert agent._problems("업체가 다투면 400,000원이 될 수 있어요.", case, D)
+
+
+def test_every_fault_kind_has_a_reason_phrase():
+    # 유형이 늘면 사유 구절도 같이 있어야 한다(data/why.json). 구절에는 금액·조문·단정하는 말이 없다
+    from typing import get_args
+    from app.models import FaultKind
+    assert set(agent.WHY) - {"_about"} == set(get_args(FaultKind)) | {"consumer"}
+    for kind in get_args(FaultKind):
+        phrase = agent.facts(fault_case(kind))["why"]
+        assert phrase == agent.WHY[kind] and not agent._problems(phrase, fault_case(kind), D)
+        assert not any(w in phrase for w in ("귀책", "잘못", "위반"))
