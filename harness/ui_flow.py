@@ -484,6 +484,38 @@ def business_amount(browser, base):
     ctx.close()
 
 
+def business_negotiation(browser, base):
+    """업체 사정 사건: 업체가 거절하면 반박 문자 아래에 같은 유형의 조정례를 접어 두고,
+    반박 뒤에도 거절하면 내용증명 없이 1372 안내로 간다(engine.BUSINESS_MAX_COUNTERS)."""
+    from lib import call
+    contract = {**call(base, "/api/samples")[1][0]["contract"], "cancel_reason": "business", "fault_kind": "trainer_change"}
+    _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
+    for event in ({"type": "notice_sent", "channel": "sms"},
+                  {"type": "reply_received", "reply_type": "refuse", "text": "강사 변경은 계약 위반이 아닙니다"}):
+        _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": "2026-11-16"})
+    tag = "업체 사정 협상"
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+
+    def load(step):
+        page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": step, "offset": 0})
+        page.reload(wait_until="networkidle")
+
+    load(res)
+    page.get_by_text("비슷한 사례 3건 참고하기").wait_for()
+    rec(f"{tag}: 거절 뒤 반박 문자와 비슷한 사례", res["action"]["type"] == "counter" and page.locator(".draft").count() >= 1)
+    for event in ({"type": "counter_sent"}, {"type": "reply_received", "reply_type": "refuse", "text": "그래도 환불은 어렵습니다"}):
+        # 화면의 오늘은 new_page가 2026-11-16으로 고정한다. 그보다 늦은 기록이면 화면이 409를 받는다
+        _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": "2026-11-16"})
+    load(res)
+    page.get_by_role("heading", name="1372에 상담하기").wait_for()
+    rec(f"{tag}: 반박 뒤 거절이면 내용증명 없이 1372", res["action"]["type"] == "go_1372"
+        and btn(page, "내용증명을 보냈어요").count() == 0 and btn(page, "1372에 접수했어요").count() == 1)
+    rec(f"{tag}: 1372 단계에도 비슷한 사례", page.get_by_text("비슷한 사례 3건 참고하기").count() == 1)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def industry_gate(browser, base):
     """기준을 확인하지 않은 업종이면 금액·시작 버튼 대신 1372 안내가 나오고, 확인된 업종으로 돌리면 금액이 다시 보인다."""
     errors: list[str] = []
@@ -574,6 +606,7 @@ def main() -> int:
             not_sent_drafts(browser, base)
             business_fault(browser, base)
             business_amount(browser, base)
+            business_negotiation(browser, base)
             industry_gate(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)

@@ -46,9 +46,9 @@ def test_call_card_has_the_five_things_to_say():
 class Flow:
     """API만으로 사건을 끝까지 몰아 보는 도우미."""
 
-    def __init__(self):
+    def __init__(self, contract=CONTRACT):
         self.today = D
-        self.res = api.post("/api/cases", json={"contract": CONTRACT.model_dump(mode="json"),
+        self.res = api.post("/api/cases", json={"contract": contract.model_dump(mode="json"),
                                                 "today": str(D)}).json()
 
     def step(self, days=0, **event):
@@ -110,6 +110,54 @@ def test_silence_escalates_to_1372():
     assert f.stage == "handed_off"
     assert f.res["case"]["notified_on"] == str(D)  # 도달일은 첫 통지일로 고정
     assert f.res["case"]["refund"]["refund"] == calculate(CONTRACT, D).refund
+
+
+BUSINESS = CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": "trainer_change"})
+
+
+def test_business_case_goes_to_1372_after_one_counter():
+    # 업체 사정 해지는 반박 한 번 뒤에도 거절하면 내용증명을 건너뛰고 1372로 간다
+    f = Flow(BUSINESS)
+    f.step(type="notice_sent", channel="sms")
+    assert f.step(type="reply_received", reply_type="refuse", text="강사 변경은 계약 위반이 아닙니다") == "counter"
+    assert f.step(type="counter_sent") == "wait"
+    assert f.step(type="reply_received", reply_type="refuse", text="그래도 환불은 어렵습니다") == "go_1372"
+    assert not f.res["action"]["warn"]
+    # 금지된 전이: 업체 사정 사건의 반박 뒤에는 내용증명으로 가지 않는다
+    r = api.post("/api/cases/step", json={"case": f.res["case"], "event": {"type": "escalation_sent"}, "today": str(f.today)})
+    assert r.status_code == 409
+    f.step(type="handoff_done")
+    assert f.stage == "handed_off"
+
+
+def test_business_low_offer_below_floor_goes_to_1372_with_warning():
+    f = Flow(BUSINESS)
+    f.step(type="notice_sent", channel="sms")
+    assert f.step(type="reply_received", reply_type="low_offer", amount=400_000) == "counter"
+    assert f.res["action"]["warn"]
+    f.step(type="counter_sent")
+    assert f.step(type="reply_received", reply_type="low_offer", amount=420_000) == "go_1372"
+    assert f.res["action"]["warn"]  # 하한선(위약금 없는 금액)보다 적다
+    # 희망 금액 이상을 제시하면 1372가 아니라 합의 확인이다
+    assert f.step(type="reply_received", reply_type="low_offer", amount=f.res["case"]["target"]) == "confirm_agreement"
+
+
+def test_consumer_case_keeps_two_counters_before_certified_mail():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    f.step(type="reply_received", reply_type="refuse", text="환불 불가입니다")
+    f.step(type="counter_sent")
+    assert f.step(type="reply_received", reply_type="refuse", text="안 됩니다") == "counter"  # 내 사정은 한 번 더 반박
+
+
+def test_business_silence_after_counter_keeps_follow_up_order():
+    # 무응답 경로는 업체 사정이어도 같다: 기한 당일은 기다리고, 다음 날 재요청
+    f = Flow(BUSINESS)
+    f.step(type="notice_sent", channel="sms")
+    f.step(type="reply_received", reply_type="refuse", text="환불 불가")
+    f.step(type="counter_sent")
+    assert f.step(days=POLICY["wait_days"], type="time_passed") == "wait"
+    assert f.step(days=1, type="time_passed") == "follow_up"
 
 
 @pytest.mark.parametrize("events, invalid", [

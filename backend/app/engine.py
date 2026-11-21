@@ -5,6 +5,10 @@ from .models import Action, Case, Contract, Event, Record, Stage
 from .rules import POLICY, calculate
 
 
+# 업체 사정 해지에서 1372로 넘어가기 전 반박 횟수. 법이 아니라 앱이 정한 값이다(next_action)
+BUSINESS_MAX_COUNTERS = 1
+
+
 class InvalidTransition(ValueError):
     """현재 사건에서 처리할 수 없는 이벤트."""
 
@@ -183,6 +187,12 @@ def next_action(case: Case, today: date) -> Action:
             return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
         # 반박을 정한 횟수만큼 보냈는데도 받아들이지 않으면 반박을 되풀이하지 않고 내용증명, 그다음 1372로 간다
         counters = sum(r.type == "counter_sent" for r in c.timeline)
+        # 업체 사정 해지는 업체 잘못인지가 다툼이라 반박을 거듭하지 않는다. 한 번 반박해도 받아들이지 않으면
+        # 내용증명을 건너뛰고 1372 상담으로 간다(A 결정 2026-11-21). 무응답 경로(재요청→내용증명→1372)는 같다
+        business = c.contract.cancel_reason == "business"
+        if business and counters >= BUSINESS_MAX_COUNTERS:
+            low = c.last_reply == "low_offer" and c.offered is not None and c.offered < c.floor
+            return Action(type="go_1372", reason="반박 뒤에도 받아들이지 않아요. 업체 잘못인지는 1372에 상담하세요", warn=low)
         if counters >= POLICY["max_counters"]:
             # 수용선보다 적은 제시액이면 넘어가는 단계에서도 경고는 그대로 띄운다(완료 기준)
             low = c.last_reply == "low_offer" and c.offered is not None and c.offered < c.floor
