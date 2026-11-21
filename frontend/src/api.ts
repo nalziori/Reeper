@@ -14,6 +14,7 @@ export type Contract = {
   fault_kind?: 'trainer_change' | 'schedule_cut' | 'closure' | 'relocation' | 'other' | null
 }
 export type Refund = {
+  disputed_refund?: number | null
   total_days: number
   used_days: number
   used_amount: number
