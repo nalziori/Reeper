@@ -12,7 +12,7 @@ def test_case_fields_and_sources():
     assert len(ids) == len(set(ids))
     for c in CASES["cases"]:
         assert c["url"].startswith("https://www.ccn.go.kr/")
-        assert c["business_fault"] in {"inferred", "not_determined"}
+        assert c["business_fault"] in {"not_stated", "not_determined"}
         assert set(c["rule_ids"]) <= set(RULES), c["id"]  # 근거 표에 있는 조문만
         assert set(c["kinds"]) <= set(CASES["kinds"]), c["id"]
 
@@ -34,7 +34,7 @@ def test_kinds_point_to_cases():
 
 # 2026-11-21 원문과 대조한 값. 합계가 맞게 함께 잘못 옮겨도 여기서 걸린다
 CHECKED = {
-    "ccn-P000012910": (3_275_216, "2022-11-12", "inferred", False),
+    "ccn-P000012910": (3_275_216, "2022-11-12", "not_stated", False),
     "ccn-P000012923": (350_028, "2022-05-02", "not_determined", False),
 }
 
