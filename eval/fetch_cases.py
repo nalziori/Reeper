@@ -22,8 +22,14 @@ WORDS = ["헬스", "휘트니스", "피트니스", "필라테스", "요가", "PT
 
 def get(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (research script)"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", errors="replace")
+    for wait in (2, 10, None):  # 잠깐 끊긴 연결 때문에 목록을 처음부터 다시 받지 않게 두 번 더 해 본다
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.read().decode("utf-8", errors="replace")
+        except OSError:
+            if wait is None:
+                raise
+            time.sleep(wait)
 
 
 def text(page: str) -> str:
@@ -57,7 +63,11 @@ def main(out: Path) -> None:
     for k, row in index.items():
         f = out / f"{k}.txt"
         if not f.exists():
-            f.write_text(body(text(get(row["url"]))), encoding="utf-8")
+            found = body(text(get(row["url"])))
+            if found:
+                f.write_text(found, encoding="utf-8")
+            else:  # 빈 파일을 남기면 다음 실행이 다시 받지 않는다
+                print(f"본문을 못 찾았다: {k} {row['url']}", file=sys.stderr)
             time.sleep(0.3)
     print(f"{len(index)}건을 {out}에 받았다")
 
