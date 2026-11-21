@@ -13,7 +13,7 @@ const CHOICES: { type: ReplyType; label: string; Icon: ComponentType<SVGProps<SV
   { type: 'visit', label: '방문해야 한대요', Icon: BuildingStorefrontIcon },
   { type: 'no_answer', label: '전화를 안 받아요', Icon: PhoneXMarkIcon },
   { type: 'callback', label: '다시 연락 준대요', Icon: ClockIcon },
-  { type: 'unknown', label: '잘 모르겠어요', Icon: QuestionMarkCircleIcon },
+  { type: 'unknown', label: '어느 쪽도 아니에요', Icon: QuestionMarkCircleIcon },
 ]
 
 // 금액 칸: 숫자만, 0보다 큰 안전한 정수

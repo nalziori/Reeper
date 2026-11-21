@@ -37,7 +37,7 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
       {c.stage === 'agreed' && (
       <Card>
         <VStack gap={3}>
-          <Heading level={3}>기록하기</Heading>
+          <Heading level={3}>입금 확인</Heading>
             <>
               {deposited > 0 && <Text>받은 돈 {won(deposited)} · 남은 돈 {won(left)}</Text>}
               <TextInput label="들어온 금액(원)" inputMode="numeric" value={amount} placeholder={left.toLocaleString('ko-KR')}
