@@ -52,6 +52,9 @@ def test_kinds_point_to_cases():
     ids = {c["id"] for c in CASES["cases"]}
     for kind in CASES["kinds"].values():
         assert set(kind["cases"]) <= ids
+        assert kind.get("note", "x").strip()  # 안내를 두면 빈 글자가 아니어야 한다
+    # 이전 사례는 아직 없어 유형 이름과 사례가 다르다. 화면이 이를 먼저 알린다(#145 B 리뷰)
+    assert "시설을 옮긴 사례는 아직" in CASES["kinds"]["relocation"]["note"]
 
 
 # 2026-11-21 원문과 대조한 값. 합계가 맞게 함께 잘못 옮겨도 여기서 걸린다

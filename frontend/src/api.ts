@@ -89,7 +89,7 @@ export type MediationCase = {
   id: string; title: string; url: string; kinds: string[]; business_fault: string
   facts: string; result: string; penalty_deducted: boolean; money_note: string; decided_refund: number; usage_method: string
 }
-export type MediationCases = { cases: MediationCase[]; kinds: Record<string, { label: string; cases: string[] }> }
+export type MediationCases = { cases: MediationCase[]; kinds: Record<string, { label: string; cases: string[]; note?: string }> }
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, body === undefined ? undefined : {

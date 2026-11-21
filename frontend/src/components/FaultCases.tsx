@@ -52,6 +52,7 @@ export function FaultCases() {
           description="한국소비자원 조정례(1372·소비자24)에서 비슷한 사례를 찾아 보여 드려요">
           {Object.entries(data.kinds).map(([id, k]) => <RadioListItem key={id} value={id} label={k.label} />)}
         </RadioList>
+        {chosen?.note && <Text as="p">{chosen.note}</Text>}
         {chosen && (cases.length ? (<>
           {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
           {cases.map((c) => <CaseView key={c.id} c={c} />)}
