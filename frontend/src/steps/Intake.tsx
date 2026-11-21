@@ -155,6 +155,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       onConfirm(step, today)
     })
     // 업종과 해지 이유는 한 카드에 가로 선택으로 둔다. 둘 다 금액을 보여 줄지를 정하는 질문이다
+    const byCount = refund.unit_label === '회'
     const whyButton = (key: 'used' | 'penalty' | 'deposit', label: string) => (
       <button type="button" className="receipt-btn" aria-expanded={why === key} onClick={() => setWhy(why === key ? null : key)}>
         {label}<span aria-hidden="true">{why === key ? ' ▴' : ' ▾'}</span>
@@ -241,12 +242,17 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <div><dt>낸 돈</dt><dd>{won(contract.total_paid)}</dd></div>
               <div><dt>{whyButton('used', `쓴 만큼 · ${refund.total_days}${refund.unit_label} 중 ${refund.used_days}${refund.unit_label}`)}</dt><dd>−{won(refund.used_amount)}</dd></div>
               {why === 'used' && <div className="receipt-why"><WhyBox ids={['G5']} rules={rules}>
-                <Text as="p" type="supporting">이용한 날짜만큼은 돌려받지 않아요. 가지 않은 날도 알린 날까지는 이용한 것으로 봐요. 이용 시작 전에 알리면 이 줄은 0원이에요</Text>
-                <Text as="p" type="supporting">이용 시작일은 계약일이 아니라 계약서에 적힌 이용 시작일이에요. 시작일과 마지막 이용일은 둘 다 이용한 날로 세요</Text>
+                {/* 회 단위는 날짜가 아니라 사용자가 적은 이용 횟수로 계산한다(rules.py) */}
+                {byCount ? (
+                  <Text as="p" type="supporting">이미 받은 횟수만큼은 돌려받지 않아요. 총 횟수 중 받은 횟수로 나눠 계산해요</Text>
+                ) : (<>
+                  <Text as="p" type="supporting">이용한 날짜만큼은 돌려받지 않아요. 가지 않은 날도 알린 날까지는 이용한 것으로 봐요. 이용 시작 전에 알리면 이 줄은 0원이에요</Text>
+                  <Text as="p" type="supporting">이용 시작일은 계약일이 아니라 계약서에 적힌 이용 시작일이에요. 시작일과 마지막 이용일은 둘 다 이용한 날로 세요</Text>
+                </>)}
               </WhyBox></div>}
               <div><dt>{whyButton('penalty', '위약금')}</dt><dd>−{won(refund.penalty)}</dd></div>
               {/* 시작 전 해지인데 위약금이 빠지는 것이 가장 헷갈리는 지점이라, 누르지 않아도 한 줄로 먼저 알린다 */}
-              {refund.used_days === 0 && why !== 'penalty' && <div className="receipt-note"><Text type="supporting">아직 이용 전이라 쓴 돈은 없지만, 위약금은 빠져요. 위약금을 눌러 이유를 보세요</Text></div>}
+              {refund.used_days === 0 && why !== 'penalty' && <div className="receipt-note"><Text type="supporting">{byCount ? '아직 받은 횟수가 없어 쓴 돈은 없지만' : '아직 이용 전이라 쓴 돈은 없지만'}, 위약금은 빠져요. 위약금을 눌러 이유를 보세요</Text></div>}
               {why === 'penalty' &&<div className="receipt-why"><WhyBox ids={['G10']} rules={rules}>
                 <Text as="p" type="supporting">내 사정으로 해지하면 총 계약대금의 10%를 위약금으로 뺄 수 있어요. 이용 시작 전이든 후든 같은 기준이라, 시작 전에 해지해도 빠져요</Text>
                 <Text as="p" type="supporting">업체 잘못으로 해지하는 경우에는 이 위약금을 내지 않을 수 있어요. 그때는 위에서 '업체 잘못'을 골라 주세요</Text>
