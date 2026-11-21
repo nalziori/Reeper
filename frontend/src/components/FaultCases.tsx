@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type MediationCase, type MediationCases } from '../api'
 import { won } from '../format'
-import { Card, ExternalLink, Heading, RadioList, RadioListItem, Text, VStack } from '../ui'
+import { Card, Collapsible, ExternalLink, Heading, RadioList, RadioListItem, Text, VStack } from '../ui'
 
 // 업체 잘못을 고르면 어떤 일이 있었는지 묻고, 비슷한 조정례(1372·소비자24)에서 어떻게 판단했는지 보여 준다.
 // 원문은 결정 내용만 담고 실제 입금 여부는 담지 않으므로 '돌려받았다'고 쓰지 않는다.
@@ -16,32 +16,39 @@ const FAULT_NOTE = {
 } as const
 const sourceName = (url: string) => url.includes('consumer.go.kr') ? '소비자24' : '1372'
 
+// 사례가 여러 건이면 금액이 화면 아래로 밀린다. 제목·판단 결과·결정 환급액·원문 링크만 보이고 자세한 내용은 눌러서 본다
 function CaseView({ c }: { c: MediationCase }) {
   return (
     <VStack gap={2}>
       <Text weight="semibold">{c.title}</Text>
       <Text type="supporting">{FAULT_NOTE[c.business_fault as keyof typeof FAULT_NOTE] ?? ''}</Text>
-      <Text as="p"><b>있었던 일</b> · {c.facts}</Text>
-      <Text as="p"><b>판단</b> · {c.result}</Text>
-      <Text as="p">
-        <b>결정에 적힌 환급액</b> · {won(c.decided_refund)}. {c.money_note}
-      </Text>
-      <Text type="supporting">이용분 계산: {c.usage_method}</Text>
+      <Text as="p"><b>결정에 적힌 환급액</b> · {won(c.decided_refund)}</Text>
+      <Collapsible trigger={<Text type="supporting">있었던 일과 판단 보기</Text>}>
+        <VStack gap={2}>
+          <Text as="p"><b>있었던 일</b> · {c.facts}</Text>
+          <Text as="p"><b>판단</b> · {c.result}</Text>
+          <Text as="p">{c.money_note}</Text>
+          <Text type="supporting">이용분 계산: {c.usage_method}</Text>
+        </VStack>
+      </Collapsible>
       <ExternalLink href={c.url} label={`${sourceName(c.url)} 원문 보기`} />
     </VStack>
   )
 }
 
-export function FaultCases() {
+// kind를 넘기면 고른 유형을 접수 화면이 계약 값(fault_kind)으로 쓴다. '그 밖'(other)은 찾아 둔 조정례가 없다
+export function FaultCases({ kind: outer, onKind }: { kind?: string; onKind?: (kind: string) => void } = {}) {
   const [data, setData] = useState<MediationCases | null>(null)
-  const [kind, setKind] = useState('')
+  const [inner, setInner] = useState('')
+  const kind = outer ?? inner
+  const setKind = onKind ?? setInner
   useEffect(() => {
     let active = true
     api.mediationCases().then((d) => { if (active) setData(d) }, () => { /* 참고 자료라 못 불러오면 숨긴다 */ })
     return () => { active = false }
   }, [])
   if (!data) return null
-  const chosen = kind ? data.kinds[kind] : undefined
+  const chosen = kind && kind !== 'other' ? data.kinds[kind] : undefined
   const cases = chosen ? data.cases.filter((c) => chosen.cases.includes(c.id)) : []
   const mixed = new Set(cases.map((c) => c.business_fault)).size > 1
   return (
@@ -51,9 +58,10 @@ export function FaultCases() {
         <RadioList label="어떤 경우와 비슷한가요" value={kind} onChange={setKind}
           description="한국소비자원 조정례(1372·소비자24)에서 비슷한 사례를 찾아 보여 드려요">
           {Object.entries(data.kinds).map(([id, k]) => <RadioListItem key={id} value={id} label={k.label} />)}
+          <RadioListItem value="other" label="그 밖의 업체 사정" />
         </RadioList>
         {chosen?.note && <Text as="p">{chosen.note}</Text>}
-        {chosen && (cases.length ? (<>
+        {kind && (cases.length ? (<>
           {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
           {cases.map((c) => <CaseView key={c.id} c={c} />)}
           <Text type="supporting">

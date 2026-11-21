@@ -3,6 +3,7 @@ import { InboxArrowDownIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
+import { Guide1372 } from '../components/Guide1372'
 import { ReplyButtons } from '../components/ReplyButtons'
 import { REPLY_LABEL, won } from '../format'
 import type { Saved, Send } from '../useCase'
@@ -122,6 +123,8 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
 
   return (
     <>
+      {/* 1372로 넘어갈 때는 절차·전화 버튼·챙길 것을 말할 내용 위에 둔다 */}
+      {action.type === 'go_1372' && c.stage !== 'handed_off' && <Guide1372 />}
       {(sendFirst || askFirst) && <DraftList drafts={drafts} note={saved.note} />}
       {/* 이 단계에서 한 일을 기록하는 버튼. 탭 바로 위에 붙어 있다 */}
       {hasDock && (

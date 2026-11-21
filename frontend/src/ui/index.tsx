@@ -273,6 +273,16 @@ export function RadioListItem({ value, label }: { value: string; label: string }
   )
 }
 
+// 체크 상자. 네이티브 입력이라 키보드·화면 읽기 프로그램이 그대로 쓴다. 색은 index.css 토큰(accent-color)으로만 정한다
+export function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="check-item">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span>{label}</span>
+    </label>
+  )
+}
+
 // ── 접기 ──────────────────────────────────────────────
 export function Collapsible({ trigger, defaultIsOpen, isOpen, onOpenChange, children }: {
   trigger: ReactNode; defaultIsOpen?: boolean; isOpen?: boolean; onOpenChange?: (open: boolean) => void

@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Divider, HStack, Heading, Text, TextInput, VStack } from '../ui'
 import { useState } from 'react'
 import { DraftList } from '../components/Draft'
+import { Guide1372 } from '../components/Guide1372'
 import { Timeline } from '../components/Timeline'
 import { isoDate, won } from '../format'
 import type { Saved, Send } from '../useCase'
@@ -33,6 +34,7 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
           </VStack>
         </Card>
       )}
+      {action.type === 'go_1372' && <Guide1372 />}
       {c.stage !== 'closed' && <DraftList drafts={drafts} note={saved.note} />}
       {c.stage === 'agreed' && (
       <Card>
