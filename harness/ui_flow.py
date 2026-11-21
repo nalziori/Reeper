@@ -47,7 +47,7 @@ def open_paste(page) -> None:
 def open_reply(page):
     """답장 기록은 바텀 시트 안에 있다. 닫혀 있으면 연다."""
     if page.get_by_role("dialog").count() == 0:
-        page.get_by_role("button", name=re.compile(r"^(업체 )?답장 기록하기$")).first.click()
+        page.get_by_role("button", name=re.compile(r"^업체 답장 기록$")).first.click()
         page.get_by_role("dialog").wait_for()
 
 
@@ -77,14 +77,15 @@ def full_flow(browser, base, tag, viewport):
     errors: list[str] = []
     ctx, page = new_page(browser, base, viewport, errors)
     t0 = time.time()
-    rec(f"{tag}: 시작일과 마지막 이용일 안내",
-        page.get_by_label("이용 시작일").get_attribute("aria-describedby") is not None
-        and page.get_by_label("마지막 이용일").get_attribute("aria-describedby") is not None
+    # 날짜 칸 설명은 지우고 '쓴 만큼' 펼침 설명으로 옮겼다. 칸이 있는지만 본다
+    rec(f"{tag}: 시작일과 마지막 이용일 칸",
+        page.get_by_label("이용 시작일").count() == 1
+        and page.get_by_label("마지막 이용일").count() == 1
         and page.get_by_role("radio", name="일수", exact=True).is_checked()
         and page.get_by_role("radio", name="개월 수", exact=True).count() == 0)
     page.screenshot(path=SHOTS / f"{tag}-1-intake.png", full_page=True)
-    # 샘플 버튼: 가상 계약서로 해 보기 카드 안의 첫 primary 버튼
-    sample_buttons = page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button")
+    # 샘플 버튼: 가상 계약서로 해 보기 줄의 첫 버튼
+    sample_buttons = page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button")
     sample_buttons.first.click()
     page.get_by_text("예상 환불액").first.wait_for()
     rec(f"{tag}: 예상 환불액에 계산 단위 표시", page.get_by_text("일수 기준으로 계산", exact=True).is_visible())
@@ -157,7 +158,7 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 법정 기한 아님 문구", page.get_by_text("법정 기한 아님").count() >= 1)
     page.screenshot(path=SHOTS / f"{tag}-4-waiting.png", full_page=True)
     # 버튼 경로: 금액 제시(수용선 미만). 답장 기록은 아래 주 버튼으로 여는 시트 안에 있다
-    rec(f"{tag}: 답장 기다림 주 버튼이 시트를 연다", btn(page, "업체 답장 기록하기").count() == 1)
+    rec(f"{tag}: 답장 기다림 주 버튼이 시트를 연다", btn(page, "업체 답장 기록").count() == 1)
     open_reply(page)
     rec(f"{tag}: 금액 칸은 고르기 전엔 접힘", page.get_by_label("업체 제시액(원)").count() == 0)
     record_amount(page, "100000")
@@ -226,7 +227,7 @@ def demo_hidden(browser, base):
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
     page = ctx.new_page()
     page.goto(base, wait_until="networkidle")
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
     rec("배포 화면: 시연 조작 숨김", btn(page, "하루 지남").count() == 0 and page.get_by_text("시연용").count() == 0)
@@ -238,7 +239,7 @@ def limit_flow(browser, base):
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
     tag = "상한 소진"
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
     page.get_by_role("radio", name="전화로").check()
@@ -356,7 +357,7 @@ def not_sent_drafts(browser, base):
     page = ctx.new_page()
     page.route("**/api/health", lambda r: r.fulfill(json={**r.fetch().json(), "llm": "OpenAILLM", "calls_left": 5}))
     page.goto(base, wait_until="networkidle")
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
     rec(f"{tag}: 대조 - 업체에 보내는 문자는 말투 선택 있음", page.get_by_role("radio", name="정중하게").count() >= 1)
@@ -368,7 +369,7 @@ def business_fault(browser, base):
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
     tag = "업체 잘못"
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").wait_for()
     rec(f"{tag}: 기본은 내 사정", page.get_by_role("radio", name=re.compile("내 사정")).is_checked())
     page.get_by_role("radio", name=re.compile("업체 잘못")).check()
@@ -388,16 +389,12 @@ def business_fault(browser, base):
     summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
     rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary
         and "샤워실 운영 중단" in summary, summary.replace(chr(10), " / ")[:80])
+    rec(f"{tag}: 애매하면 내 사정으로 보고 1372 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
     rec(f"{tag}: 정리에 계산 금액 없음", "위약금" not in summary and "460,000" not in summary)
     page.screenshot(path=SHOTS / "업체잘못.png", full_page=True)
     page.get_by_role("radio", name=re.compile("내 사정")).check()
     btn(page, "이 금액으로 시작").wait_for()
     rec(f"{tag}: 내 사정으로 돌리면 금액 다시 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
-    page.get_by_role("radio", name=re.compile("잘 모르겠어요")).check()
-    rec(f"{tag}: 잘 모르겠어요는 금액·시작 버튼 유지", page.get_by_role("heading", name="예상 환불액").count() == 1
-        and btn(page, "이 금액으로 시작").count() == 1)
-    rec(f"{tag}: 잘 모르겠어요는 상담 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
-    page.screenshot(path=SHOTS / "잘모르겠어요.png", full_page=True)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
@@ -407,7 +404,7 @@ def industry_gate(browser, base):
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
     tag = "업종"
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").wait_for()
     rec(f"{tag}: 기본은 헬스장", page.get_by_role("radio", name=re.compile("헬스장")).is_checked())
     page.get_by_role("radio", name=re.compile("그 밖의 업종")).check()
@@ -427,7 +424,7 @@ def good_offer(browser, base):
     """업체가 받고 싶은 금액 이상을 말하면, 그 금액을 받겠다는 새 문자가 접히지 않고 보인다(보낸 적 없는 문자다)."""
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").click()
     open_reply(page)
@@ -442,7 +439,7 @@ def callback_draft(browser, base):
     """업체가 나중에 연락하겠다고 미루면 언제 연락할지 묻는 문자가 펼쳐져 나오고, 재요청을 보낸 뒤에는 다시 나오지 않는다."""
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
-    page.locator("h2:has-text('가상 계약서로 해 보기')").locator("xpath=ancestor::*[self::div][1]").get_by_role("button").first.click()
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").click()
     open_reply(page)
@@ -450,7 +447,7 @@ def callback_draft(browser, base):
     ask = page.get_by_text("날짜와 시간을 문자로 알려 주시겠어요")
     ask.first.wait_for()
     rec("미루는 답 뒤: 묻는 문자가 펼쳐져 있고 보낸 문자 다시 보기는 없음", ask.filter(visible=True).count() == 1
-        and page.get_by_text("보낸 문자 다시 보기").count() == 0 and btn(page, "업체 답장 기록하기").filter(visible=True).count() == 1)
+        and page.get_by_text("보낸 문자 다시 보기").count() == 0 and btn(page, "업체 답장 기록").filter(visible=True).count() == 1)
     btn(page, "4일 지남").click()
     btn(page, "다시 보냈어요").click()
     page.get_by_text("답장 기한").first.wait_for()

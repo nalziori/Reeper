@@ -452,6 +452,10 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
 .receipt > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 15px; }
 .receipt dt { color: var(--muted-foreground); }
 .receipt dd { margin: 0; font-weight: 500; white-space: nowrap; }
+.receipt .receipt-btn { all: unset; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 4px; }
+.receipt .receipt-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+.receipt .receipt-note { display: block; padding: 0 0 6px; }
+.receipt .receipt-why { display: block; background: var(--muted); border-radius: 8px; padding: 12px; margin: 2px 0 6px; }
 .receipt .receipt-total { border-top: 1px dashed var(--input); margin-top: 4px; padding-top: 10px; }
 .receipt .receipt-total dt { color: var(--foreground); font-weight: 600; }
 .receipt .receipt-total dd { font-weight: 600; }

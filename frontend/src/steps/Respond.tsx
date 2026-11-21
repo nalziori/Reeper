@@ -142,7 +142,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       {c.stage === 'handed_off' && (
         <Card>
           <VStack gap={3}>
-            <Heading level={3}>기록하기</Heading>
+            <Heading level={3}>정해진 금액 적기</Heading>
             <Text as="p">1372 상담으로 금액이 정해지면 적어 주세요. 입금될 때까지 챙겨 드려요</Text>
             <TextInput label="정해진 금액(원)" inputMode="numeric" value={settlement}
               onChange={(v) => setSettlement(v.replace(/\D/g, ''))} />
@@ -158,7 +158,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       {replyStage && !hasDock && (
         <Dock label="답장 기록">
           <HStack gap={2} wrap="wrap">
-            <Button variant="primary" label="업체 답장 기록하기" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
+            <Button variant="primary" label="업체 답장 기록" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
           </HStack>
         </Dock>
       )}
@@ -170,7 +170,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
               <Text weight="semibold">업체가 먼저 답했나요?</Text>
               <Text type="supporting">답장을 받았으면 기록해요</Text>
             </VStack>
-            <Button label="답장 기록하기" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
+            <Button label="업체 답장 기록" icon={<InboxArrowDownIcon aria-hidden />} onClick={() => setSheet(true)} />
           </HStack>
         </Card>
       )}
