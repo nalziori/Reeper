@@ -485,6 +485,11 @@ def _counter_kind(case: Case) -> str:
     답장 유형은 늘리지 않는다(eval/README.md의 판정 기준). 금액 없이 "위약금은 20%"라고만 한 답은 unknown이다.
     """
     kind = COUNTER_KIND.get(case.last_reply or "", "counter_unknown")
+    # 업체 쪽 사정 사건에서 제시액이 '업체가 다툴 때의 환불액'과 같으면 위약금만 뺀 제시다. 공제 항목을 되묻지 않고
+    # 위약금 근거(render가 업체 사정용 양식을 고른다)로 답한다.
+    # ponytail: 금액이 정확히 같을 때만 본다. 하루치 이용분까지 다르게 계산한 제시는 counter_low_offer로 간다
+    if kind == "counter_low_offer" and case.offered is not None and case.offered == _if_disputed(case):
+        return "counter_penalty"
     # 아직 답하지 않은 답장(마지막에 연달아 온 것)을 모두 본다. 비율을 주장한 뒤 "확인해 보고 연락드릴게요"가
     # 이어서 기록돼도 비율 주장은 남아 있다. 기록에는 답장 유형이 없어 마지막 한 건만 보면 그 주장을 놓친다
     said = []
