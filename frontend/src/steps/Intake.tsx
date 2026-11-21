@@ -32,7 +32,7 @@ const entryMessage = (e: EntryError, min?: string) => !e ? undefined : {
 // 고른 항목의 예시만 한 줄로 보여 준다. 선택지 이름은 짧게 두고 예시를 여기 둔다
 const INDUSTRY_HINT = { fitness: '헬스장, 피트니스, PT', yoga: '요가, 필라테스', other: '수영, 골프, 댄스, 학원 등. 아직 계산하지 않아요' } as const
 const REASON_HINT = {
-  mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등',
+  mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등. 아래에서 어떤 일이었는지 고르면 금액을 계산해 드려요',
 } as const
 // 1372에 물어볼 만한 흔한 상황. 업체 잘못인지 판단하지 않는다(통계 아님, 법적 판단 아님).
 // 이전·시설 고장은 상담 사례에서 업체 잘못으로 본 경우가 있어(#142 B 리뷰) '내 사정'으로 안내하지 않는다
@@ -240,11 +240,12 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           </VStack>
         </Card>
         {reason === 'business' && <FaultCases kind={kind} onKind={(k) => setKind(k as FaultKind | '')} />}
-        {reason === 'business' && bizPending ? <Waiting message="금액을 계산하고 있어요" /> : reason === 'business' && !isBiz ? (<>
+        {/* 유형을 고르기 전에는 조정례 카드의 선택지만 둔다. 고르면 계산하고, 계산을 받지 못했을 때만 1372 안내로 남는다 */}
+        {reason === 'business' && kind === '' ? null : reason === 'business' && bizPending ? <Waiting message="금액을 계산하고 있어요" /> : reason === 'business' && !isBiz ? (<>
           <Card>
             <VStack gap={2}>
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
-              <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
+              <Text as="p">지금은 업체 잘못일 때의 금액을 계산하지 못했어요. 위약금을 뺀 계산은 업체 잘못에 맞지 않아 쓰지 않아요</Text>
               <Text type="supporting">1372에 물어볼 만한 경우예요</Text>
               <ul className="list-disc pl-5 text-sm text-muted-foreground" aria-label="애매한 상황 예시">
                 {UNSURE_CASES.map((t) => <li key={t}>{t}</li>)}
