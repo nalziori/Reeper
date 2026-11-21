@@ -4,7 +4,7 @@ import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type FaultKind, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
-import { FaultCases } from '../components/FaultCases'
+import { FaultCases, FaultKindPicker } from '../components/FaultCases'
 import { FaultSummary } from '../components/FaultSummary'
 import { Guide1372 } from '../components/Guide1372'
 import { JourneyProgress } from '../components/JourneyProgress'
@@ -33,7 +33,7 @@ const entryMessage = (e: EntryError, min?: string) => !e ? undefined : {
 // 고른 항목의 예시만 한 줄로 보여 준다. 선택지 이름은 짧게 두고 예시를 여기 둔다
 const INDUSTRY_HINT = { fitness: '헬스장, 피트니스, PT', yoga: '요가, 필라테스', other: '수영, 골프, 댄스, 학원 등. 아직 계산하지 않아요' } as const
 const REASON_HINT = {
-  mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등. 아래에서 어떤 일이었는지 고르면 금액을 계산해 드려요',
+  mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등. 어떤 일이었는지 고르면 금액을 계산해 드려요',
 } as const
 // 1372에 물어볼 만한 흔한 상황. 업체 잘못인지 판단하지 않는다(통계 아님, 법적 판단 아님).
 // 이전·시설 고장은 상담 사례에서 업체 잘못으로 본 경우가 있어(#142 B 리뷰) '내 사정'으로 안내하지 않는다
@@ -209,6 +209,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           <SegmentedControlItem value="business" label="업체 잘못" />
         </SegmentedControl>
         <Text type="supporting">{REASON_HINT[reason]}</Text>
+        {/* 업체 사정 유형도 금액을 정하는 질문이라 같은 카드에 둔다(고르면 한 줄로 접힌다) */}
+        {reason === 'business' && <FaultKindPicker value={kind} onChange={(k) => setKind(k as FaultKind | '')} isDisabled={busy} />}
       </VStack>
     )
     if (industry === 'other') {
@@ -240,7 +242,6 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {reasonPicker}
           </VStack>
         </Card>
-        {reason === 'business' && <FaultCases kind={kind} onKind={(k) => setKind(k as FaultKind | '')} />}
         {/* 유형을 고르기 전에는 조정례 카드의 선택지만 둔다. 고르면 계산하고, 계산을 받지 못했을 때만 1372 안내로 남는다 */}
         {reason === 'business' && kind === '' ? null : reason === 'business' && bizPending ? <Waiting message="금액을 계산하고 있어요" /> : reason === 'business' && !isBiz ? (<>
           <Card>
@@ -254,6 +255,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 업체 잘못인지 애매하면 업체에 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
           </Card>
+          <FaultCases kind={kind} context="intake" />
           <Guide1372 scriptLabel="1372에 말할 내용 정리" tracked={false} />
           <FaultSummary c={contract} />
         </>) : (<>
@@ -330,6 +332,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {refund.provisional && <Text type="supporting">일반 기준으로 계산했어요. 실제와 다를 수 있어요</Text>}
           </VStack>
         </Card>
+        {/* 업체 사정이면 비슷한 사례를 금액 아래에 접어 둔다(금액이 먼저다) */}
+        {isBiz && <FaultCases kind={kind} context="intake" />}
         </>)}
         {/* 근거를 다 읽지 않아도 시작할 수 있게 화면 아래에 붙여 둔다 */}
         <div className="action-dock">

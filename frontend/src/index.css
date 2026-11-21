@@ -541,3 +541,8 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
 .mascot-sm img { display: block; height: 56px; width: auto; }
 /* AI 답이 길어질 때만 보인다: 2초 뒤에 나타난다(금방 끝나면 보이지 않는다) */
 .waiting-art { flex: none; animation: appear 0.3s 2s both; }
+
+/* 글자처럼 보이는 작은 버튼(유형 '바꾸기') */
+.link-btn { all: unset; flex: none; white-space: nowrap; cursor: pointer; font-size: 14px; color: var(--brand-text); text-decoration: underline; text-underline-offset: 3px; padding: 4px 2px; }
+.link-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+.link-btn:disabled { opacity: .5; cursor: default; }

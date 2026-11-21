@@ -370,6 +370,22 @@ def not_sent_drafts(browser, base):
     ctx.close()
 
 
+def pick_kind(page, name):
+    """업체 사정 유형을 고른다. 이미 골랐으면 선택지가 한 줄로 접혀 있어 '바꾸기'로 연다."""
+    radio = page.get_by_role("radio", name=name)
+    change = page.get_by_role("button", name="어떤 일이었는지 바꾸기")
+    radio.or_(change).first.wait_for()
+    if radio.count() == 0:
+        change.click()
+    # 고르면 선택지가 바로 접혀 사라지므로 check()(고른 뒤 상태를 다시 확인함) 대신 click()
+    radio.click()
+
+
+def open_cases(page):
+    """금액 아래에 접힌 비슷한 사례를 편다."""
+    page.get_by_text(re.compile(r"^비슷한 사례 \d+건 참고하기$")).click()
+
+
 def business_fault(browser, base):
     """업체 잘못 계산을 받지 못하면(계산 분기가 없는 서버, 오류) 금액·시작 버튼을 열지 않고 1372 안내와 말할 내용 정리를 보인다.
     서버 응답을 이 검사 안에서만 바꿔 흉내 낸다. 화면이 숫자를 만들지 않고 disputed_refund로 준비 여부를 가리는지 본다(#154 C 리뷰)."""
@@ -398,11 +414,11 @@ def business_fault(browser, base):
     btn(page, "이 금액으로 시작").wait_for()
     rec(f"{tag}: 기본은 내 사정", page.get_by_role("radio", name=re.compile("내 사정")).is_checked())
     page.get_by_role("radio", name=re.compile("업체 잘못")).check()
-    page.get_by_text("아래에서 어떤 일이었는지 고르면 금액을 계산해 드려요", exact=False).wait_for()
+    page.get_by_text("어떤 일이었는지 고르면 금액을 계산해 드려요", exact=False).wait_for()
     rec(f"{tag}: 유형 고르기 전에는 금액·시작 버튼 없음", page.get_by_role("heading", name=re.compile("예상 환불액")).count() == 0
         and btn(page, "이 금액으로 시작").count() == 0)
     page.route("**/api/refund-preview", fake("old"))
-    page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
+    pick_kind(page, "약속한 트레이너·강사가 바뀌거나 그만둠")
     page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
     rec(f"{tag}: 계산 분기가 없으면 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
     rec(f"{tag}: 계약 값으로 유형을 보냄", any(k.get("fault_kind") == "trainer_change" for k in asked))
@@ -416,14 +432,14 @@ def business_fault(browser, base):
     rec(f"{tag}: 정리에 계산 금액 없음", "위약금" not in summary and "460,000" not in summary)
     page.unroute("**/api/refund-preview")
     page.route("**/api/refund-preview", fake("zero"))
-    page.get_by_role("radio", name="그 밖의 업체 사정").check()
+    pick_kind(page, "그 밖의 업체 사정")
     page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
     rec(f"{tag}: 위약금 0원이어도 다툴 때 금액이 없으면 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
     # 계산 응답을 읽지 못해도(빈 본문) 1372 안내로 남는다(#156 C 하니스)
     page.unroute("**/api/refund-preview")
     page.route("**/api/refund-preview", lambda route: route.fulfill(status=200, content_type="application/json", body=""))
     with page.expect_response("**/api/refund-preview"):
-        page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
+        pick_kind(page, "휴업·폐업이나 시설 일부 폐쇄")
     page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
     rec(f"{tag}: 계산을 못 받으면 1372 안내만", btn(page, "이 금액으로 시작").count() == 0)
     page.unroute("**/api/refund-preview")
@@ -445,7 +461,7 @@ def business_amount(browser, base):
     btn(page, "이 금액으로 시작").wait_for()
     page.get_by_role("radio", name=re.compile("업체 잘못")).check()
     with page.expect_response("**/api/refund-preview") as business_preview:
-        page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
+        pick_kind(page, "약속한 트레이너·강사가 바뀌거나 그만둠")
     preview = business_preview.value
     business = preview.json()
     contract = preview.request.post_data_json["contract"]
@@ -461,13 +477,19 @@ def business_amount(browser, base):
     rec(f"{tag}: 위약금 설명은 업체 잘못 기준(G4)", page.get_by_text("업체 사정으로 해지하면 위약금을 빼지 않고 계산했어요", exact=False).count() == 1)
     dispute = f"업체가 다투면 위약금 {mine['penalty']:,}원이 빠져 {business['disputed_refund']:,}원이 될 수 있어요"
     rec(f"{tag}: 화면의 다툴 때 금액은 서버 비교액", page.get_by_text(dispute, exact=True).count() == 1)
+    # 사례는 금액 아래에 요약 한 줄로 접혀 있다(인정·불인정 수). 펴야 사례가 보인다
+    rec(f"{tag}: 사례는 금액 아래 요약으로 접힘", page.get_by_text("3,275,216원", exact=False).count() == 0
+        and page.get_by_text(re.compile(r"^(인정|불인정|판단 어려움|원문에 판단 없음) \d")).count() >= 1
+        and page.get_by_text("비슷한 사례 3건 참고하기").bounding_box()["y"] > heading.bounding_box()["y"])
+    open_cases(page)
     rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
         and page.get_by_role("link", name="1372 원문 보기 (새 창)").get_attribute("target") == "_blank")
     rec(f"{tag}: 인정되지 않은 사례도 함께 보임", page.get_by_text("업체 잘못으로 인정되지 않았어요", exact=False).count() >= 1
         and page.get_by_text("업체 책임에 대한 판단은 사례마다 달랐어요", exact=False).is_visible())
 
-    page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
+    pick_kind(page, "휴업·폐업이나 시설 일부 폐쇄")
     page.get_by_text("업체가 아예 문을 닫아 연락이 안 되면 문자 대신 1372에 상담하세요").wait_for()
+    open_cases(page)
     rec(f"{tag}: 폐쇄 유형은 결정 금액에 10%가 더해진 사례", page.get_by_text("552,000원", exact=False).count() >= 1
         and page.get_by_role("link", name="소비자24 원문 보기 (새 창)").count() >= 1)
     rec(f"{tag}: 폐쇄도 시작 버튼", btn(page, "이 금액으로 시작").count() == 1)
@@ -481,6 +503,25 @@ def business_amount(browser, base):
         and opened["case"]["contract"]["fault_kind"] == "closure"
         and "개인 사정으로" not in draft.first.inner_text())
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def business_without_cases(browser, base):
+    """조정례(/api/mediation-cases)를 못 불러와도 유형 선택지는 화면 상수라 고를 수 있고 금액·시작 버튼으로 간다(#161 B 리뷰)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "조정례 없이 업체 잘못"
+    page.route("**/api/mediation-cases", lambda route: route.abort())
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").wait_for()
+    page.get_by_role("radio", name=re.compile("업체 잘못")).check()
+    pick_kind(page, "약속한 트레이너·강사가 바뀌거나 그만둠")
+    page.get_by_role("heading", name="예상 환불액(업체 잘못이 인정되면)").wait_for()
+    rec(f"{tag}: 유형을 골라 금액과 시작 버튼", btn(page, "이 금액으로 시작").count() == 1
+        and page.get_by_text(re.compile(r"^비슷한 사례 \d+건 참고하기$")).count() == 0)
+    # 요청을 일부러 끊었으니 그 실패만 콘솔 오류에서 뺀다
+    rest = [e for e in errors if "mediation-cases" not in e and "ERR_FAILED" not in e]
+    rec(f"{tag}: 콘솔 오류 없음", not rest, "; ".join(rest)[:200])
     ctx.close()
 
 
@@ -606,6 +647,7 @@ def main() -> int:
             not_sent_drafts(browser, base)
             business_fault(browser, base)
             business_amount(browser, base)
+            business_without_cases(browser, base)
             business_negotiation(browser, base)
             industry_gate(browser, base)
             good_offer(browser, base)

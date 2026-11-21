@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { api, type MediationCase, type MediationCases } from '../api'
+import { useState } from 'react'
+import type { FaultKind, MediationCase } from '../api'
+import { useMediationCases } from '../useMediationCases'
 import { won } from '../format'
-import { Card, Collapsible, ExternalLink, Heading, RadioList, RadioListItem, Text, VStack } from '../ui'
+import { Card, Collapsible, ExternalLink, HStack, RadioList, RadioListItem, Text, VStack } from '../ui'
 
 // 업체 잘못을 고르면 어떤 일이 있었는지 묻고, 비슷한 조정례(1372·소비자24)에서 어떻게 판단했는지 보여 준다.
 // 원문은 결정 내용만 담고 실제 입금 여부는 담지 않으므로 '돌려받았다'고 쓰지 않는다.
@@ -36,59 +37,65 @@ function CaseView({ c }: { c: MediationCase }) {
   )
 }
 
-// kind를 넘기면 고른 유형을 접수 화면이 계약 값(fault_kind)으로 쓴다. '그 밖'(other)은 찾아 둔 조정례가 없다
-// fixed: 답장 화면처럼 유형이 이미 정해져 있으면 선택지 없이 그 유형의 사례만 접어서 보인다(문자에 넣지 않고 참고만 한다)
-export function FaultCases({ kind: outer, onKind, fixed = false }: { kind?: string; onKind?: (kind: string) => void; fixed?: boolean } = {}) {
-  const [data, setData] = useState<MediationCases | null>(null)
-  const [inner, setInner] = useState('')
-  const kind = outer ?? inner
-  const setKind = onKind ?? setInner
-  useEffect(() => {
-    let active = true
-    api.mediationCases().then((d) => { if (active) setData(d) }, () => { /* 참고 자료라 못 불러오면 숨긴다 */ })
-    return () => { active = false }
-  }, [])
-  if (!data) return null
-  const chosen = kind && kind !== 'other' ? data.kinds[kind] : undefined
-  const cases = chosen ? data.cases.filter((c) => chosen.cases.includes(c.id)) : []
-  const mixed = new Set(cases.map((c) => c.business_fault)).size > 1
-  if (fixed) {
-    // 사례가 없는 유형(그 밖 등)이면 보이지 않는다
-    if (!cases.length) return null
+// 업체 사정 유형 고르기. 금액을 정하는 질문이라 접수 화면의 업종·해지 이유 카드 안에 둔다.
+// 고른 뒤에는 한 줄로 접어 자리를 줄이고, '바꾸기'로 다시 연다. 유형은 계약 값(fault_kind)이 된다. '그 밖'(other)은 조정례가 없다
+// 유형 이름은 화면 상수로 둔다. 조정례를 못 불러와도(서버가 깨어나는 중, 요청 실패) 유형을 골라 금액으로 갈 수 있다(#161 B 리뷰).
+// 이름은 data/mediation_cases.json의 kinds.label과 같다(바꾸면 함께 바꾼다)
+const FAULT_KIND_LABEL: Record<FaultKind, string> = {
+  trainer_change: '약속한 트레이너·강사가 바뀌거나 그만둠',
+  schedule_cut: '수업 횟수를 줄이거나 수업을 없앤다고 통보함',
+  closure: '휴업·폐업이나 시설 일부 폐쇄',
+  relocation: '시설 이전이나 운영 시간 변경',
+  other: '그 밖의 업체 사정',
+}
+
+export function FaultKindPicker({ value, onChange, isDisabled }: { value: string; onChange: (kind: string) => void; isDisabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const label = FAULT_KIND_LABEL[value as FaultKind]
+  if (value && label && !open) {
     return (
-      <Card>
-        <Collapsible trigger={<VStack gap={1}>
-          <Text weight="semibold">비슷한 사례 {cases.length}건 참고하기</Text>
-          <Text type="supporting">답장을 고쳐 쓰거나 1372에 말할 때 참고하세요. 문자에 넣는 근거는 아니에요</Text>
-        </VStack>}>
-          <VStack gap={4}>
-            {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
-            {cases.map((c) => <CaseView key={c.id} c={c} />)}
-          </VStack>
-        </Collapsible>
-      </Card>
+      <HStack gap={2} hAlign="between" vAlign="center">
+        <Text><Text as="span" type="supporting">어떤 일이었나요 · </Text>{label}</Text>
+        <button type="button" className="link-btn" aria-label="어떤 일이었는지 바꾸기" disabled={isDisabled} onClick={() => setOpen(true)}>바꾸기</button>
+      </HStack>
     )
   }
   return (
+    <RadioList label="어떤 일이었나요" value={value} isDisabled={isDisabled} onChange={(k) => { onChange(k); setOpen(false) }}>
+      {Object.entries(FAULT_KIND_LABEL).map(([id, name]) => <RadioListItem key={id} value={id} label={name} />)}
+    </RadioList>
+  )
+}
+
+// 그 유형의 조정례를 요약 한 줄(인정·불인정 수)과 함께 접어서 보인다. 펼쳐야 사례가 보인다.
+// 접수 화면에서는 금액 영수증 아래, 답장 화면에서는 문안 아래에 둔다. 사례가 없는 유형이면 보이지 않는다
+const RESULT_SHORT = { recognized: '인정', consumer: '불인정', not_determined: '판단 어려움', not_stated: '원문에 판단 없음' } as const
+export function FaultCases({ kind, context }: { kind: string; context: 'intake' | 'reply' }) {
+  const data = useMediationCases()
+  if (!data) return null
+  const chosen = kind && kind !== 'other' ? data.kinds[kind] : undefined
+  const cases = chosen ? data.cases.filter((c) => chosen.cases.includes(c.id)) : []
+  if (!cases.length) return null
+  const mixed = new Set(cases.map((c) => c.business_fault)).size > 1
+  const counts = Object.entries(RESULT_SHORT)
+    .map(([key, name]) => [name, cases.filter((c) => c.business_fault === key).length] as const)
+    .filter(([, n]) => n > 0).map(([name, n]) => `${name} ${n}`).join(' · ')
+  return (
     <Card>
-      <VStack gap={3}>
-        <Heading level={2}>비슷한 일은 어떻게 판단했을까요</Heading>
-        <RadioList label="어떤 경우와 비슷한가요" value={kind} onChange={setKind}
-          description="한국소비자원 조정례(1372·소비자24)에서 비슷한 사례를 찾아 보여 드려요">
-          {Object.entries(data.kinds).map(([id, k]) => <RadioListItem key={id} value={id} label={k.label} />)}
-          <RadioListItem value="other" label="그 밖의 업체 사정" />
-        </RadioList>
-        {chosen?.note && <Text as="p">{chosen.note}</Text>}
-        {kind && (cases.length ? (<>
+      {/* 접힌 상태에서도 사례가 내 계약의 결과가 아니라는 것은 보이게 둔다(#161 B 리뷰) */}
+      <Collapsible trigger={<VStack gap={1}>
+        <Text weight="semibold">비슷한 사례 {cases.length}건 참고하기</Text>
+        <Text type="supporting">{counts}</Text>
+        <Text type="supporting">비슷한 사례일 뿐, 내 계약도 같은 결과가 나온다는 뜻은 아니에요</Text>
+      </VStack>}>
+        <VStack gap={4}>
+          {chosen?.note && <Text as="p">{chosen.note}</Text>}
           {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
           {cases.map((c) => <CaseView key={c.id} c={c} />)}
-          <Text type="supporting">
-            비슷한 사례일 뿐, 내 계약도 같은 결과가 나온다는 뜻은 아니에요. 금액은 그 사건의 결정 금액이고, 실제로 입금됐는지는 원문에 없어요. 내 경우는 1372에 상담하세요
-          </Text>
-        </>) : (
-          <Text as="p">이 유형은 아직 찾은 조정례가 없어요. 1372에 상담하면서 업체 공지나 문자를 보여 주세요</Text>
-        ))}
-      </VStack>
+          <Text type="supporting">금액은 그 사건의 결정 금액이고, 실제로 입금됐는지는 원문에 없어요</Text>
+          {context === 'reply' && <Text type="supporting">답장을 고쳐 쓰거나 1372에 말할 때 참고하세요. 문자에 넣는 근거는 아니에요</Text>}
+        </VStack>
+      </Collapsible>
     </Card>
   )
 }
