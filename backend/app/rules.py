@@ -19,9 +19,14 @@ def calculate(contract: Contract, notified_on: date) -> Refund:
 
     환불액 = max(총계약대금 - 이용분 - 부가상품 가액 - 위약금, 0) + 보증금
     per_day_loss는 하루 늦게 도달했을 때 줄어드는 실제 금액이다.
+    업체 잘못(cancel_reason == "business")이면 위약금이 0이고, disputed_refund에
+    업체가 다퉈 소비자 사정으로 계산될 때의 환불액을 같은 날짜로 넣는다(docs/환불_규칙.md "업체 잘못일 때의 계산 근거").
     """
     r = _calculate(contract, notified_on)
     r.per_day_loss = r.refund - _calculate(contract, notified_on + timedelta(days=1)).refund
+    if contract.cancel_reason == "business":
+        # 화면·조언이 금액을 직접 계산하지 않게 여기서 함께 만든다. 같은 날짜라 두 금액의 차이는 위약금 공제뿐이다
+        r.disputed_refund = _calculate(contract.model_copy(update={"cancel_reason": "consumer"}), notified_on).refund
     return r
 
 
@@ -40,7 +45,9 @@ def _calculate(contract: Contract, notified_on: date) -> Refund:
         total, used = contract.total_count, contract.used_count
     used = min(max(used, 0), total)
     used_amount = contract.total_paid * used // total
-    penalty = contract.total_paid * POLICY["penalty_percent"] // 100
+    # 위약금은 사업자의 귀책사유 없이 해지된 경우에만 청구할 수 있다(고시 제4조 제1항, G4). 업체 잘못이면 0원이다
+    business = contract.cancel_reason == "business"
+    penalty = 0 if business else contract.total_paid * POLICY["penalty_percent"] // 100
     left = max(contract.total_paid - used_amount - contract.addon_value - penalty, 0)
     return Refund(
         total_days=total,
@@ -52,5 +59,5 @@ def _calculate(contract: Contract, notified_on: date) -> Refund:
         unit_label=UNIT_LABEL[contract.unit],
         addon=contract.addon_value,
         security_deposit=contract.security_deposit,
-        refs=["G5", "G10", "R31", "R32"],
+        refs=["G5", "G4" if business else "G10", "R31", "R32"],
     )

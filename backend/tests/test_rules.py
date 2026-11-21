@@ -82,5 +82,44 @@ def test_cancel_reason_defaults_to_consumer_and_old_cases_still_load():
     assert (c.cancel_reason, c.fault_kind) == ("consumer", None)
     b = c.model_copy(update={"cancel_reason": "business", "fault_kind": "closure"})
     assert Contract.model_validate(b.model_dump(mode="json")) == b
-    # 다퉈질 때의 금액은 계산 분기가 채우기 전까지 비어 있다
-    assert calculate(c, date(2026, 2, 1)).disputed_refund is None and calculate(b, date(2026, 2, 1)).disputed_refund is None
+    # 다퉈질 때의 금액은 업체 잘못일 때만 채운다. 같은 날짜의 소비자 사정 환불액이다
+    assert calculate(c, date(2026, 2, 1)).disputed_refund is None
+    assert calculate(b, date(2026, 2, 1)).disputed_refund == calculate(c, date(2026, 2, 1)).refund
+
+
+# 업체 잘못: 위약금은 사업자의 귀책사유 없이 해지된 경우에만 청구할 수 있다(고시 제4조 제1항, G4).
+# 정답은 손으로 셌다. docs/환불_규칙.md "업체 잘못일 때의 계산 근거"
+def test_business_fault_has_no_penalty_and_keeps_the_disputed_amount():
+    r = calculate(contract(cancel_reason="business", fault_kind="trainer_change"), date(2026, 1, 10))
+    assert (r.used_amount, r.penalty, r.refund) == (66_666, 0, 533_334)
+    assert r.disputed_refund == 473_334  # 업체가 다투면 소비자 사정 계산(위약금 6만 원 공제)
+    assert r.refs == ["G5", "G4", "R31", "R32"]
+    assert r.per_day_loss == 533_334 - 526_667  # 하루 늦으면 이용분만 늘어난다
+
+
+def test_consumer_reason_is_unchanged_and_has_no_disputed_amount():
+    r = calculate(contract(), date(2026, 1, 10))
+    assert (r.penalty, r.refund, r.disputed_refund) == (60_000, 473_334, None)
+    assert r.refs == ["G5", "G10", "R31", "R32"]
+    # fault_kind만 있고 해지 이유가 소비자 사정이면 계산은 그대로다
+    assert calculate(contract(fault_kind="closure"), date(2026, 1, 10)) == r
+
+
+def test_business_fault_keeps_addon_and_deposit_rules():
+    r = calculate(contract(cancel_reason="business", addon_value=50_000, security_deposit=30_000), date(2026, 1, 10))
+    assert (r.penalty, r.refund, r.disputed_refund) == (0, 513_334, 453_334)
+
+
+def test_business_fault_by_count():
+    c = contract(cancel_reason="business", unit="count", total_paid=500_000, total_count=10, used_count=3)
+    r = calculate(c, date(2026, 1, 10))
+    assert (r.used_amount, r.penalty, r.refund, r.disputed_refund) == (150_000, 0, 350_000, 300_000)
+
+
+def test_business_fault_disputed_amount_never_exceeds_refund():
+    # 다 쓴 계약은 두 금액이 모두 보증금뿐이라 같다. 화면은 이때 다툴 때 금액을 따로 말하지 않는다
+    r = calculate(contract(cancel_reason="business", security_deposit=10_000), date(2026, 3, 31))
+    assert (r.refund, r.disputed_refund) == (10_000, 10_000)
+    for d in (date(2026, 1, 1), date(2026, 2, 15), date(2026, 3, 30)):
+        r = calculate(contract(cancel_reason="business"), d)
+        assert 0 <= r.disputed_refund <= r.refund

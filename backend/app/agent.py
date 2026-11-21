@@ -31,6 +31,7 @@ FIELDS = {"gym_name": "string", "total_paid": "integer", "start_date": "string",
 MORE_FIELDS = {"unit": "string", "total_count": "integer", "addon_value": "integer", "security_deposit": "integer"}
 
 TEMPLATES = {p.stem: p.read_text(encoding="utf-8").strip() for p in (DATA / "templates").glob("*.txt")}
+BUSINESS_COUNTER_PENALTY = TEMPLATES.pop("counter_penalty_business")
 COUNTER_KIND = {"refuse": "counter_refuse", "list_price": "counter_list_price",
                 "visit": "counter_visit", "low_offer": "counter_low_offer"}
 # ponytail: 위약금 비율 주장을 키워드로 알아본다. 놓치는 표현이 나오면 평가셋(eval/)으로 보강한다.
@@ -406,8 +407,9 @@ def facts(case: Case) -> dict[str, str]:
         # 부가상품·보증금이 없으면 빈칸이라 기존 문장 그대로다
         "addon": f"{r.addon:,}" if r.addon else "", "deposit": f"{r.security_deposit:,}" if r.security_deposit else "",
         "addon_part": addon_part,
-        # 양식이 "개인 사정으로"와 "과 위약금 ○원" 대신 쓸 자리. 위약금이 0이면(업체 쪽 사정, rules.py가 정한다) 위약금 구절이 빈다
-        "why": why(case), "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty else "",
+        # 소비자 사정 문안은 위약금이 0원일 때도 기존 표기를 유지한다
+        "why": why(case),
+        "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty or c.cancel_reason == "consumer" else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": deposit_note,
         "start": _ymd(c.start_date),
@@ -463,6 +465,8 @@ def _request(case: Case, addon_part: str, deposit_note: str) -> str:
 
 
 def render(kind: str, case: Case) -> str:
+    if kind == "counter_penalty" and case.contract.cancel_reason == "business":
+        return BUSINESS_COUNTER_PENALTY.format(**facts(case))
     return TEMPLATES[kind].format(**facts(case))
 
 
