@@ -377,6 +377,13 @@ def business_fault(browser, base):
         and page.get_by_text("희망 금액 정하기").count() == 0)
     rec(f"{tag}: 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
     rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1)
+    # 비슷한 1372 조정례(data/mediation_cases.json): 유형을 고르면 사례가 어떻게 끝났는지, 없으면 1372 안내
+    page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
+    page.get_by_text("PT 수강 및 헬스장 이용계약", exact=False).first.wait_for()
+    rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
+        and page.get_by_role("link", name="1372 원문 보기 (새 창)").get_attribute("target") == "_blank")
+    page.get_by_role("radio", name="휴업·폐업·운영 중단").check()
+    rec(f"{tag}: 조정례 없는 유형은 1372 안내", page.get_by_text("아직 찾은 조정례가 없어요", exact=False).is_visible())
     page.get_by_label("무슨 일이 있었나요").fill("11월부터 샤워실 운영 중단, 공지만 붙음")
     summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
     rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary

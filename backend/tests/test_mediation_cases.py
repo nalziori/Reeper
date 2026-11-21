@@ -43,3 +43,10 @@ def test_values_checked_against_source():
     got = {c["id"]: (c["decided_refund"], c["terminated_on"], c["business_fault"], c["penalty_deducted"])
            for c in CASES["cases"]}
     assert got == CHECKED
+
+
+def test_api_serves_cases():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    r = TestClient(app).get("/api/mediation-cases")
+    assert r.status_code == 200 and r.json() == CASES

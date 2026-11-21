@@ -201,6 +201,15 @@ def rules() -> dict:
     return RULES
 
 
+# 업체 잘못 화면에 보여 줄 1372 조정례(참고 자료). 금액 계산과 문안 근거에는 쓰지 않는다
+MEDIATION = json.loads((DATA / "mediation_cases.json").read_text(encoding="utf-8"))
+
+
+@app.get("/api/mediation-cases")
+def mediation_cases() -> dict:
+    return MEDIATION
+
+
 @app.post("/api/refund-preview")
 def refund_preview(req: PreviewRequest) -> Refund:
     try:

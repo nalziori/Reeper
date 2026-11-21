@@ -4,6 +4,7 @@ import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
+import { FaultCases } from '../components/FaultCases'
 import { FaultSummary } from '../components/FaultSummary'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
@@ -201,6 +202,7 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
               <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '잘 모르겠어요'를 골라 계속할 수 있어요</Text>
             </VStack>
           </Card>
+          <FaultCases />
           <FaultSummary c={contract} />
         </>) : (<>
         {reason === 'unsure' && (
