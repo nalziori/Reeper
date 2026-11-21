@@ -117,7 +117,7 @@ def test_business_fault_by_count():
 
 
 def test_business_fault_disputed_amount_never_exceeds_refund():
-    # 다 쓴 계약은 두 금액이 모두 보증금뿐이라 같다. 화면은 이때 다툴 때 금액을 따로 말하지 않는다
+    # 다 쓴 계약은 두 금액이 모두 보증금뿐이라 같다.
     r = calculate(contract(cancel_reason="business", security_deposit=10_000), date(2026, 3, 31))
     assert (r.refund, r.disputed_refund) == (10_000, 10_000)
     for d in (date(2026, 1, 1), date(2026, 2, 15), date(2026, 3, 30)):

@@ -371,7 +371,7 @@ def not_sent_drafts(browser, base):
 
 
 def business_fault(browser, base):
-    """업체 잘못으로 해지하면 위약금을 뺀 금액·시작 버튼 대신 1372 안내가 나오고, 내 사정으로 돌리면 금액이 다시 보인다."""
+    """유형을 고르기 전이나 계산 응답을 읽지 못하면 1372 안내와 사실 정리로 진행한다."""
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
     tag = "업체 잘못"
@@ -385,18 +385,15 @@ def business_fault(browser, base):
     rec(f"{tag}: 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
     rec(f"{tag}: 1372 연락처", page.get_by_text("국번 없이 1372").count() == 1
         and page.locator("a[href='tel:1372']").count() == 1)
-    # 비슷한 1372 조정례(data/mediation_cases.json): 유형을 고르면 사례가 어떻게 끝났는지, 없으면 1372 안내
-    page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
-    page.get_by_text("PT 수강 및 헬스장 이용계약", exact=False).first.wait_for()
-    rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
-        and page.get_by_role("link", name="1372 원문 보기 (새 창)").get_attribute("target") == "_blank")
-    rec(f"{tag}: 인정되지 않은 사례도 함께 보임", page.get_by_text("업체 잘못으로 인정되지 않았어요", exact=False).count() >= 1
-        and page.get_by_text("업체 책임에 대한 판단은 사례마다 달랐어요", exact=False).is_visible())
-    rec(f"{tag}: 애매하면 문자 전에 1372 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
-    page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
-    rec(f"{tag}: 폐쇄 유형은 결정 금액에 10%가 더해진 사례", page.get_by_text("552,000원", exact=False).count() >= 1
-        and page.get_by_role("link", name="소비자24 원문 보기 (새 창)").count() >= 1)
-    page.get_by_label("무슨 일이 있었나요").fill("11월부터 샤워실 운영 중단, 공지만 붙음")
+    page.route("**/api/refund-preview", lambda route: route.fulfill(status=200, content_type="application/json", body=""))
+    with page.expect_response("**/api/refund-preview"):
+        page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
+    page.unroute("**/api/refund-preview")
+    facts = page.get_by_label("무슨 일이 있었나요")
+    facts.wait_for()
+    rec(f"{tag}: 계산을 못 받으면 1372 안내만", page.get_by_text("1372 상담을 먼저 받아 보세요").is_visible()
+        and btn(page, "이 금액으로 시작").count() == 0)
+    facts.fill("11월부터 샤워실 운영 중단, 공지만 붙음")
     summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
     rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary
         and "샤워실 운영 중단" in summary, summary.replace(chr(10), " / ")[:80])
@@ -410,52 +407,50 @@ def business_fault(browser, base):
 
 
 def business_amount(browser, base):
-    """업체 잘못 + 유형을 고르면 서버가 업체 잘못으로 다시 계산한다. 위약금 0원으로 오면 영수증·다툴 때 금액·시작 버튼이,
-    위약금이 그대로 오면(rules.py가 아직 업체 잘못을 계산하지 않으면) 1372 안내가 남는다. 폐쇄 유형도 사건을 연다.
-    위약금 0원 응답은 C의 rules.py가 들어오기 전까지 이 검사 안에서만 흉내 낸다(화면이 숫자를 만들지 않는지 본다)."""
+    """유형을 고르면 실제 서버 계산으로 영수증이 열리고 업체 사정이 사건과 첫 통지 문안에 반영된다."""
     errors: list[str] = []
     ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
     tag = "업체 잘못 금액"
-    asked: list[dict] = []
-
-    # 업체 사정 계산이 준비됐는지는 disputed_refund로 가린다(C의 분기는 업체 사정이면 늘 채운다, #154 C 리뷰).
-    # dispute=False는 위약금이 우연히 0원(결제액 10원 미만)인데 계산 분기는 없는 서버를 흉내 낸다
-    def biz_zero(dispute: bool):
-        def handler(route):
-            body = json.loads(route.request.post_data or "{}")
-            data = route.fetch().json()
-            if body.get("contract", {}).get("cancel_reason") == "business":
-                asked.append(body["contract"])
-                data = {**data, "refund": data["refund"] + data["penalty"], "penalty": 0,
-                        "disputed_refund": data["refund"] if dispute else None}
-            route.fulfill(json=data)
-        return handler
-
-    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    with page.expect_response("**/api/refund-preview") as mine_preview:
+        page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    mine = mine_preview.value.json()
     btn(page, "이 금액으로 시작").wait_for()
     page.get_by_role("radio", name=re.compile("업체 잘못")).check()
-    page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
-    page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
-    rec(f"{tag}: 서버가 위약금을 빼면 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
-    page.route("**/api/refund-preview", biz_zero(False))
-    page.get_by_role("radio", name="그 밖의 업체 사정").check()
-    page.get_by_text("1372 상담을 먼저 받아 보세요").wait_for()
-    rec(f"{tag}: 위약금 0원이어도 다툴 때 금액이 없으면 시작 버튼 없음", btn(page, "이 금액으로 시작").count() == 0)
-    page.unroute("**/api/refund-preview")
-    page.route("**/api/refund-preview", biz_zero(True))
-    page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
-    btn(page, "이 금액으로 시작").wait_for()
-    rec(f"{tag}: 계약 값으로 유형을 보냄", any(k.get("fault_kind") == "other" for k in asked))
+    rec(f"{tag}: 애매하면 문자 전에 1372 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
+    with page.expect_response("**/api/refund-preview") as business_preview:
+        page.get_by_role("radio", name="약속한 트레이너·강사가 바뀌거나 그만둠").check()
+    preview = business_preview.value
+    business = preview.json()
+    contract = preview.request.post_data_json["contract"]
+    rec(f"{tag}: 계약 값으로 유형을 보냄", contract.get("cancel_reason") == "business"
+        and contract.get("fault_kind") == "trainer_change")
     heading = page.get_by_role("heading", name="예상 환불액(업체 잘못이 인정되면)")
-    rec(f"{tag}: 업체 잘못 영수증", heading.count() == 1 and page.locator(".receipt").get_by_text("−0원").count() == 1,
-        page.locator(".receipt").inner_text().replace(chr(10), " / ")[:120])
-    # 날짜에 따라 금액이 달라지므로 숫자 대신 문장 모양과 위약금(결제 600,000원의 10%)만 본다
-    dispute = page.get_by_text(re.compile(r"^업체가 다투면 위약금 60,000원이 빠져 [\d,]+원이 될 수 있어요$"))
-    rec(f"{tag}: 다투면 금액", dispute.count() == 1)
-    # 폐쇄 유형도 사건을 연다(시설 일부만 닫고 영업 중일 수 있다). 아예 문을 닫았으면 1372로 가라는 한 줄만 더한다
+    heading.wait_for()
+    rec(f"{tag}: 실제 서버가 계산한 업체 사정 영수증", business["penalty"] == 0
+        and business["disputed_refund"] == mine["refund"]
+        and page.locator(".receipt").get_by_text("−0원", exact=True).count() == 1
+        and page.locator(".receipt-total").get_by_text(f"{business['refund']:,}원", exact=True).count() == 1)
+    dispute = f"업체가 다투면 위약금 {mine['penalty']:,}원이 빠져 {business['disputed_refund']:,}원이 될 수 있어요"
+    rec(f"{tag}: 화면의 다툴 때 금액은 서버 비교액", page.get_by_text(dispute, exact=True).count() == 1)
+    rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
+        and page.get_by_role("link", name="1372 원문 보기 (새 창)").get_attribute("target") == "_blank")
+    rec(f"{tag}: 인정되지 않은 사례도 함께 보임", page.get_by_text("업체 잘못으로 인정되지 않았어요", exact=False).count() >= 1
+        and page.get_by_text("업체 책임에 대한 판단은 사례마다 달랐어요", exact=False).is_visible())
+
     page.get_by_role("radio", name="휴업·폐업이나 시설 일부 폐쇄").check()
     page.get_by_text("업체가 아예 문을 닫아 연락이 안 되면 문자 대신 1372에 상담하세요").wait_for()
+    rec(f"{tag}: 폐쇄 유형은 결정 금액에 10%가 더해진 사례", page.get_by_text("552,000원", exact=False).count() >= 1
+        and page.get_by_role("link", name="소비자24 원문 보기 (새 창)").count() >= 1)
     rec(f"{tag}: 폐쇄도 시작 버튼", btn(page, "이 금액으로 시작").count() == 1)
+    with page.expect_response("**/api/cases") as opened_response:
+        btn(page, "이 금액으로 시작").click()
+    opened = opened_response.value.json()
+    draft = page.locator(".draft", has_text="휴업이나 시설 폐쇄로")
+    draft.first.wait_for()
+    rec(f"{tag}: 업체 사정으로 열리고 첫 통지에 개인 사정 문구 없음",
+        opened["case"]["contract"]["cancel_reason"] == "business"
+        and opened["case"]["contract"]["fault_kind"] == "closure"
+        and "개인 사정으로" not in draft.first.inner_text())
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
