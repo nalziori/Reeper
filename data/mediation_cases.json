@@ -1,0 +1,57 @@
+{
+  "_about": "업체 잘못이 다퉈진 헬스·필라테스 해지 조정례. 1372소비자상담센터 판례/조정례에서 본문을 읽은 것만 넣는다. 표시·참고용이며 금액 계산(rules.py)에 쓰지 않는다. 근거 표(rules.json)가 아니므로 문안의 근거로 쓰지 않는다. business_fault는 원문 상태다(not_stated: 원문이 업체 귀책 여부를 따로 쓰지 않음, not_determined: 원문이 단정하기 어렵다고 씀). rule_ids는 1372 판단 본문이 직접 든 조문 중 rules.json에 있는 것만, 나머지 직접 든 조문은 other_cited에 둔다. 기준: docs/환불_규칙.md '업체 잘못 유형별 조정례'",
+  "cases": [
+    {
+      "id": "ccn-P000012910",
+      "title": "PT 수강 및 헬스장 이용계약 중도해지에 따른 대금 환급 요구",
+      "url": "https://www.ccn.go.kr/contents/include.ccn?nMenuCode=52&gSiteCode=2&PLEID=P000012910&mPart=&impbcd=&impmcd=&impscd=&lquery=&startCount=0",
+      "source": "1372소비자상담센터 판례/조정례",
+      "kinds": ["trainer_change"],
+      "business_fault": "not_stated",
+      "facts": "PT·헬스 계약 3건. 트레이너가 바뀐 뒤 소비자가 다시 바뀌면 해지하겠다고 했고, 업체가 트레이너 재변경을 알리자 PT 37회를 받은 상태에서 해지했다. 업체는 계약서의 트레이너 변경 고지와 할인 계약 환불 불가를 주장했다.",
+      "result": "다시 바뀌면 해지하겠다는 소비자의 사전 의사와, 업체가 트레이너가 다시 바뀌지 않을 것이라고 했던 대화 내역을 고려해 위약금 없는 해지가 적절하다고 봤다. 원문이 업체 귀책이라고 따로 쓰지는 않았다. 할인 계약 환불 불가 조항은 받아들이지 않았다.",
+      "penalty_deducted": false,
+      "contracts": [
+        {"paid": 2750000, "deductions": {"PT 이용대금": 1679800, "헬스장 이용대금": 480000}, "refund": 590200},
+        {"paid": 1650000, "deductions": {}, "refund": 1650000, "note": "PT 수강을 시작하지 않아 전액"},
+        {"paid": 1099000, "deductions": {"헬스장 이용대금": 63984}, "refund": 1035016, "note": "PT 미개시라 PT 대금은 공제하지 않음"}
+      ],
+      "decided_refund": 3275216,
+      "usage_method": "원문에 산출 방식 없음(헬스·PT 이용대금 금액만 기재)",
+      "terminated_on": "2022-11-12",
+      "decided_by": "원문에 없음",
+      "rule_ids": ["R31", "R32", "R52", "G5"],
+      "other_cited": ["방문판매법 제2조(계속거래)", "방문판매법 제32조제4항(환급 산정)"],
+      "verified": true,
+      "checked": "2026-11-21 C, 본문 숫자·날짜를 원문과 대조(웹 변환본)"
+    },
+    {
+      "id": "ccn-P000012923",
+      "title": "필라테스 계약 중도해지에 따른 환급 요구",
+      "url": "https://www.ccn.go.kr/contents/include.ccn?nMenuCode=52&gSiteCode=2&PLEID=P000012923&mPart=&impbcd=&impmcd=&impscd=&lquery=&startCount=0",
+      "source": "1372소비자상담센터 판례/조정례",
+      "kinds": ["schedule_cut"],
+      "business_fault": "not_determined",
+      "facts": "그룹 필라테스 144회 840,000원. 휴회로 만료일을 늘린 뒤 업체가 하루 수강 가능 횟수를 2회에서 1회로 줄일 예정이라고 통보했고, 소비자가 84회를 받은 상태에서 해지했다. 업체는 휴회 기간도 수업으로 치고 1회 정상가 55,000원으로 공제하겠다고 했다.",
+      "result": "업체 귀책이라고 단정하기는 어렵다고 보면서도 해지를 인정하고, 별도 위약금·배상금 없이 1회 단가로 이용분만 공제했다. 업체가 주장한 정상가 공제와 휴회 기간 공제는 산정에 반영하지 않았다.",
+      "penalty_deducted": false,
+      "contracts": [
+        {"paid": 840000, "deductions": {"이용분(5,833원 × 84회)": 489972}, "refund": 350028}
+      ],
+      "decided_refund": 350028,
+      "usage_method": "1회 단가 5,833원(840,000원 ÷ 144회) × 84회. 원문 산식이 5,833원을 썼다(840,000 ÷ 144 = 5,833.33…)",
+      "terminated_on": "2022-05-02",
+      "decided_by": "원문에 없음",
+      "rule_ids": ["R31", "R32", "G5"],
+      "other_cited": ["방문판매법 제2조(계속거래)", "방문판매법 제32조제4항(환급 산정)"],
+      "verified": true,
+      "checked": "2026-11-21 C, 본문 숫자·날짜를 원문과 대조(웹 변환본)"
+    }
+  ],
+  "kinds": {
+    "trainer_change": {"label": "약속한 트레이너·강사가 바뀌거나 그만둠", "cases": ["ccn-P000012910"]},
+    "schedule_cut": {"label": "수업 횟수·시간을 업체가 줄이겠다고 통보함", "cases": ["ccn-P000012923"]},
+    "closure": {"label": "휴업·폐업·운영 중단", "cases": []},
+    "relocation": {"label": "시설 이전·변경", "cases": []}
+  }
+}
