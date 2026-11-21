@@ -31,12 +31,27 @@ const entryMessage = (e: EntryError, min?: string) => !e ? undefined : {
 const INDUSTRY_HINT = { fitness: '헬스장, 피트니스, PT', yoga: '요가, 필라테스', other: '수영, 골프, 댄스, 학원 등. 아직 계산하지 않아요' } as const
 const REASON_HINT = {
   mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등',
-  unsure: '강사가 바뀌었는데 계약서에 강사 지정이 없는 경우 등',
 } as const
+// 업체 잘못인지 애매해서 업체 잘못인지 애매한 흔한 상황. 사례일 뿐 판단은 하지 않는다(통계 아님, 법적 판단 아님)
+const UNSURE_CASES = [
+  '담당 강사가 바뀌었는데 계약서에 강사 지정이 없어요',
+  '시설 공사나 장비 고장으로 일부를 못 써요',
+  '수업·프로그램 일부가 없어지거나 시간이 바뀌었어요',
+  '지점이 옮겨져서 다니기 멀어졌어요',
+] as const
 
-type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean; advice: boolean }
+function WhyBox({ ids, rules, children }: { ids: string[]; rules: Rules; children: React.ReactNode }) {
+  return (
+    <VStack gap={1}>
+      {children}
+      <Text type="supporting">근거: {ids.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
+    </VStack>
+  )
+}
 
-export function Intake({ onConfirm, rules, upload, advice }: Props) {
+type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
+
+export function Intake({ onConfirm, rules, upload }: Props) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
@@ -45,8 +60,9 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
   // 해지 이유. 위약금 공제는 업체 잘못이 없는 해지가 전제라(docs/환불_규칙.md) 업체 잘못이면 이 계산을 쓰지 않는다
   // 업종. 위약금 기준(총계약대금의 10%)이 고시에서 확인된 것은 헬스·피트니스업과 요가·필라테스업뿐이다(docs/환불_규칙.md)
   const [industry, setIndustry] = useState<'fitness' | 'yoga' | 'other'>('fitness')
-  const [reason, setReason] = useState<'mine' | 'business' | 'unsure'>('mine')
+  const [reason, setReason] = useState<'mine' | 'business'>('mine')
   const [busy, setBusy] = useState(false)
+  const [why, setWhy] = useState<'used' | 'penalty' | 'deposit' | null>(null)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
@@ -139,6 +155,12 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       onConfirm(step, today)
     })
     // 업종과 해지 이유는 한 카드에 가로 선택으로 둔다. 둘 다 금액을 보여 줄지를 정하는 질문이다
+    const byCount = refund.unit_label === '회'
+    const whyButton = (key: 'used' | 'penalty' | 'deposit', label: string) => (
+      <button type="button" className="receipt-btn" aria-expanded={why === key} onClick={() => setWhy(why === key ? null : key)}>
+        {label}<span aria-hidden="true">{why === key ? ' ▴' : ' ▾'}</span>
+      </button>
+    )
     const industryCard = (
       <VStack gap={2}>
         <Text weight="semibold">회원권 업종</Text>
@@ -155,10 +177,9 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       <VStack gap={2}>
         <Text weight="semibold">해지하려는 이유</Text>
         <SegmentedControl label="해지하려는 이유" layout="fill" size="sm" value={reason} isDisabled={busy}
-          onChange={(v) => setReason(v as 'mine' | 'business' | 'unsure')}>
+          onChange={(v) => setReason(v as 'mine' | 'business')}>
           <SegmentedControlItem value="mine" label="내 사정" />
           <SegmentedControlItem value="business" label="업체 잘못" />
-          <SegmentedControlItem value="unsure" label="잘 모르겠어요" />
         </SegmentedControl>
         <Text type="supporting">{REASON_HINT[reason]}</Text>
       </VStack>
@@ -198,17 +219,15 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
               <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
-              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '잘 모르겠어요'를 골라 계속할 수 있어요</Text>
+              <Text type="supporting">업체 잘못인지 애매한 경우예요</Text>
+              <ul className="list-disc pl-5 text-sm text-muted-foreground" aria-label="애매한 상황 예시">
+                {UNSURE_CASES.map((t) => <li key={t}>{t}</li>)}
+              </ul>
+              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '내 사정'으로 금액을 먼저 보고, 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
           </Card>
           <FaultSummary c={contract} />
         </>) : (<>
-        {reason === 'unsure' && (
-          // 조언을 받을 수 없으면 1372만 안내한다(쓸 수 없는 칸으로 보내지 않는다)
-          <Banner status="info" collapsible={false} title={advice
-            ? "애매하면 문자 보내기 전에 '내 상황에 맞는 조언'에 상황을 적어 보세요. 그래도 애매하면 1372에 물어보세요"
-            : '업체 잘못인지 애매하면 문자 보내기 전에 1372 소비자상담센터(국번 없이 1372)에 물어보세요'} />
-        )}
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
         <Card>
           <VStack gap={3}>
@@ -218,12 +237,31 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
               <Text type="supporting">{unitName} 기준으로 계산</Text>
               <Text type="supporting">{contract.gym_name || '내 회원권'} · {contract.start_date} ~ {contract.end_date}</Text>
             </VStack>
+            {/* 빠지는 돈은 눌러서 이유와 근거를 본다. 계산 근거 목록은 따로 두지 않고 각 줄 아래에 붙인다 */}
             <dl className="receipt">
               <div><dt>낸 돈</dt><dd>{won(contract.total_paid)}</dd></div>
-              <div><dt>쓴 만큼 · {refund.total_days}{refund.unit_label} 중 {refund.used_days}{refund.unit_label}</dt><dd>−{won(refund.used_amount)}</dd></div>
-              <div><dt>위약금</dt><dd>−{won(refund.penalty)}</dd></div>
+              <div><dt>{whyButton('used', `쓴 만큼 · ${refund.total_days}${refund.unit_label} 중 ${refund.used_days}${refund.unit_label}`)}</dt><dd>−{won(refund.used_amount)}</dd></div>
+              {why === 'used' && <div className="receipt-why"><WhyBox ids={['G5']} rules={rules}>
+                {/* 회 단위는 날짜가 아니라 사용자가 적은 이용 횟수로 계산한다(rules.py) */}
+                {byCount ? (
+                  <Text as="p" type="supporting">이미 받은 횟수만큼은 돌려받지 않아요. 총 횟수 중 받은 횟수로 나눠 계산해요</Text>
+                ) : (<>
+                  <Text as="p" type="supporting">이용한 날짜만큼은 돌려받지 않아요. 가지 않은 날도 알린 날까지는 이용한 것으로 봐요. 이용 시작 전에 알리면 이 줄은 0원이에요</Text>
+                  <Text as="p" type="supporting">이용 시작일은 계약일이 아니라 계약서에 적힌 이용 시작일이에요. 시작일과 마지막 이용일은 둘 다 이용한 날로 세요</Text>
+                </>)}
+              </WhyBox></div>}
+              <div><dt>{whyButton('penalty', '위약금')}</dt><dd>−{won(refund.penalty)}</dd></div>
+              {/* 시작 전 해지인데 위약금이 빠지는 것이 가장 헷갈리는 지점이라, 누르지 않아도 한 줄로 먼저 알린다 */}
+              {refund.used_days === 0 && why !== 'penalty' && <div className="receipt-note"><Text type="supporting">{byCount ? '아직 받은 횟수가 없어 쓴 돈은 없지만' : '아직 이용 전이라 쓴 돈은 없지만'}, 위약금은 빠져요. 위약금을 눌러 이유를 보세요</Text></div>}
+              {why === 'penalty' &&<div className="receipt-why"><WhyBox ids={['G10']} rules={rules}>
+                <Text as="p" type="supporting">내 사정으로 해지하면 총 계약대금의 10%를 위약금으로 뺄 수 있어요. 이용 시작 전이든 후든 같은 기준이라, 시작 전에 해지해도 빠져요</Text>
+                <Text as="p" type="supporting">업체 잘못으로 해지하는 경우에는 이 위약금을 내지 않을 수 있어요. 그때는 위에서 '업체 잘못'을 골라 주세요</Text>
+              </WhyBox></div>}
               {refund.addon > 0 && <div><dt>사은품</dt><dd>−{won(refund.addon)}</dd></div>}
-              {refund.security_deposit > 0 && <div><dt>돌려받을 보증금</dt><dd>+{won(refund.security_deposit)}</dd></div>}
+              {refund.security_deposit > 0 && <div><dt>{whyButton('deposit', '돌려받을 보증금')}</dt><dd>+{won(refund.security_deposit)}</dd></div>}
+              {why === 'deposit' && <div className="receipt-why"><WhyBox ids={['G5D']} rules={rules}>
+                <Text as="p" type="supporting">보증금은 계약대금에 들어가지 않아서 위약금을 계산할 때 빠져요. 별도 약정이 없으면 전액 돌려받아요</Text>
+              </WhyBox></div>}
               <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
             </dl>
             {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
@@ -251,12 +289,6 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
                 <Text type="supporting">위 금액은 이 특약을 빼고 계산했어요. 소비자에게 불리한 특약은 효력이 없을 수 있지만, 이 특약이 그런지는 확인이 필요해요</Text>
               </VStack>
             )}
-            {/* 근거 조문 이름이 길어 세 줄을 넘는다. 개수만 보이고 눌러야 펼친다(전체 근거는 '근거' 탭에도 있다) */}
-            {refund.refs.length > 0 && (
-              <Collapsible defaultIsOpen={false} trigger={<Text type="supporting">계산 근거 {refund.refs.length}개</Text>}>
-                <Text type="supporting">{refund.refs.map((id) => rules[id]?.title ?? id).join(' · ')}</Text>
-              </Collapsible>
-            )}
             {refund.provisional && <Text type="supporting">일반 기준으로 계산했어요. 실제와 다를 수 있어요</Text>}
           </VStack>
         </Card>
@@ -281,13 +313,18 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
       <Text as="p">헬스장·필라테스 환불, 입금까지 챙겨 드려요</Text>
       <Card>
         <VStack gap={3}>
-          <Heading level={2}>가상 계약서로 해 보기</Heading>
-          {samples.map((s) => <Button key={s.id} variant="primary" label={s.label} isDisabled={busy} onClick={() => review(s.contract)} />)}
-        </VStack>
-      </Card>
-      <Card>
-        <VStack gap={3}>
-          <Heading level={2}>내 계약 입력</Heading>
+          {/* 가상 계약서는 시연용이라 제목 오른쪽 위에 작은 버튼으로 둔다. 누르면 바로 계산한다 */}
+          <HStack gap={2} hAlign="between" wrap="wrap">
+            <Heading level={2}>내 계약 입력</Heading>
+            {samples.length > 0 && (
+              <div role="group" aria-label="가상 계약서로 해 보기">
+                <HStack gap={2} wrap="wrap">
+                  {samples.map((s) => <Button key={s.id} size="sm" label={samples.length === 1 ? '가상 계약서로 해 보기' : s.label}
+                    isDisabled={busy} onClick={() => review(s.contract)} />)}
+                </HStack>
+              </div>
+            )}
+          </HStack>
           {/* 사진은 같은 칸을 채우는 방법이라 따로 카드를 두지 않고 입력 카드 맨 위에 둔다 */}
           {upload && (
             <VStack gap={2}>
@@ -316,11 +353,9 @@ export function Intake({ onConfirm, rules, upload, advice }: Props) {
           {/* 시작일과 종료일은 한 줄에 둔다. 아주 좁은 화면에서는 index.css가 두 줄로 내린다 */}
           <div className="date-pair">
             <DateInput label="이용 시작일" format="system_date" placeholder="연도-월-일" value={asIso(c.start_date)} width="100%"
-              description="계약일과 다르면 계약서에 적힌 이용 시작일을 입력해 주세요."
               onChange={(v) => edit('start_date', { ...c, start_date: v ?? '' })} onEntryErrorChange={setStartError}
               status={entryMessage(startError) ?? (checks.has('start_date') ? CHECK : undefined)} />
             <DateInput label="마지막 이용일" format="system_date" placeholder="연도-월-일" value={asIso(c.end_date)} min={asIso(c.start_date)} width="100%"
-              description="일수로 계산할 때는 시작일과 마지막 이용일을 모두 포함해요."
               onChange={(v) => edit('end_date', { ...c, end_date: v ?? '' })} onEntryErrorChange={setEndError}
               status={entryMessage(endError, c.start_date) ?? (checks.has('end_date') ? CHECK : undefined)} />
           </div>
