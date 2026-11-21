@@ -37,7 +37,8 @@ function CaseView({ c }: { c: MediationCase }) {
 }
 
 // kind를 넘기면 고른 유형을 접수 화면이 계약 값(fault_kind)으로 쓴다. '그 밖'(other)은 찾아 둔 조정례가 없다
-export function FaultCases({ kind: outer, onKind }: { kind?: string; onKind?: (kind: string) => void } = {}) {
+// fixed: 답장 화면처럼 유형이 이미 정해져 있으면 선택지 없이 그 유형의 사례만 접어서 보인다(문자에 넣지 않고 참고만 한다)
+export function FaultCases({ kind: outer, onKind, fixed = false }: { kind?: string; onKind?: (kind: string) => void; fixed?: boolean } = {}) {
   const [data, setData] = useState<MediationCases | null>(null)
   const [inner, setInner] = useState('')
   const kind = outer ?? inner
@@ -51,6 +52,23 @@ export function FaultCases({ kind: outer, onKind }: { kind?: string; onKind?: (k
   const chosen = kind && kind !== 'other' ? data.kinds[kind] : undefined
   const cases = chosen ? data.cases.filter((c) => chosen.cases.includes(c.id)) : []
   const mixed = new Set(cases.map((c) => c.business_fault)).size > 1
+  if (fixed) {
+    // 사례가 없는 유형(그 밖 등)이면 보이지 않는다
+    if (!cases.length) return null
+    return (
+      <Card>
+        <Collapsible trigger={<VStack gap={1}>
+          <Text weight="semibold">비슷한 사례 {cases.length}건 참고하기</Text>
+          <Text type="supporting">답장을 고쳐 쓰거나 1372에 말할 때 참고하세요. 문자에 넣는 근거는 아니에요</Text>
+        </VStack>}>
+          <VStack gap={4}>
+            {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
+            {cases.map((c) => <CaseView key={c.id} c={c} />)}
+          </VStack>
+        </Collapsible>
+      </Card>
+    )
+  }
   return (
     <Card>
       <VStack gap={3}>

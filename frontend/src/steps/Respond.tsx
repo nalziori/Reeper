@@ -3,6 +3,7 @@ import { InboxArrowDownIcon } from '@heroicons/react/24/outline'
 import { useEffect, useRef, useState } from 'react'
 import type { ReadReply } from '../api'
 import { DraftList } from '../components/Draft'
+import { FaultCases } from '../components/FaultCases'
 import { Guide1372 } from '../components/Guide1372'
 import { ReplyButtons } from '../components/ReplyButtons'
 import { REPLY_LABEL, won } from '../format'
@@ -126,6 +127,9 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
       {/* 1372로 넘어갈 때는 절차·전화 버튼·챙길 것을 말할 내용 위에 둔다 */}
       {action.type === 'go_1372' && c.stage !== 'handed_off' && <Guide1372 />}
       {(sendFirst || askFirst) && <DraftList drafts={drafts} note={saved.note} />}
+      {/* 업체 사정 사건에서 업체가 반박할 만한 답을 했거나 1372로 넘어갈 때, 같은 유형의 조정례를 문안 아래에 접어 둔다 */}
+      {c.contract.cancel_reason === 'business' && c.contract.fault_kind && c.stage !== 'handed_off'
+        && (action.type === 'counter' || action.type === 'go_1372') && <FaultCases kind={c.contract.fault_kind} fixed />}
       {/* 이 단계에서 한 일을 기록하는 버튼. 탭 바로 위에 붙어 있다 */}
       {hasDock && (
         <Dock label="한 일 기록">
