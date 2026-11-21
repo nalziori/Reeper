@@ -398,6 +398,7 @@ def why(case: Case) -> str:
 
 def facts(case: Case) -> dict[str, str]:
     c, r = case.contract, case.refund
+    reason = why(case)
     addon_part = f", 부가상품 {r.addon:,}원" if r.addon else ""
     deposit_note = f", 보증금 {r.security_deposit:,}원 포함" if r.security_deposit else ""
     return {
@@ -408,7 +409,8 @@ def facts(case: Case) -> dict[str, str]:
         "addon": f"{r.addon:,}" if r.addon else "", "deposit": f"{r.security_deposit:,}" if r.security_deposit else "",
         "addon_part": addon_part,
         # 소비자 사정 문안은 위약금이 0원일 때도 기존 표기를 유지한다
-        "why": why(case),
+        "why": reason,
+        "business_reason_part": f"{reason} " if c.cancel_reason == "business" else "",
         "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty or c.cancel_reason == "consumer" else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": deposit_note,
