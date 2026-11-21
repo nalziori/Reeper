@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { MediationCase } from '../api'
+import type { FaultKind, MediationCase } from '../api'
 import { useMediationCases } from '../useMediationCases'
 import { won } from '../format'
 import { Card, Collapsible, ExternalLink, HStack, RadioList, RadioListItem, Text, VStack } from '../ui'
@@ -39,11 +39,19 @@ function CaseView({ c }: { c: MediationCase }) {
 
 // 업체 사정 유형 고르기. 금액을 정하는 질문이라 접수 화면의 업종·해지 이유 카드 안에 둔다.
 // 고른 뒤에는 한 줄로 접어 자리를 줄이고, '바꾸기'로 다시 연다. 유형은 계약 값(fault_kind)이 된다. '그 밖'(other)은 조정례가 없다
+// 유형 이름은 화면 상수로 둔다. 조정례를 못 불러와도(서버가 깨어나는 중, 요청 실패) 유형을 골라 금액으로 갈 수 있다(#161 B 리뷰).
+// 이름은 data/mediation_cases.json의 kinds.label과 같다(바꾸면 함께 바꾼다)
+const FAULT_KIND_LABEL: Record<FaultKind, string> = {
+  trainer_change: '약속한 트레이너·강사가 바뀌거나 그만둠',
+  schedule_cut: '수업 횟수를 줄이거나 수업을 없앤다고 통보함',
+  closure: '휴업·폐업이나 시설 일부 폐쇄',
+  relocation: '시설 이전이나 운영 시간 변경',
+  other: '그 밖의 업체 사정',
+}
+
 export function FaultKindPicker({ value, onChange, isDisabled }: { value: string; onChange: (kind: string) => void; isDisabled?: boolean }) {
-  const data = useMediationCases()
   const [open, setOpen] = useState(false)
-  if (!data) return null
-  const label = value === 'other' ? '그 밖의 업체 사정' : data.kinds[value]?.label
+  const label = FAULT_KIND_LABEL[value as FaultKind]
   if (value && label && !open) {
     return (
       <HStack gap={2} hAlign="between" vAlign="center">
@@ -54,8 +62,7 @@ export function FaultKindPicker({ value, onChange, isDisabled }: { value: string
   }
   return (
     <RadioList label="어떤 일이었나요" value={value} isDisabled={isDisabled} onChange={(k) => { onChange(k); setOpen(false) }}>
-      {Object.entries(data.kinds).map(([id, k]) => <RadioListItem key={id} value={id} label={k.label} />)}
-      <RadioListItem value="other" label="그 밖의 업체 사정" />
+      {Object.entries(FAULT_KIND_LABEL).map(([id, name]) => <RadioListItem key={id} value={id} label={name} />)}
     </RadioList>
   )
 }
@@ -75,19 +82,18 @@ export function FaultCases({ kind, context }: { kind: string; context: 'intake' 
     .filter(([, n]) => n > 0).map(([name, n]) => `${name} ${n}`).join(' · ')
   return (
     <Card>
+      {/* 접힌 상태에서도 사례가 내 계약의 결과가 아니라는 것은 보이게 둔다(#161 B 리뷰) */}
       <Collapsible trigger={<VStack gap={1}>
         <Text weight="semibold">비슷한 사례 {cases.length}건 참고하기</Text>
         <Text type="supporting">{counts}</Text>
+        <Text type="supporting">비슷한 사례일 뿐, 내 계약도 같은 결과가 나온다는 뜻은 아니에요</Text>
       </VStack>}>
         <VStack gap={4}>
           {chosen?.note && <Text as="p">{chosen.note}</Text>}
           {mixed && <Text as="p">비슷한 유형에서도 업체 책임에 대한 판단은 사례마다 달랐어요</Text>}
           {cases.map((c) => <CaseView key={c.id} c={c} />)}
-          <Text type="supporting">
-            {context === 'reply'
-              ? '답장을 고쳐 쓰거나 1372에 말할 때 참고하세요. 문자에 넣는 근거는 아니에요'
-              : '비슷한 사례일 뿐, 내 계약도 같은 결과가 나온다는 뜻은 아니에요. 금액은 그 사건의 결정 금액이고, 실제로 입금됐는지는 원문에 없어요'}
-          </Text>
+          <Text type="supporting">금액은 그 사건의 결정 금액이고, 실제로 입금됐는지는 원문에 없어요</Text>
+          {context === 'reply' && <Text type="supporting">답장을 고쳐 쓰거나 1372에 말할 때 참고하세요. 문자에 넣는 근거는 아니에요</Text>}
         </VStack>
       </Collapsible>
     </Card>

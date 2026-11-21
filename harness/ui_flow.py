@@ -479,7 +479,7 @@ def business_amount(browser, base):
     rec(f"{tag}: 화면의 다툴 때 금액은 서버 비교액", page.get_by_text(dispute, exact=True).count() == 1)
     # 사례는 금액 아래에 요약 한 줄로 접혀 있다(인정·불인정 수). 펴야 사례가 보인다
     rec(f"{tag}: 사례는 금액 아래 요약으로 접힘", page.get_by_text("3,275,216원", exact=False).count() == 0
-        and page.get_by_text(re.compile(r"인정 \d")).count() >= 1
+        and page.get_by_text(re.compile(r"^(인정|불인정|판단 어려움|원문에 판단 없음) \d")).count() >= 1
         and page.get_by_text("비슷한 사례 3건 참고하기").bounding_box()["y"] > heading.bounding_box()["y"])
     open_cases(page)
     rec(f"{tag}: 비슷한 조정례 결과와 원문 링크", page.get_by_text("3,275,216원", exact=False).count() >= 1
@@ -503,6 +503,25 @@ def business_amount(browser, base):
         and opened["case"]["contract"]["fault_kind"] == "closure"
         and "개인 사정으로" not in draft.first.inner_text())
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def business_without_cases(browser, base):
+    """조정례(/api/mediation-cases)를 못 불러와도 유형 선택지는 화면 상수라 고를 수 있고 금액·시작 버튼으로 간다(#161 B 리뷰)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "조정례 없이 업체 잘못"
+    page.route("**/api/mediation-cases", lambda route: route.abort())
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").wait_for()
+    page.get_by_role("radio", name=re.compile("업체 잘못")).check()
+    pick_kind(page, "약속한 트레이너·강사가 바뀌거나 그만둠")
+    page.get_by_role("heading", name="예상 환불액(업체 잘못이 인정되면)").wait_for()
+    rec(f"{tag}: 유형을 골라 금액과 시작 버튼", btn(page, "이 금액으로 시작").count() == 1
+        and page.get_by_text(re.compile(r"^비슷한 사례 \d+건 참고하기$")).count() == 0)
+    # 요청을 일부러 끊었으니 그 실패만 콘솔 오류에서 뺀다
+    rest = [e for e in errors if "mediation-cases" not in e and "ERR_FAILED" not in e]
+    rec(f"{tag}: 콘솔 오류 없음", not rest, "; ".join(rest)[:200])
     ctx.close()
 
 
@@ -628,6 +647,7 @@ def main() -> int:
             not_sent_drafts(browser, base)
             business_fault(browser, base)
             business_amount(browser, base)
+            business_without_cases(browser, base)
             business_negotiation(browser, base)
             industry_gate(browser, base)
             good_offer(browser, base)
