@@ -69,7 +69,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   // 업체 잘못일 때 고른 업체 사정 유형과, 그 계약으로 서버가 다시 계산한 금액. 금액은 rules.py만 만든다
   const [kind, setKind] = useState<FaultKind | ''>('')
   // 어떤 미리보기·유형으로 계산한 값인지 같이 둔다. 계약이나 유형이 바뀌면 옛 값은 쓰지 않는다
-  const [biz, setBiz] = useState<{ of: unknown; kind: string; refund: Refund } | null>(null)
+  // refund가 null이면 계산을 받지 못한 것이다(1372 안내로 남는다)
+  const [biz, setBiz] = useState<{ of: unknown; kind: string; refund: Refund | null } | null>(null)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
@@ -79,12 +80,12 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [limitsOpen, setLimitsOpen] = useState(false)
   // 계약 입력과 근거 확인을 오가면 맨 위에서 시작한다
   useEffect(() => { window.scrollTo({ top: 0 }) }, [preview === null])
-  // 업체 잘못 + 유형(폐업 제외)이면 같은 계약을 업체 잘못으로 다시 계산한다. 폐업은 사건을 열지 않는다(문 닫은 업체에 보낼 문자가 없다)
+  // 업체 잘못 + 유형이면 같은 계약을 업체 잘못으로 다시 계산한다. 폐쇄 유형도 연다(시설 일부만 닫고 영업 중인 경우가 있다, #154 B 리뷰)
   useEffect(() => {
-    if (!preview || reason !== 'business' || !kind || kind === 'closure') return
+    if (!preview || reason !== 'business' || !kind) return
     let active = true
     api.preview({ ...preview.contract, cancel_reason: 'business', fault_kind: kind }, preview.today)
-      .then((r) => { if (active) setBiz({ of: preview, kind, refund: r }) }, () => { /* 못 받으면 1372 안내로 남는다 */ })
+      .then((r) => { if (active) setBiz({ of: preview, kind, refund: r }) }, () => { if (active) setBiz({ of: preview, kind, refund: null }) })
     return () => { active = false }
   }, [preview, reason, kind])
   const edit = (field: ExtractField, next: Contract) => {
@@ -147,8 +148,13 @@ export function Intake({ onConfirm, rules, upload }: Props) {
 
   if (preview) {
     // 업체 잘못 계산은 서버가 위약금 0원으로 돌려줄 때만 쓴다(rules.py가 아직 업체 잘못을 계산하지 않으면 1372 안내로 둔다)
-    const bizRefund = biz && biz.of === preview && biz.kind === kind ? biz.refund : null
-    const isBiz = reason === 'business' && kind !== '' && kind !== 'closure' && bizRefund !== null && bizRefund.penalty === 0
+    const got = biz && biz.of === preview && biz.kind === kind ? biz : null
+    const bizRefund = got?.refund ?? null
+    // 유형을 고르고 계산을 기다리는 동안에는 옛 안내 카드를 잠깐 보이지 않는다
+    const bizPending = reason === 'business' && kind !== '' && got === null
+    // 위약금 0원만으로는 계산 분기가 들어왔는지 모른다(결제액 10원 미만이면 내 사정도 0원). C의 분기는 업체 사정이면
+    // disputed_refund를 늘 채우므로(0원 포함) 그것까지 보고 연다. 양식(문안)도 같은 C PR로 들어온다(#154 C 리뷰)
+    const isBiz = reason === 'business' && kind !== '' && bizRefund !== null && bizRefund.penalty === 0 && bizRefund.disputed_refund != null
     const base = preview
     const contract: Contract = isBiz ? { ...base.contract, cancel_reason: 'business', fault_kind: kind as FaultKind } : base.contract
     const refund = isBiz && bizRefund ? bizRefund : base.refund
@@ -234,14 +240,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
           </VStack>
         </Card>
         {reason === 'business' && <FaultCases kind={kind} onKind={(k) => setKind(k as FaultKind | '')} />}
-        {reason === 'business' && !isBiz ? (<>
-          {kind === 'closure' && (
-            <Card><VStack gap={2}>
-              <Heading level={2}>문을 닫았다면 1372 상담부터 해요</Heading>
-              <Text as="p">업체가 문을 닫으면 보낼 곳이 없어서, Reeper는 1372에 말할 내용을 정리해 드려요</Text>
-            </VStack></Card>
-          )}
-          {kind !== 'closure' && <Card>
+        {reason === 'business' && bizPending ? <Waiting message="금액을 계산하고 있어요" /> : reason === 'business' && !isBiz ? (<>
+          <Card>
             <VStack gap={2}>
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
@@ -251,10 +251,12 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               </ul>
               <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 업체 잘못인지 애매하면 업체에 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
-          </Card>}
+          </Card>
           <Guide1372 scriptLabel="1372에 말할 내용 정리" tracked={false} />
           <FaultSummary c={contract} />
         </>) : (<>
+        {/* 휴업·폐업이나 시설 일부 폐쇄: 영업 중이면 문자를 보낼 수 있다. 아예 문을 닫았을 때만 1372로 안내한다 */}
+        {isBiz && kind === 'closure' && <Banner status="info" collapsible={false} title="업체가 아예 문을 닫아 연락이 안 되면 문자 대신 1372에 상담하세요" />}
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}
         <Card>
           <VStack gap={3}>
@@ -296,8 +298,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               </WhyBox></div>}
               <div className="receipt-total"><dt>돌려받을 돈</dt><dd>{won(refund.refund)}</dd></div>
             </dl>
-            {/* 업체가 다툴 때 금액은 rules.py가 채운 disputed_refund를 쓴다. 아직 비어 있으면 같은 날짜의 내 사정 계산값을 쓴다 */}
-            {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(refund.disputed_refund ?? base.refund.refund)}이 될 수 있어요</Text>}
+            {/* 업체가 다툴 때 금액은 rules.py가 채운 disputed_refund다(isBiz면 늘 있다) */}
+            {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(refund.disputed_refund ?? 0)}이 될 수 있어요</Text>}
             {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
             <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
               trigger={<VStack gap={1}>
