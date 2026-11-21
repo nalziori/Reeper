@@ -34,7 +34,8 @@ export function Deposit({ saved, send }: { saved: Saved; send: Send }) {
           </VStack>
         </Card>
       )}
-      {action.type === 'go_1372' && <Guide1372 />}
+      {/* 1372에 접수한 뒤(handed_off)에는 엔진이 계속 go_1372를 주지만 절차·전화 안내는 다시 보이지 않는다(Respond와 같다) */}
+      {action.type === 'go_1372' && c.stage !== 'handed_off' && <Guide1372 />}
       {c.stage !== 'closed' && <DraftList drafts={drafts} note={saved.note} />}
       {c.stage === 'agreed' && (
       <Card>
