@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app import agent
 from app.engine import POLICY, apply, next_action, open_case
 from app.main import app
-from app.models import Contract, Event
+from app.models import Case, Contract, Event
 
 api = TestClient(app)
 CONTRACT = Contract(gym_name="가상피트니스", total_paid=600_000,
@@ -573,34 +573,30 @@ def test_keyword_reading_catches_refusals_without_the_word_impossible(text, kind
 
 
 # ---- 업체 쪽 사정으로 해지하는 사건 ---------------------------------------------------------
-def fault_case(kind="closure", no_penalty=True):
-    """업체 쪽 사정 사건. no_penalty면 rules.py가 위약금을 빼지 않게 된 뒤의 모양을 흉내 낸다(계산 분기는 C 몫)."""
-    case = open_case(CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": kind}), D)
-    if no_penalty:
-        r = case.refund
-        r = r.model_copy(update={"penalty": 0, "refund": r.refund + r.penalty, "disputed_refund": r.refund})
-        case = case.model_copy(update={"refund": r, "target": r.refund, "floor": r.refund})
-    return case
-
-
-NOTICE = ("안녕하세요, {gym} 회원입니다. {why} 회원권을 중도해지하려고 합니다. 결제금액 {total}원에서 "
-          "이용분 {used}원{penalty_part}{addon_part}을 뺀{deposit_part} {refund}원의 환불을 요청드립니다.")
+def fault_case(kind="closure"):
+    return open_case(CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": kind}), D)
 
 
 def test_drafts_can_say_why_and_drop_the_penalty_phrase():
     mine, theirs = open_case(CONTRACT, D), fault_case()
-    a, b = NOTICE.format(**agent.facts(mine)), NOTICE.format(**agent.facts(theirs))
-    assert "개인 사정으로 회원권" in a and "과 위약금 60,000원을 뺀" in a and agent.validate(a, mine)
+    a, b = agent.render("notice_sms", mine), agent.render("notice_sms", theirs)
+    assert "개인 사정으로 회원권" in a and "과 위약금 60,000원" in a and agent.validate(a, mine)
     assert "휴업이나 시설 폐쇄로 계약한 시설을 이용할 수 없게 되어 회원권" in b and "위약금" not in b and agent.validate(b, theirs)
-    # 유형을 고르지 않았으면 단정하지 않는 말로 쓴다. 위약금이 아직 빠지는 계산이면 구절도 그대로 나온다
     assert agent.facts(fault_case(None))["why"] == "계약 내용과 다르게 운영되어"
-    assert agent.facts(fault_case(no_penalty=False))["penalty_part"] == "과 위약금 60,000원"
+    assert agent.facts(theirs)["penalty_part"] == ""
+    assert "과 위약금 0원" in agent.render("notice_sms", open_case(CONTRACT.model_copy(update={"total_paid": 9}), D))
+
+    counter = agent.render("counter_penalty", theirs)
+    assert "제4조 제1항" in counter and f"{theirs.refund.refund:,}원" in counter
+    assert "개인 사정" not in counter and "10%" not in counter and agent.validate(counter, theirs)
 
 
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:
-        assert agent.validate(agent.render(kind, case), case), kind
+        text = agent.render(kind, case)
+        assert agent.validate(text, case), kind
+        assert "개인 사정으로" not in text and "위약금 0원" not in text, kind
 
 
 def test_1372_request_line_has_no_penalty_when_none_was_deducted():
@@ -618,13 +614,18 @@ def test_the_model_learns_the_cancel_reason_only_for_business_cases(real):
     # 업체가 다퉈 소비자 사정으로 계산될 때의 금액은 rules.py가 사건에 적어 둔 값이다(Refund.disputed_refund)
     assert told == {"소비자가 고른 것": "업체 쪽 사정", "유형": "휴업·폐업이나 시설 일부 폐쇄",
                     "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": open_case(CONTRACT, D).refund.refund}
-    # 계산이 해지 이유를 아직 보지 않으면 그 값이 없어 줄을 비운다. 며칠 뒤에 물어도 같다:
-    # 에이전트가 오늘 날짜로 다시 계산하면 지난 날짜만큼의 이용분 차이가 "다퉈질 때 금액"으로 나간다(C 리뷰 #151)
-    for today in (D, D + timedelta(days=3)):
-        agent.plan(fault_case(no_penalty=False), "상황", today)
-        assert json.loads(sent["user"])["해지 이유"]["업체가 다퉈 소비자 사정으로 계산될 때의 환불액"] is None
+    case = fault_case()
+    other = open_case(CONTRACT, D).refund.refund
     later = D + timedelta(days=3)
-    assert agent._problems("업체가 다투면 453,334원이 될 수 있어요.", fault_case(no_penalty=False), later)
+    assert open_case(CONTRACT, later).refund.refund != other
+    agent.plan(case, "상황", later)
+    assert json.loads(sent["user"])["해지 이유"]["업체가 다퉈 소비자 사정으로 계산될 때의 환불액"] == other
+    wrong_date_amount = open_case(CONTRACT, later).refund.refund
+    assert agent._problems(f"업체가 다투면 {wrong_date_amount:,}원이 될 수 있어요.", case, later)
+
+    legacy = case.model_dump(mode="json")
+    del legacy["refund"]["disputed_refund"]
+    assert agent._if_disputed(Case.model_validate(legacy)) is None
 
 
 def test_advice_may_quote_the_amount_if_the_fault_is_disputed():
