@@ -533,3 +533,7 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
 .check-item input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
 .check-item input:checked + span { color: var(--muted-foreground); text-decoration: line-through; }
 .guide-steps { margin: 0; padding-left: 20px; list-style: decimal; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+
+/* ── 마스코트(기다림·완료 화면) ─────────────────────── */
+.mascot { display: flex; justify-content: center; padding: 8px 0 20px; }
+.mascot img { height: 120px; width: auto; }

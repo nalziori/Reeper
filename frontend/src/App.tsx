@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { forgetAccount } from './account'
 import { api, type Health, type ReadReply, type Rules, type Step } from './api'
 import { DeadlineLine } from './components/DeadlineLine'
+import { Mascot } from './components/Mascot'
 import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
@@ -206,13 +207,17 @@ export default function App() {
       <DockProvider value={dockEl}>
       <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
-      {/* 지금 할 일 한 문장과 기한 */}
-      {!(phase === 3 && action.type === 'send_notice') && <Card className="mb-3">
+      {/* 지금 할 일 한 문장과 기한. 금액 제시 없이 다시 요청하는 반박(근거를 들어 다시 요청하세요)은 아래 문자 카드와
+          같은 말이고 기한도 없어서 보이지 않는다. 이유나 기한이 있는 문장은 그대로 둔다(문장은 engine.py가 정한다) */}
+      {!(phase === 3 && action.type === 'send_notice') && !(action.type === 'counter' && !action.warn && c.offered == null) && <Card className="mb-3">
         <VStack gap={3}>
           <Heading level={2}>{action.reason}</Heading>
           <DeadlineLine c={c} offset={saved.offset} />
         </VStack>
       </Card>}
+      {/* 기다릴 때와 다 끝났을 때만 마스코트를 둔다. 빈 화면을 채우는 그림이다 */}
+      {action.type === 'wait' && <Mascot pose="wait" />}
+      {c.stage === 'closed' && <Mascot pose="done" />}
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>
         {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
