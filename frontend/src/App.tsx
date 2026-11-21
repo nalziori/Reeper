@@ -153,9 +153,10 @@ export default function App() {
       <BottomSheet open={!!saved && confirmReset} onOpenChange={setConfirmReset} title="지금 기록을 지울까요?">
         <VStack gap={3}>
           <Text as="p">이 브라우저에만 있어서 되돌릴 수 없어요. 남기려면 아래 '기록' 탭에서 먼저 저장하세요</Text>
-          <HStack gap={2} wrap="wrap">
-            <Button label="계속하기" variant="primary" onClick={() => setConfirmReset(false)} />
+          {/* 오른손 엄지가 닿는 오른쪽 아래에 둔다. 주 버튼(계속하기)이 맨 오른쪽이다 */}
+          <HStack gap={2} wrap="wrap" hAlign="end">
             <Button label="지우고 새로 시작" onClick={reset} />
+            <Button label="계속하기" variant="primary" onClick={() => setConfirmReset(false)} />
           </HStack>
         </VStack>
       </BottomSheet>
