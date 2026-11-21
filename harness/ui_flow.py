@@ -392,7 +392,7 @@ def business_fault(browser, base):
     summary = page.locator(".draft", has_text="[1372에 말할 내용]").inner_text()
     rec(f"{tag}: 1372에 말할 내용 정리", "가상피트니스" in summary and "600,000원" in summary
         and "샤워실 운영 중단" in summary, summary.replace(chr(10), " / ")[:80])
-    rec(f"{tag}: 애매하면 내 사정으로 보고 1372 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
+    rec(f"{tag}: 애매하면 문자 전에 1372 안내", page.get_by_text(re.compile("애매하면.*1372")).count() >= 1)
     rec(f"{tag}: 정리에 계산 금액 없음", "위약금" not in summary and "460,000" not in summary)
     page.screenshot(path=SHOTS / "업체잘못.png", full_page=True)
     page.get_by_role("radio", name=re.compile("내 사정")).check()

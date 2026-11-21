@@ -33,7 +33,8 @@ const INDUSTRY_HINT = { fitness: '헬스장, 피트니스, PT', yoga: '요가, �
 const REASON_HINT = {
   mine: '이사, 건강, 마음이 바뀜 등', business: '시설 운영 중단, 약속한 강사·프로그램 불이행 등',
 } as const
-// 업체 잘못인지 애매해서 업체 잘못인지 애매한 흔한 상황. 사례일 뿐 판단은 하지 않는다(통계 아님, 법적 판단 아님)
+// 1372에 물어볼 만한 흔한 상황. 업체 잘못인지 판단하지 않는다(통계 아님, 법적 판단 아님).
+// 이전·시설 고장은 상담 사례에서 업체 잘못으로 본 경우가 있어(#142 B 리뷰) '내 사정'으로 안내하지 않는다
 const UNSURE_CASES = [
   '담당 강사가 바뀌었는데 계약서에 강사 지정이 없어요',
   '시설 공사나 장비 고장으로 일부를 못 써요',
@@ -220,11 +221,11 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Heading level={2}>1372 상담을 먼저 받아 보세요</Heading>
               <Text as="p">업체 잘못이면 위약금을 빼지 않을 수 있어서, 이 계산은 쓰지 않아요</Text>
               <Text as="p">1372 소비자상담센터(국번 없이 1372, www.1372.go.kr)에 상담하세요. 공지 사진이나 문자처럼 업체 잘못을 보여 줄 자료를 챙기면 좋아요</Text>
-              <Text type="supporting">업체 잘못인지 애매한 경우예요</Text>
+              <Text type="supporting">1372에 물어볼 만한 경우예요</Text>
               <ul className="list-disc pl-5 text-sm text-muted-foreground" aria-label="애매한 상황 예시">
                 {UNSURE_CASES.map((t) => <li key={t}>{t}</li>)}
               </ul>
-              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 애매하면 위에서 '내 사정'으로 금액을 먼저 보고, 문자를 보내기 전에 1372에 물어보세요</Text>
+              <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 업체 잘못인지 애매하면 업체에 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
           </Card>
           <FaultCases />

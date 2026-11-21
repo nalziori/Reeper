@@ -34,7 +34,7 @@ export const DEMO = import.meta.env.DEV || new URLSearchParams(window.location.s
 // 답장 유형을 사용자에게 보여 줄 이름. 버튼 이름과 같게 둔다
 export const REPLY_LABEL: Record<ReplyType, string> = {
   accept: '환불해 준대요', low_offer: '금액을 말했대요', refuse: '환불이 안 된대요', list_price: '정상가로 계산한대요',
-  visit: '방문해야 한대요', no_answer: '전화를 안 받아요', callback: '다시 연락 준대요', unknown: '잘 모르겠어요',
+  visit: '방문해야 한대요', no_answer: '전화를 안 받아요', callback: '다시 연락 준대요', unknown: '어느 쪽도 아니에요',
 }
 
 export const OWNER_SAYS = ['네 알겠습니다 환불해 드릴게요', '20만원만 드릴게요', '이벤트 상품은 환불 불가입니다',
