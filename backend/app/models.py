@@ -81,8 +81,8 @@ class Strategy(BaseModel):
 class Case(BaseModel):
     contract: Contract
     refund: Refund
-    target: int  # 목표 금액
-    floor: int  # 최저 수용선
+    target: int  # 희망 금액
+    floor: int  # 하한선
     stage: Stage = "ready"
     notified_on: date | None = None  # 해지 의사 도달일
     deadline_on: date | None = None  # 답변 기한
@@ -108,7 +108,7 @@ class Event(BaseModel):
 class Action(BaseModel):
     type: ActionType
     reason: str
-    warn: bool = False  # 제시액이 최저 수용선보다 적음
+    warn: bool = False  # 제시액이 하한선보다 적음
 
 
 class Claim(BaseModel):

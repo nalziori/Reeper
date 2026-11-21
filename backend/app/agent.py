@@ -13,6 +13,7 @@ from datetime import date
 
 import httpx
 
+from .engine import floor_name
 from .models import Action, Case, Extracted, ReplyType
 from .rules import DATA, POLICY, RULES
 
@@ -570,11 +571,6 @@ def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]
     return out
 
 
-def _floor_name(case: Case) -> str:
-    """화면과 엔진이 부르는 이름(engine.next_action). 하한선을 따로 정하지 않았으면 예상 환불액이 기준이다."""
-    return "예상 환불액" if case.floor == case.refund.refund else "하한선"
-
-
 ANALYZE_SYSTEM = """소비자가 헬스장에 회원권 환불을 요청했고 업체가 답했다. 업체 답장에서 주장을 짚어 소비자에게 설명한다. 업체에 보낼 글은 쓰지 않는다.
 
 - claims: 업체 답장에서 주장이 담긴 부분을 글자 그대로 옮기고(quote), 무슨 주장인지 한 문장으로 쓰고(claim), 근거 표에서 이 주장에 답할 때 쓸 id를 고르고(rule_id, 맞는 것이 없으면 null), 소비자가 어떻게 대응하면 되는지 한두 문장으로 쓴다(advice). 주장이 없으면 빈 배열.
@@ -616,8 +612,8 @@ def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
         return empty
     payload = {**_brief(case, today), "업체 답장": reply,
                "서버 판단": {"다음 행동": action.type, "이유": action.reason, "업체 제시액": case.offered,
-                         "요청액과 제시액의 차이": _gap(case), "희망 금액": case.target, _floor_name(case): case.floor,
-                         "비교 기준 이름": _floor_name(case), "제시액이 기준보다 적음": action.warn}}
+                         "요청액과 제시액의 차이": _gap(case), "희망 금액": case.target, floor_name(case): case.floor,
+                         "비교 기준 이름": floor_name(case), "제시액이 기준보다 적음": action.warn}}
     try:
         out = cur._chat(ANALYZE_SYSTEM, json.dumps(payload, ensure_ascii=False), ANALYZE_SCHEMA)
     except Exception as e:
@@ -697,7 +693,7 @@ def plan(case: Case, situation: str, today: date) -> dict:
     if cur is FAKE:
         return empty
     payload = {**_brief(case, today), "하루 늦게 알릴 때 줄어드는 금액": case.refund.per_day_loss,
-               "희망 금액": case.target, _floor_name(case): case.floor, "소비자의 상황 설명": situation}
+               "희망 금액": case.target, floor_name(case): case.floor, "소비자의 상황 설명": situation}
     try:
         out = cur._chat(PLAN_SYSTEM, json.dumps(payload, ensure_ascii=False), PLAN_SCHEMA)
     except Exception as e:
