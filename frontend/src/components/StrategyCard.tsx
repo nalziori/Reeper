@@ -2,6 +2,7 @@ import { Badge, Button, Divider, Heading, Text, TextArea, VStack, Waiting } from
 import { useState, type ReactNode } from 'react'
 import type { Case, Rules } from '../api'
 import { Fold } from './Fold'
+import { Mascot } from './Mascot'
 
 const LIMIT = 1000 // docs/계약.md: 상황 설명은 1000자까지
 
@@ -50,7 +51,7 @@ export function StrategyCard({ c, rules, autoReadOff, plan }: Props) {
               try { setEmpty(await plan(text) === 'empty') } finally { setLoading(false) }
             }} />
         </div>
-        {loading && <Waiting message="상황을 읽고 조언을 만들고 있어요. 10초쯤 걸려요" lines={5} />}
+        {loading && <Waiting message="상황을 읽고 조언을 만들고 있어요. 10초쯤 걸려요" lines={5} art={<Mascot pose="think" small />} />}
         {!autoReadOff && empty && !s && (
           <Text type="supporting">이번에는 조언을 만들지 못했어요. 버튼으로 계속 진행하면 돼요</Text>
         )}

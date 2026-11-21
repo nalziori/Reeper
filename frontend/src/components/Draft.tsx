@@ -5,6 +5,7 @@ import { api, type Tone } from '../api'
 import { DRAFT, won } from '../format'
 import { PolishContext } from './PolishContext'
 import { ACCOUNT_SLOT, loadAccount, saveAccount } from '../account'
+import { Mascot } from './Mascot'
 
 type Choice = 'base' | Tone
 
@@ -184,7 +185,7 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
           : <DraftText text={text} bubble={sendable} amount={sendable ? amount : undefined} />}
         {sendable && actions}
         {tone.choice !== 'base' && <Text type="supporting">말투만 바꿨어요. 금액과 근거는 그대로예요</Text>}
-        {tone.loading && <Waiting message="말투를 바꾸고 있어요. 금액과 근거는 그대로 둬요" />}
+        {tone.loading && <Waiting message="말투를 바꾸고 있어요. 금액과 근거는 그대로 둬요" art={<Mascot pose="write" small />} />}
         {tone.note && <Text type="supporting" role="status">{tone.note}</Text>}
         {!sendable && actions}
         {copyError && <Text as="p" role="alert">{copyError}</Text>}

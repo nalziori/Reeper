@@ -108,11 +108,15 @@ export function Spinner() {
   return <span aria-hidden className="spinner" />
 }
 
-// 0.4초 안에 끝나는 요청에서는 보이지 않는다(index.css의 .waiting). lines는 곧 채워질 글의 자리 표시 줄 수다
-export function Waiting({ message, lines = 0 }: { message: string; lines?: number }) {
+// 0.4초 안에 끝나는 요청에서는 보이지 않는다(index.css의 .waiting). lines는 곧 채워질 글의 자리 표시 줄 수다.
+// art는 AI 답이 길어질 때(2초 넘게) 문구 오른쪽에 나타나는 그림이다(.waiting-art). 자리는 처음부터 잡아 둬 글이 밀리지 않는다
+export function Waiting({ message, lines = 0, art }: { message: string; lines?: number; art?: ReactNode }) {
   return (
     <div role="status" className="waiting">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{message}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />{message}</div>
+        {art && <div className="waiting-art">{art}</div>}
+      </div>
       {lines > 0 && (
         <div aria-hidden className="mt-3 flex flex-col gap-2">
           {Array.from({ length: lines }, (_, i) => <span key={i} className="skeleton" style={{ width: `${[92, 100, 78, 96, 64][i % 5]}%` }} />)}
