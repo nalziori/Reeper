@@ -13,6 +13,8 @@ EventType = Literal[
     "notice_sent", "call_attempted", "reply_received", "counter_sent", "time_passed",
     "agreement_recorded", "deposit_confirmed", "escalation_sent", "handoff_done",
 ]
+# 업체 쪽 사정의 유형. data/mediation_cases.json의 kinds와 같은 이름에 other를 더했다
+FaultKind = Literal["trainer_change", "schedule_cut", "closure", "relocation", "other"]
 ActionType = Literal[
     "send_notice", "wait", "follow_up", "counter", "confirm_agreement",
     "certified_mail", "go_1372", "remind_deposit", "close",
@@ -30,6 +32,9 @@ class Contract(BaseModel):
     used_count: int | None = Field(default=None, ge=0)  # 회 단위에서 이미 쓴 횟수
     addon_value: int = Field(default=0, ge=0)  # 계약서에 가액이 적힌 부가상품만(고시 제6조 제2항)
     security_deposit: int = Field(default=0, ge=0)  # 보증금. 전액 돌려받는다(고시 제5조 제2항)
+    # 해지 이유. 사용자가 고른 값이고 서버는 업체 잘못이 맞는지 판단하지 않는다. 금액에 어떻게 반영할지는 rules.py가 정한다
+    cancel_reason: Literal["consumer", "business"] = "consumer"
+    fault_kind: FaultKind | None = None  # 업체 쪽 사정일 때의 유형. 문안의 사유 구절을 고르는 데만 쓴다
 
 
 class Refund(BaseModel):

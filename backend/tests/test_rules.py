@@ -74,3 +74,11 @@ def test_month_from_jan_31_start():
 def test_unit_label():
     assert calculate(contract(unit="count", total_count=20, used_count=5), date(2026, 1, 10)).unit_label == "회"
     assert calculate(contract(unit="month", total_count=3), date(2026, 1, 10)).unit_label == "일"
+
+
+def test_cancel_reason_defaults_to_consumer_and_old_cases_still_load():
+    # 저장된 옛 사건에는 이 값이 없다. 없으면 소비자 사정이고 계산은 그대로다
+    c = Contract(total_paid=600_000, start_date=date(2026, 1, 1), end_date=date(2026, 6, 30))
+    assert (c.cancel_reason, c.fault_kind) == ("consumer", None)
+    b = c.model_copy(update={"cancel_reason": "business", "fault_kind": "closure"})
+    assert Contract.model_validate(b.model_dump(mode="json")) == b
