@@ -4,6 +4,7 @@ import { type ComponentProps, useEffect, useState } from 'react'
 import { api, type Contract, type ExtractField, type Refund, type Rules, type Sample, type Step } from '../api'
 import { ContractExtras } from '../components/ContractExtras'
 import { extrasProblem } from '../contractCheck'
+import { FaultCases } from '../components/FaultCases'
 import { FaultSummary } from '../components/FaultSummary'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
@@ -227,6 +228,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
               <Text type="supporting">업체 잘못이면 Reeper는 여기까지 도와드려요. 업체 잘못인지 애매하면 업체에 문자를 보내기 전에 1372에 물어보세요</Text>
             </VStack>
           </Card>
+          <FaultCases />
           <FaultSummary c={contract} />
         </>) : (<>
         {/* 받을 돈이 이 화면의 주인공이다: 큰 숫자 한 줄, 그 아래 영수증처럼 계산식을 줄 맞춰 적는다 */}

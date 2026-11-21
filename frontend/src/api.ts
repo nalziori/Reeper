@@ -84,6 +84,12 @@ export type ExtractField = 'gym_name' | 'total_paid' | 'start_date' | 'end_date'
 export type Health = { ok: boolean; llm: string; upload: boolean; calls_left: number; tokens_today: number }
 export type Sample = { id: string; label: string; contract: Contract }
 export type Rules = Record<string, { title: string; summary: string; url: string; verified: boolean }>
+// data/mediation_cases.json. 표시용 참고 자료이고 금액 계산에 쓰지 않는다
+export type MediationCase = {
+  id: string; title: string; url: string; kinds: string[]; business_fault: string
+  facts: string; result: string; penalty_deducted: boolean; money_note: string; decided_refund: number; usage_method: string
+}
+export type MediationCases = { cases: MediationCase[]; kinds: Record<string, { label: string; cases: string[]; note?: string }> }
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, body === undefined ? undefined : {
@@ -103,6 +109,7 @@ export const api = {
   health: () => call<Health>('/api/health'),
   samples: () => call<Sample[]>('/api/samples'),
   rules: () => call<Rules>('/api/rules'),
+  mediationCases: () => call<MediationCases>('/api/mediation-cases'),
   preview: (contract: Contract, today: string) => call<Refund>('/api/refund-preview', { contract, today }),
   open: (contract: Contract, today: string, limits?: { target?: number; floor?: number }) =>
     call<Step>('/api/cases', { contract, today, ...limits }),
