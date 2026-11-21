@@ -1,1 +1,1 @@
-말씀하신 {offered}원은 제 계산과 차이가 있습니다. 결제금액 {total}원에서 이용분 {used}원과 위약금 {penalty}원{addon_part}을 뺀{deposit_part} 금액은 {refund}원입니다. 차이가 나는 공제 항목이 있다면 항목별 금액과 근거를 알려 주시고, 계산 내역을 확인해 다시 회신 부탁드립니다.
+말씀하신 {offered}원은 제 계산과 차이가 있습니다. 결제금액 {total}원에서 이용분 {used}원{penalty_part}{addon_part}을 뺀{deposit_part} 금액은 {refund}원입니다. 차이가 나는 공제 항목이 있다면 항목별 금액과 근거를 알려 주시고, 계산 내역을 확인해 다시 회신 부탁드립니다.
