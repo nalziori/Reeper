@@ -13,7 +13,8 @@ import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
 import { ReplyReading } from './components/ReplyReading'
 import { Timeline } from './components/Timeline'
-import { DEMO, PAGE_WIDTH, STAGE, isoDate, journeyPhase, won } from './format'
+import { DEMO, JOURNEY, PAGE_WIDTH, STAGE, isoDate, journeyPhase, won } from './format'
+import { JourneyReview } from './components/JourneyReview'
 import { Deposit } from './steps/Deposit'
 import { Evidence } from './steps/Evidence'
 import { Intake } from './steps/Intake'
@@ -85,6 +86,8 @@ export default function App() {
 
   // 사건은 이 브라우저에만 있어서 지우면 되돌릴 수 없다. 끝나지 않은 사건은 한 번 더 묻는다
   const [confirmReset, setConfirmReset] = useState(false)
+  // 위 진행 표시에서 누른 지난 단계(1~5). 읽기 전용 시트로 그 단계 내용을 보여 준다
+  const [peek, setPeek] = useState<number | null>(null)
   const [dockEl, setDockEl] = useState<HTMLElement | null>(null)
   // 기록이 하나 늘면 무엇을 기록했는지 잠깐 보여 준다. 단계가 그대로인 기록(전화 연결 안 됨, 전화 안 받음)은
   // 화면이 바뀌지 않아 눌렸는지 알 수 없었다. 새 사건·새로고침·새로 시작에는 띄우지 않는다
@@ -137,7 +140,7 @@ export default function App() {
             </HStack>
             {/* 합의 뒤 입금이 안 돼 1372로 갔으면 입금 추적의 연장이다. 진행 표시가 뒤로 가지 않게 한다 */}
             {/* 끝난 사건은 다섯 단계가 모두 지난 것으로(6) 그려 마지막 단계도 체크로 보인다 */}
-            <JourneyProgress current={sc.stage === 'closed' ? 6 : sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} />
+            <JourneyProgress current={sc.stage === 'closed' ? 6 : sc.stage === 'handed_off' && sc.agreed_amount != null ? 5 : journeyPhase(sc.stage)} onPick={setPeek} />
           </VStack>
         </div>
       )}
@@ -160,6 +163,12 @@ export default function App() {
           </HStack>
         </VStack>
       </BottomSheet>
+      {saved && (
+        <BottomSheet open={peek !== null} onOpenChange={(open) => { if (!open) setPeek(null) }}
+          title={peek ? `${JOURNEY[peek - 1]} 다시 보기` : ''}>
+          {peek && <JourneyReview c={saved.step.case} rules={rules} today={isoDate(saved.offset)} step={peek} />}
+        </BottomSheet>
+      )}
     </>
   )
   if (!saved) {

@@ -241,6 +241,10 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
 .journey-steps li[data-state='done'] + li::before,
 .journey-steps li[data-state='done'] + li[data-state='current']::before { background: var(--primary); }
 
+.journey-btn { all: unset; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; border-radius: 8px; padding: 0 4px; }
+.journey-btn .journey-label { text-decoration: underline dotted; text-underline-offset: 3px; }
+.journey-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
 .journey-dot {
   position: relative;
   z-index: 1;
@@ -522,3 +526,4 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
   .spinner, .skeleton, .busy-bar::after { animation: none; }
   .busy-bar::after { width: 100%; left: 0; opacity: 0.5; }
 }
+.receipt dd.review-dd { white-space: normal; text-align: right; overflow-wrap: anywhere; }
