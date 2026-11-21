@@ -7,6 +7,7 @@ import { Guide1372 } from '../components/Guide1372'
 import { ReplyButtons } from '../components/ReplyButtons'
 import { REPLY_LABEL, won } from '../format'
 import type { Saved, Send } from '../useCase'
+import { Mascot } from '../components/Mascot'
 
 type Props = {
   saved: Saved
@@ -51,7 +52,7 @@ function ReadConfirm({ read, refund, saving, onConfirm, onReject }:
             <Button label={keywordOnly ? '닫기' : '아니에요, 직접 고를게요'} isDisabled={saving} onClick={onReject} />
           </HStack>
           {/* 확정하면 답장을 한 번 더 분석해서 몇 초가 걸린다 */}
-          {saving && <Waiting message="기록하고, 업체 말에 어떻게 답할지 정리하고 있어요" lines={3} />}
+          {saving && <Waiting message="기록하고, 업체 말에 어떻게 답할지 정리하고 있어요" lines={3} art={<Mascot pose="write" small />} />}
         </VStack>
       </Card>
     </div>
@@ -95,7 +96,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
         value={reply} onChange={setReply} maxLength={500} />
       <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
         onClick={() => void readReply(reply)} /></HStack>
-      {reading && <Waiting message="답장을 읽고 있어요. 몇 초 걸려요" lines={2} />}
+      {reading && <Waiting message="답장을 읽고 있어요. 몇 초 걸려요" lines={2} art={<Mascot pose="read" small />} />}
       {readNote && <Text type="supporting" role="status">{readNote}</Text>}
       {read && (
         <ReadConfirm read={read} refund={c.refund.refund} saving={saving}

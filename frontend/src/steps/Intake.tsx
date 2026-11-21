@@ -10,6 +10,7 @@ import { Guide1372 } from '../components/Guide1372'
 import { JourneyProgress } from '../components/JourneyProgress'
 import { isoDate, won } from '../format'
 import { shrinkPhoto } from '../photo'
+import { Mascot } from '../components/Mascot'
 
 // DateInput은 YYYY-MM-DD 모양만 받는다. 빈 값이나 다른 모양이면 비워 둔다
 type Iso = NonNullable<ComponentProps<typeof DateInput>['value']>
@@ -376,7 +377,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
                     if (file) void readPhoto(file).finally(() => { input.value = '' })
                   }} />
               </label>
-              {busy && <Waiting message="사진을 읽고 있어요. 몇 초 걸려요" />}
+              {busy && <Waiting message="사진을 읽고 있어요. 몇 초 걸려요" art={<Mascot pose="read" small />} />}
               {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
               <Text type="supporting">사진이 없으면 아래에 직접 적어 주세요</Text>
             </VStack>
