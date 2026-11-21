@@ -216,7 +216,9 @@ export default function App() {
         </VStack>
       </Card>}
       {/* 기다릴 때와 다 끝났을 때만 마스코트를 둔다. 빈 화면을 채우는 그림이다 */}
-      {action.type === 'wait' && <Mascot pose="wait" />}
+      {/* 보낼 글이 없는 기다림 화면에만 둔다. 입금 기다림(합의 확인 문자)이나 다시 연락 뒤(연락 시각 확인 문자)는
+          wait여도 할 일이 있어서 그림이 그 앞을 밀어내지 않게 숨긴다(#155 B 리뷰) */}
+      {action.type === 'wait' && Object.keys(saved.step.drafts).length === 0 && <Mascot pose="wait" />}
       {c.stage === 'closed' && <Mascot pose="done" />}
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>
