@@ -159,6 +159,13 @@ def _md(d: date) -> str:
 
 
 # reason은 화면 맨 위 안내로 그대로 보인다. 다른 화면 문구와 같이 해요체로 쓴다
+def floor_name(c: Case) -> str:
+    """제시액과 견주는 기준의 이름. 하한선을 따로 정하지 않았으면 예상 환불액이 기준이다. 화면 말과 같게 부른다.
+
+    답장 분석(agent.analyze_reply)도 이 이름을 쓴다. 한 곳에서만 정한다."""
+    return "예상 환불액" if c.floor == c.refund.refund else "하한선"
+
+
 def next_action(case: Case, today: date) -> Action:
     c = case
     if c.stage == "ready":
@@ -184,9 +191,7 @@ def next_action(case: Case, today: date) -> Action:
             return Action(type="certified_mail", reason=f"반박을 {counters}번 보냈는데도 받아들이지 않아요", warn=low)
         if c.last_reply == "low_offer" and c.offered is not None:
             if c.offered < c.floor:
-                # 하한선을 따로 정하지 않았으면 예상 환불액이 기준이다. 화면 말과 같게 부른다
-                floor_name = "예상 환불액" if c.floor == c.refund.refund else "하한선"
-                return Action(type="counter", reason=f"제시액이 {floor_name}보다 적어요", warn=True)
+                return Action(type="counter", reason=f"제시액이 {floor_name(c)}보다 적어요", warn=True)
             if c.offered >= c.target:
                 return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
             return Action(type="counter", reason="제시액이 하한선 이상이지만 희망 금액보다 적어요. 받아들일지 정하세요")
