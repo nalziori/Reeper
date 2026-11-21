@@ -15,7 +15,7 @@ import httpx
 
 from .engine import floor_name
 from .models import Action, Case, Extracted, ReplyType
-from .rules import DATA, POLICY, RULES, calculate
+from .rules import DATA, POLICY, RULES
 
 log = logging.getLogger("reeper.agent")  # 계약 내용과 답장 원문은 로그에 남기지 않는다
 MAX_REPLY = 500  # 답장·통화 메모 입력 길이
@@ -556,16 +556,15 @@ FAULT_LABEL = {"trainer_change": "약속한 강사·트레이너가 바뀌거나
                "closure": "휴업·폐업이나 시설 일부 폐쇄", "relocation": "시설 이전이나 운영 시간 변경", "other": "그 밖의 업체 쪽 사정"}
 
 
-def _if_disputed(case: Case, today: date) -> int | None:
-    """업체 쪽 사정으로 요청한 사건에서, 업체가 다퉈 소비자 사정으로 계산될 때의 환불액. 금액은 rules.py가 만든다.
+def _if_disputed(case: Case) -> int | None:
+    """업체 쪽 사정으로 요청한 사건에서, 업체가 다퉈 소비자 사정으로 계산될 때의 환불액.
 
-    소비자 사정 사건이거나 두 금액이 같으면(계산이 해지 이유를 아직 보지 않으면) None이다.
+    rules.py가 요청액과 같은 날짜로 계산해 둔 값(Refund.disputed_refund)을 그대로 쓴다. 에이전트가 날짜를 골라 다시
+    계산하지 않는다(통지 전에는 사건을 연 날 기준이라, 오늘로 다시 계산하면 지난 날짜만큼의 이용분이 섞인다).
+    소비자 사정 사건이거나 두 금액이 같으면 None이다.
     """
-    c = case.contract
-    if c.cancel_reason != "business":
-        return None
-    other = calculate(c.model_copy(update={"cancel_reason": "consumer"}), case.notified_on or today).refund
-    return other if other != case.refund.refund else None
+    other = case.refund.disputed_refund
+    return other if case.contract.cancel_reason == "business" and other != case.refund.refund else None
 
 
 def _brief(case: Case, today: date) -> dict:
@@ -573,7 +572,7 @@ def _brief(case: Case, today: date) -> dict:
     fault = {}
     if c.cancel_reason == "business":
         fault = {"해지 이유": {"소비자가 고른 것": "업체 쪽 사정", "유형": FAULT_LABEL[c.fault_kind or "other"],
-                           "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": _if_disputed(case, today)}}
+                           "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": _if_disputed(case)}}
     return {
         **fault,
         "오늘": str(today),
@@ -598,7 +597,7 @@ def _problems(text: str, case: Case, today: date, source: str = "") -> list[str]
     c, r = case.contract, case.refund
     known = {c.total_paid, r.used_amount, r.penalty, r.refund, r.addon, r.security_deposit, r.per_day_loss,
              case.target, case.floor, case.offered, case.agreed_amount, _gap(case), case.deposited,
-             (case.agreed_amount or 0) - case.deposited, _if_disputed(case, today)} | _money(source)
+             (case.agreed_amount or 0) - case.deposited, _if_disputed(case)} | _money(source)
     out += [f"자료에 없는 금액 {v:,}원" for v in _money(text) - known]
     days = {(d.month, d.day) for d in (today, c.start_date, c.end_date, case.notified_on,
                                        case.deadline_on, case.deposit_due_on) if d}

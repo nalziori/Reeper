@@ -578,7 +578,7 @@ def fault_case(kind="closure", no_penalty=True):
     case = open_case(CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": kind}), D)
     if no_penalty:
         r = case.refund
-        r = r.model_copy(update={"penalty": 0, "refund": r.refund + r.penalty})
+        r = r.model_copy(update={"penalty": 0, "refund": r.refund + r.penalty, "disputed_refund": r.refund})
         case = case.model_copy(update={"refund": r, "target": r.refund, "floor": r.refund})
     return case
 
@@ -615,12 +615,16 @@ def test_the_model_learns_the_cancel_reason_only_for_business_cases(real):
     assert "해지 이유" not in sent["user"]  # 소비자 사정 사건의 자료는 그대로다
     agent.plan(fault_case(), "상황", D)
     told = json.loads(sent["user"])["해지 이유"]
-    # 업체가 다퉈 소비자 사정으로 계산될 때의 금액은 rules.py가 계산한 값이다
+    # 업체가 다퉈 소비자 사정으로 계산될 때의 금액은 rules.py가 사건에 적어 둔 값이다(Refund.disputed_refund)
     assert told == {"소비자가 고른 것": "업체 쪽 사정", "유형": "휴업·폐업이나 시설 일부 폐쇄",
                     "업체가 다퉈 소비자 사정으로 계산될 때의 환불액": open_case(CONTRACT, D).refund.refund}
-    # 계산이 해지 이유를 아직 보지 않으면 두 금액이 같아 그 줄은 비운다
-    agent.plan(fault_case(no_penalty=False), "상황", D)
-    assert json.loads(sent["user"])["해지 이유"]["업체가 다퉈 소비자 사정으로 계산될 때의 환불액"] is None
+    # 계산이 해지 이유를 아직 보지 않으면 그 값이 없어 줄을 비운다. 며칠 뒤에 물어도 같다:
+    # 에이전트가 오늘 날짜로 다시 계산하면 지난 날짜만큼의 이용분 차이가 "다퉈질 때 금액"으로 나간다(C 리뷰 #151)
+    for today in (D, D + timedelta(days=3)):
+        agent.plan(fault_case(no_penalty=False), "상황", today)
+        assert json.loads(sent["user"])["해지 이유"]["업체가 다퉈 소비자 사정으로 계산될 때의 환불액"] is None
+    later = D + timedelta(days=3)
+    assert agent._problems("업체가 다투면 453,334원이 될 수 있어요.", fault_case(no_penalty=False), later)
 
 
 def test_advice_may_quote_the_amount_if_the_fault_is_disputed():
