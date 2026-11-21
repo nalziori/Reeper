@@ -591,6 +591,22 @@ def test_drafts_can_say_why_and_drop_the_penalty_phrase():
     assert "개인 사정" not in counter and "10%" not in counter and agent.validate(counter, theirs)
 
 
+def test_an_offer_that_only_takes_the_penalty_off_gets_the_penalty_answer():
+    """업체 쪽 사정 사건에서 "위약금 빼고 ○원"은 금액이 있어 low_offer로 읽힌다. 제시액이 다퉈질 때의 금액과 같으면 위약금 근거로 답한다."""
+    def after(case, amount):
+        case = apply(case, Event(type="notice_sent", channel="sms"), D)
+        case = apply(case, Event(type="reply_received", text="위약금 빼고 넣어 드릴게요", reply_type="low_offer", amount=amount), D)
+        return case, agent.drafts_for(case, next_action(case, D))
+
+    theirs = fault_case()
+    case, drafts = after(theirs, theirs.refund.disputed_refund)
+    assert list(drafts) == ["counter_penalty"] and "제4조 제1항" in drafts["counter_penalty"]
+    assert agent.validate(drafts["counter_penalty"], case)
+    # 금액이 다르면 공제 항목을 되묻는 문안 그대로다. 소비자 사정 사건은 다퉈질 때의 금액이 없어 달라지지 않는다
+    assert list(after(theirs, theirs.refund.disputed_refund - 10_000)[1]) == ["counter_low_offer"]
+    assert list(after(open_case(CONTRACT, D), 300_000)[1]) == ["counter_low_offer"]
+
+
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:
