@@ -349,7 +349,7 @@ export function Intake({ onConfirm, rules, upload, onPreviewChange }: Props) {
           <Card>
             <VStack gap={2}>
               <Heading level={2}>계산으로는 돌려받을 돈이 없어요</Heading>
-              <Text as="p">쓴 만큼과 위약금을 빼면 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
+              <Text as="p">{refund.penalty > 0 ? '쓴 만큼과 위약금을 빼면' : '쓴 만큼을 빼면'} 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
               <Text type="supporting">계약 날짜나 금액을 잘못 적었다면 '계약 수정'으로 고쳐 주세요. 계산이 다르다고 보면 1372 소비자상담센터(국번 없이 1372)에 물어보세요</Text>
             </VStack>
           </Card>

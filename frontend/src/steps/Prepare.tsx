@@ -1,7 +1,8 @@
-import { BottomSheet, Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
+import { Banner, BottomSheet, Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
 import { useState } from 'react'
 import type { Step } from '../api'
 import { Draft, DraftList } from '../components/Draft'
+import { won } from '../format'
 import type { Saved, Send } from '../useCase'
 
 type Channel = 'sms' | 'call'
@@ -15,8 +16,25 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
   const [sheet, setSheet] = useState<'answers' | 'outcome' | null>(null)
   const callMode = action.type === 'send_notice' && channel === 'call'
   const shown = Object.fromEntries(Object.entries(drafts).filter(([k]) => k !== 'call_card'))
+  // 알리기 전에 날짜가 지나면 예상 환불액이 줄어든다. 아래 문안은 이미 오늘 기준 금액이라, 처음 본 금액과 다르다는 것을 알린다
+  const now = saved.step.case.refund.refund
+  const dropped = saved.refundFrom !== undefined && saved.refundFrom > now
+  // 계약이 끝나는 날을 지나면 이용분과 위약금이 낸 돈을 다 덮는다. 0원 환불을 요청하는 문자는 만들지 않는다(금액 화면과 같다)
+  if (now === 0 && action.type === 'send_notice') {
+    return (
+      <Card>
+        <VStack gap={2}>
+          <Heading level={2}>계산으로는 돌려받을 돈이 없어요</Heading>
+          <Text as="p">{dropped ? `며칠 지나 예상 환불액이 ${won(saved.refundFrom!)}에서 0원으로 줄었어요. ` : ''}오늘 기준으로 {saved.step.case.refund.penalty > 0 ? '쓴 만큼과 위약금을 빼면' : '쓴 만큼을 빼면'} 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
+          <Text type="supporting">계산이 다르다고 보면 1372 소비자상담센터(국번 없이 1372)에 물어보세요. 처음부터 다시 하려면 위 '새로 시작'을 누르세요</Text>
+        </VStack>
+      </Card>
+    )
+  }
   return (
     <>
+      {dropped && <Banner status="info" collapsible={false}
+        title={`며칠 지나 예상 환불액이 ${won(saved.refundFrom!)}에서 ${won(now)}으로 줄었어요. 오늘 보내면 이 금액으로 요청해요`} />}
       {/* 알리는 방법과 그 방법의 문안은 한 장에 둔다(고르고 바로 본다) */}
       <VStack gap={3} className={callMode ? 'call-preparation' : undefined}>
         {action.type === 'send_notice' && channel === 'sms' && (

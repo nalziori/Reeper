@@ -68,11 +68,32 @@ def open_case(contract: Contract, today: date, target: int | None = None, floor:
     return Case(contract=contract, refund=refund, target=target, floor=floor)
 
 
+def _reprice(c: Case, today: date) -> None:
+    """알리기 전 사건의 환불액을 그날 기준으로 다시 계산한다. 환불액은 첫 통지일로 고정되므로 그 전까지만 움직인다.
+
+    희망 금액·하한선은 사용자가 따로 정하지 않았으면 예상 환불액과 같은 값이라 새 금액을 따라간다. 정한 값(예상 환불액과 다른 값)은
+    그대로 둔다. 따라가지 않으면 사용자가 정한 적 없는 하한선이 옛 금액으로 남아, 업체가 맞는 금액을 말해도 경고가 뜬다."""
+    old, new = c.refund, calculate(c.contract, today)
+    if new == old:
+        return
+    if c.target == old.refund:
+        c.target = new.refund
+    if c.floor == old.refund:
+        c.floor = new.refund
+    c.floor = min(c.floor, c.target)
+    c.refund = new
+
+
 def apply(case: Case, event: Event, today: date) -> Case:
     validate_transition(case, event, today)
-    if event.type == "time_passed":
+    # 알리기 전에 날짜가 지났으면 화면 금액과 문안이 오늘 기준이 되게 다시 계산한다. 옛 월 단위 사건은 화면 안내(OldMonthNotice)가 맡는다
+    stale = event.type == "time_passed" and case.stage == "ready" and case.notified_on is None and case.refund.unit_label != "개월"
+    if event.type == "time_passed" and not stale:
         return case
     c = case.model_copy(deep=True)
+    if event.type == "time_passed":
+        _reprice(c, today)
+        return c
 
     def log(text: str = "") -> None:
         c.timeline.append(Record(on=today, type=event.type, text=text))
@@ -80,7 +101,7 @@ def apply(case: Case, event: Event, today: date) -> Case:
     if event.type == "notice_sent":
         if c.notified_on is None:  # 첫 통지일이 도달일이고, 환불액은 이 날짜로 고정된다
             c.notified_on = today
-            c.refund = calculate(c.contract, today)
+            _reprice(c, today)
         c.attempts += 1
         c.stage = "waiting"
         c.deadline_on = today + timedelta(days=POLICY["wait_days"])
