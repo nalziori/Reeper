@@ -278,6 +278,27 @@ NO_PLAN = {"summary": "", "grounds": [], "contract_points": [], "objections": []
            "dropped": 0, "fallback": False}
 
 
+def test_analysis_is_told_when_the_disputed_offer_can_be_taken():
+    """업체 사정 사건에서 다툴 때 금액 이상이면 화면에 받기 버튼이 있다(#171). 분석도 같은 조건을 받아 "합의로 읽힐 답 하지 마세요"
+    대신 받을지는 소비자가 정한다고 말한다. 조건은 서버가 정하고 모델이 금액을 비교하지 않는다."""
+    def after(case, amount):
+        case = apply(case, Event(type="notice_sent", channel="sms"), D)
+        case = apply(case, Event(type="reply_received", text="위약금 빼고 드릴게요", reply_type="low_offer", amount=amount), D)
+        return case, next_action(case, D)
+    theirs = fault_case("trainer_change")
+    other = apply(theirs, Event(type="notice_sent", channel="sms"), D).refund.disputed_refund
+    assert agent._can_take(*after(theirs, other)) and agent._can_take(*after(theirs, other + 1))
+    assert not agent._can_take(*after(theirs, other - 1))
+    assert not agent._can_take(*after(open_case(CONTRACT, D), 300_000))  # 소비자 사정은 그대로 경고만
+    # 다툴 때 금액이 0원인 사건에 0원 제시: 하한선 경고는 뜨지만 0원 합의는 받을 수 없다(#175 C 리뷰)
+    # 통지할 때 엔진이 환불액을 다시 계산하므로, 다툴 때 금액은 통지 뒤에 바꾼다
+    noticed = apply(theirs, Event(type="notice_sent", channel="sms"), D)
+    zero = noticed.model_copy(update={"refund": noticed.refund.model_copy(update={"disputed_refund": 0})})
+    case = apply(zero, Event(type="reply_received", text="위약금 빼면 드릴 게 없습니다", reply_type="low_offer", amount=0), D)
+    action = next_action(case, D)
+    assert case.refund.disputed_refund == 0 and case.offered == 0 and action.warn and not agent._can_take(case, action)
+
+
 def strategy(real, out):
     """환불 불가 특약이 있는 계약과 전액을 바라는 상황 설명에 LLM 전략을 끼워 plan을 부른다."""
     case = open_case(CONTRACT.model_copy(update={"special_terms": TERMS}), D)
