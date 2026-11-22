@@ -228,8 +228,9 @@ export default function App() {
       <DockProvider value={dockEl}>
       <PolishContext.Provider value={{ c, enabled: !autoReadOff }}>
       <fieldset disabled={busy} className="journey-interactions" aria-busy={busy}>
-      {/* 지금 할 일 한 문장과 기한. 금액 제시 없이 다시 요청하는 반박(근거를 들어 다시 요청하세요)은 아래 문자 카드와
-          같은 말이고 기한도 없어서 보이지 않는다. 이유나 기한이 있는 문장은 그대로 둔다(문장은 engine.py가 정한다) */}
+      {/* 지금 할 일 한 문장과 기한. 금액 제시 없이 다시 요청하는 반박('근거를 들어 다시 요청하세요', 애매한 답의
+          '요청한 금액을 다시 밝혀 두세요')은 아래 문자 카드와 같은 말이고 기한도 없어서 보이지 않는다. 그 문장은 답장 분석에
+          '이유'로만 들어간다. 이유나 기한이 있는 문장은 그대로 둔다(문장은 engine.py가 정한다) */}
       {!(phase === 3 && action.type === 'send_notice') && !(action.type === 'counter' && !action.warn && c.offered == null) && <Card className="mb-3">
         <HStack hAlign="between" vAlign="start" gap={2}>
           <VStack gap={3}>

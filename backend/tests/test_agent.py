@@ -742,13 +742,14 @@ def test_partial_deposit_wait_asks_for_the_rest_not_the_whole_amount():
 
 
 def test_no_second_acceptance_text_after_accepting_a_good_offer():
-    """희망 금액 이상 제시에는 수락 문자(계좌 포함)를 이미 줬다. 합의를 기록한 뒤 같은 뜻의 글을 또 주지 않는다.
+    """희망 금액 이상 제시에는 수락 문자(계좌 포함)를 이미 줬다. 합의를 기록한 뒤 같은 뜻의 새 글을 더하지 않고 보낸 글을 그대로 둔다.
     희망 금액보다 적은 제시를 받아들인 경우에는 수락 문자를 준 적이 없어 확인 문자를 그대로 준다."""
     start = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
     good = _reply(start, reply_type="low_offer", amount=start.target)
     assert list(agent.drafts_for(good, next_action(good, D))) == ["accept_offer"]
+    sent = agent.drafts_for(good, next_action(good, D))["accept_offer"]
     good = apply(good, Event(type="agreement_recorded", amount=start.target), D)
-    assert agent.drafts_for(good, next_action(good, D)) == {}
+    assert agent.drafts_for(good, next_action(good, D)) == {"accept_offer": sent}  # 보낸 글 그대로, 새 글 없음
     low = start.model_copy(update={"floor": start.target - 50_000})
     low = _reply(low, reply_type="low_offer", amount=start.target - 20_000)
     low = apply(low, Event(type="agreement_recorded", amount=start.target - 20_000), D)

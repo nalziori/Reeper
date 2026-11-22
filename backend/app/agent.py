@@ -534,8 +534,9 @@ def drafts_for(case: Case, action: Action) -> dict[str, str]:
             # 일부만 들어왔으면 합의 금액 전체를 다시 달라는 글이 아니라, 받은 금액과 남은 금액을 적은 글을 준다
             kinds = ["remind_deposit"]
         elif case.offered is not None and case.offered >= case.target and case.agreed_amount == case.offered:
-            # 희망 금액 이상 제시에는 이미 수락 문자(accept_offer, 계좌 포함)를 줬다. 같은 뜻의 글을 또 주지 않는다
-            kinds = []
+            # 희망 금액 이상 제시에는 이미 수락 문자(accept_offer, 계좌 포함)를 줬다. 같은 뜻의 새 글(confirm_agreement)을
+            # 더하지 않고, 보낸 수락 문자를 그대로 다시 보여 계좌를 다시 복사할 수 있게 둔다(#174 B 리뷰)
+            kinds = ["accept_offer"]
         else:
             kinds = ["confirm_agreement"]
     # 업체가 나중에 연락하겠다고 미뤘으면, 기다리는 동안 언제 연락할지 묻는 문자를 준다.
