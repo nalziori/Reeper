@@ -1,0 +1,7 @@
+{"id": "f01", "text": "새로운 강사로 변경해 드렸으니 저희 귀책이 없습니다. 위약금은 공제됩니다.", "reply_type": "unknown", "amount": null, "note": "귀책 부인 + 위약금 공제, 금액 없음. 환불을 거절하지도 금액을 제시하지도 않았다(위약금 비율만 주장하는 답과 같은 계열)"}
+{"id": "f02", "text": "다른 강사님 수업으로 바꿔 드릴게요. 일정만 알려 주세요.", "reply_type": "refuse", "amount": null, "note": "대체 제안만. 현금 환불 없이 다른 강사 수업으로 대체"}
+{"id": "f03", "text": "저희 책임이 아니라서 위약금 빼고 426,667원 드릴게요.", "reply_type": "low_offer", "amount": 426667, "note": "귀책 부인 + 실제 현금 금액 제시. 제시액은 426,667원"}
+{"id": "f04", "text": "환불 요청 접수했습니다. 처리 중입니다.", "reply_type": "callback", "amount": null, "also": ["unknown"], "note": "접수만 알리고 금액·지급 시점은 없다. 업체가 처리를 맡고 있어 callback에 가깝지만 진행 상태만 알렸고 다시 연락·지급 약속이 없어 unknown도 허용"}
+{"id": "f05", "text": "시설이 문을 닫아서 저희 지점 대신 다른 지점을 이용하시면 됩니다.", "reply_type": "refuse", "amount": null, "note": "휴업·폐쇄. 현금 환불 없이 다른 지점 이용권으로 대체"}
+{"id": "f06", "text": "이전 공사 때문에 한 달 쉬는데, 그만큼 기간은 연장해 드릴게요.", "reply_type": "refuse", "amount": null, "note": "시설 이전. 현금 환불 없이 기간 연장만 제안"}
+{"id": "f07", "text": "저희 귀책이 아니라서 환불은 어렵습니다.", "reply_type": "refuse", "amount": null, "note": "귀책 부인 + 환불 거절"}
