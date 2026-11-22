@@ -95,8 +95,8 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
     <VStack gap={3}>
       <TextArea label="받은 답장" description="받은 문자를 붙여넣거나 통화로 들은 말을 적어요"
         value={reply} onChange={setReply} maxLength={500} />
-      <HStack><Button label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
-        onClick={() => void readReply(reply)} /></HStack>
+      <Button className="w-full" label={reading ? '읽는 중…' : '답장 읽기'} isLoading={reading} isDisabled={!reply.trim()}
+        onClick={() => void readReply(reply)} />
       {reading && <Waiting message="답장을 읽고 있어요. 몇 초 걸려요" lines={2} art={<Mascot pose="read" small />} />}
       {readNote && <Text type="supporting" role="status">{readNote}</Text>}
       {read && (
