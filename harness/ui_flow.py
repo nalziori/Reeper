@@ -223,7 +223,7 @@ def full_flow(browser, base, tag, viewport):
     rec(f"{tag}: 실제/모의 구분 카드", page.get_by_text("Reeper가 하는 일과 시연용").count() == 1)
     page.get_by_role("tab", name="진행").click()
     btn(page, "입금을 확인했어요").click()
-    page.get_by_text("환불금을 받았어요").wait_for()
+    page.get_by_text("환불 완료", exact=True).wait_for()
     elapsed = time.time() - t0
     rec(f"{tag}: 종결까지 완주", True, f"{elapsed:.1f}초")
     rec(f"{tag}: 3분 이내", elapsed < 180, f"{elapsed:.1f}초")
@@ -232,7 +232,8 @@ def full_flow(browser, base, tag, viewport):
     page.screenshot(path=SHOTS / f"{tag}-7-closed.png", full_page=True)
     # 새로고침해도 이어진다
     page.reload(wait_until="networkidle")
-    rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_role("heading", name="환불금을 받았어요").count() == 1)
+    rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_text("환불 완료", exact=True).count() == 1)
+    rec(f"{tag}: 끝난 사건은 맨 위 안내 카드 없음", page.get_by_role("heading", name="환불금을 받았어요").count() == 0)
     rec(f"{tag}: 저장된 사건이면 대문을 건너뜀", btn(page, "시작하기", exact=True).count() == 0)
     btn(page, "새로 시작", exact=True).click()
     rec(f"{tag}: 새로 시작하면 입력 화면", shows(page.get_by_role("heading", name="내 계약 입력")))
@@ -283,7 +284,7 @@ def limit_flow(browser, base):
         and page.get_by_text("환불 여부와 금액은 원문을 보고").count() == 1)
     btn(page, "환불해 준대요").click()
     btn(page, "입금을 확인했어요").click()
-    page.get_by_text("환불금을 받았어요").wait_for()
+    page.get_by_text("환불 완료", exact=True).wait_for()
     rec(f"{tag}: 버튼으로 종결", True)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
@@ -687,6 +688,22 @@ def zero_refund(browser, base):
     ctx.close()
 
 
+def restart_from_amount(browser, base):
+    """사건을 열기 전 금액 화면에서도 위 막대에 '새로 시작'이 있고, 누르면 빈 입력 화면으로 돌아간다(저장된 것이 없어 묻지 않는다)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    rec("새로 시작: 입력 화면에는 없음", btn(page, "새로 시작", exact=True).count() == 0)
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").wait_for()
+    rec("새로 시작: 금액 화면부터 보임", btn(page, "새로 시작", exact=True).count() == 1)
+    btn(page, "새로 시작", exact=True).click()
+    back = shows(page.get_by_role("heading", name="내 계약 입력"))
+    rec("새로 시작: 금액 화면에서 누르면 빈 입력 화면", back and btn(page, "이 금액으로 시작").count() == 0
+        and btn(page, "새로 시작", exact=True).count() == 0 and page.get_by_text("지금 기록을 지울까요?").count() == 0)
+    rec("새로 시작: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def good_offer(browser, base):
     """업체가 받고 싶은 금액 이상을 말하면, 그 금액을 받겠다는 새 문자가 접히지 않고 보인다(보낸 적 없는 문자다)."""
     errors: list[str] = []
@@ -765,6 +782,7 @@ def main() -> int:
             business_accept_disputed(browser, base)
             industry_gate(browser, base)
             zero_refund(browser, base)
+            restart_from_amount(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)
             storage_recovery(browser, base)

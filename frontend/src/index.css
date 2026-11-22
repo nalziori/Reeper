@@ -123,12 +123,6 @@ textarea:focus-visible,
   margin-top: 0.25em;
 }
 
-.call-script-opening {
-  background: var(--brand-soft);
-  border-radius: 14px;
-  padding: 14px 16px;
-}
-
 .call-script-list, .call-script-line {
   font-size: 1rem;
   line-height: 1.65;
