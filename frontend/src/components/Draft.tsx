@@ -145,6 +145,7 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
   const actionsDisabled = missingAccount || tone.loading
   const text = needsAccount && !missingAccount ? tone.text.split(ACCOUNT_SLOT).join(account.trim()) : tone.text
   const { c } = useContext(PolishContext)
+  const refusal = kind === 'counter_refuse' && c?.timeline.at(-1)?.type === 'reply_received'
   const sendable = !NOT_SENT.has(kind)
   const amount = c ? won(c.agreed_amount ?? c.refund.refund) : undefined
   // 복사·문자 앱 버튼은 글 바로 아래 오른쪽에 둔다. 오른손 엄지가 닿는 쪽이고, 보낸 문자 말풍선도 오른쪽이다
@@ -166,7 +167,12 @@ export function Draft({ kind, text: base, callAnswers }: { kind: string; text: s
   return (
     <Card>
       <VStack gap={3}>
-        <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
+        {refusal ? (
+          <HStack gap={2} hAlign="between">
+            <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>
+            <Mascot key={c?.timeline.length} pose="angry" small />
+          </HStack>
+        ) : <Heading level={3}>{DRAFT[kind] ?? kind}</Heading>}
         {needsAccount && (
           <TextInput label="환불받을 계좌" value={account} onChange={setAccount} placeholder="은행 이름, 계좌번호, 예금주"
             description="적으면 아래 문자에 넣어 드려요. 이 브라우저에만 남고, 환불이 끝나거나 새로 시작하면 지워져요" />

@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 from lib import ROOT, server
 
@@ -28,6 +28,11 @@ def rec(name, ok, note=""):
 
 def btn(page, name, exact=False):
     return page.get_by_role("button", name=name, exact=exact)
+
+
+def start_intake(page):
+    btn(page, "시작하기", exact=True).click()
+    expect(page.get_by_role("heading", name="내 계약 입력")).to_be_visible()
 
 
 def record_amount(page, amount: str) -> None:
@@ -66,6 +71,7 @@ def new_page(browser, base, viewport, errors):
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
     page.on("response", lambda r: errors.append(f"{r.status} {r.url}") if r.status >= 400 else None)
     page.goto(base + "/?demo", wait_until="networkidle")  # 시연 조작은 ?demo가 있을 때만 보인다
+    start_intake(page)
     return ctx, page
 
 
@@ -218,6 +224,9 @@ def full_flow(browser, base, tag, viewport):
     # 새로고침해도 이어진다
     page.reload(wait_until="networkidle")
     rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_role("heading", name="환불금을 받았어요").count() == 1)
+    expect(btn(page, "시작하기", exact=True)).to_have_count(0)
+    btn(page, "새로 시작", exact=True).click()
+    expect(page.get_by_role("heading", name="내 계약 입력")).to_be_visible()
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
@@ -227,6 +236,9 @@ def demo_hidden(browser, base):
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
     page = ctx.new_page()
     page.goto(base, wait_until="networkidle")
+    expect(page.get_by_role("main").locator("img")).to_be_visible()
+    expect(page.get_by_role("heading", name="내 계약 입력")).to_have_count(0)
+    start_intake(page)
     page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
@@ -290,6 +302,7 @@ def photo_fill(browser, base):
     page.route("**/api/health", health)
     page.route("**/api/contracts/extract", lambda r: r.fulfill(json={"fields": fields, "llm_fallback": False}))
     page.goto(base, wait_until="networkidle")
+    start_intake(page)
     png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
     page.locator("input[type=file]").set_input_files({"name": "c.png", "mimeType": "image/png", "buffer": png})
     page.get_by_text("사진에서 읽어 채웠어요").wait_for()
@@ -363,6 +376,7 @@ def not_sent_drafts(browser, base):
     page = ctx.new_page()
     page.route("**/api/health", lambda r: r.fulfill(json={**r.fetch().json(), "llm": "OpenAILLM", "calls_left": 5}))
     page.goto(base, wait_until="networkidle")
+    start_intake(page)
     page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
@@ -628,8 +642,8 @@ def storage_recovery(browser, base):
         page.goto(base, wait_until="networkidle")
         page.evaluate("(raw) => localStorage.setItem('reeper.case', raw)", raw)
         page.reload(wait_until="networkidle")
-        ok_intro = page.get_by_text("가상 계약서로 해 보기").count() == 1
-        rec(f"저장값 복구: {label}", ok_intro and not page.locator("[role=alert]").filter(has_text=re.compile(r"\S")).count(), "; ".join(errors)[:120])
+        start_intake(page)
+        rec(f"저장값 복구: {label}", not page.locator("[role=alert]").filter(has_text=re.compile(r"\S")).count(), "; ".join(errors)[:120])
         ctx.close()
 
 

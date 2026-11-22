@@ -65,7 +65,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   // 업종. 위약금 기준(총계약대금의 10%)이 고시에서 확인된 것은 헬스·피트니스업과 요가·필라테스업뿐이다(docs/환불_규칙.md)
   const [industry, setIndustry] = useState<'fitness' | 'yoga' | 'other'>('fitness')
   const [reason, setReason] = useState<'mine' | 'business'>('mine')
-  const [busy, setBusy] = useState(false)
+  const [busyOperation, setBusyOperation] = useState<'form' | 'photo' | null>(null)
+  const busy = busyOperation !== null
   const [why, setWhy] = useState<'used' | 'penalty' | 'deposit' | null>(null)
   // 업체 잘못일 때 고른 업체 사정 유형과, 그 계약으로 서버가 다시 계산한 금액. 금액은 rules.py만 만든다
   const [kind, setKind] = useState<FaultKind | ''>('')
@@ -74,6 +75,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [biz, setBiz] = useState<{ of: unknown; kind: string; refund: Refund | null } | null>(null)
   const [error, setError] = useState('')
   const [photoNote, setPhotoNote] = useState('')
+  const [photoPreview, setPhotoPreview] = useState('')
   // 사진에서 읽었지만 확신이 낮은 칸. 사용자가 그 칸을 고치면 확인한 것으로 본다.
   const [checks, setChecks] = useState<Set<ExtractField>>(new Set())
   const [startError, setStartError] = useState<EntryError>(null)
@@ -95,7 +97,13 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   }
   const readPhoto = (file: File) => runIntake(async () => {
     setPhotoNote('')
-    const { fields, llm_fallback } = await api.extract(await shrinkPhoto(file))
+    const image = await shrinkPhoto(file)
+    if (!upload) {
+      setPhotoPreview(image)
+      return
+    }
+    setPhotoPreview('')
+    const { fields, llm_fallback } = await api.extract(image)
     const str = (f: ExtractField) => typeof fields[f]?.value === 'string' ? fields[f]!.value as string : ''
     const num = (f: ExtractField) => typeof fields[f]?.value === 'number' ? fields[f]!.value as number : undefined
     const read = fields.unit?.value
@@ -121,20 +129,20 @@ export function Intake({ onConfirm, rules, upload }: Props) {
       : '사진에서 읽어 채웠어요. 비었거나 표시된 칸은 계약서와 맞춰 보세요'
         + (read === 'month' ? '. 개월 단위 회원권은 이용 시작일과 마지막 이용일을 확인해 주세요. 일수로 계산해요' : '')
         + (missed.length ? `. ${missed.join('이나 ')}이 계약서에 적혀 있으면 직접 적어 주세요` : ''))
-  })
+  }, 'photo')
   useEffect(() => {
     api.samples().then(setSamples).catch(() => setError('가상 계약서를 못 불러왔어요. 직접 적거나 새로고침해 주세요'))
   }, [])
 
-  const runIntake = async (operation: () => Promise<void>) => {
-    setBusy(true)
+  const runIntake = async (operation: () => Promise<void>, kind: 'form' | 'photo' = 'form') => {
+    setBusyOperation(kind)
     setError('')
     try {
       await operation()
     } catch (e) {
       setError((e as Error).message)
     } finally {
-      setBusy(false)
+      setBusyOperation(null)
     }
   }
 
@@ -368,25 +376,31 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             )}
           </HStack>
           {/* 사진은 같은 칸을 채우는 방법이라 따로 카드를 두지 않고 입력 카드 맨 위에 둔다 */}
-          {upload && (
-            <VStack gap={2}>
-              {/* 사진 고르기는 네이티브 입력을 쓴다(2026-11-16, 꾸민 파일 입력이 Edge에서 멈춘 적이 있다) */}
-              <label className="photo-input">
-                <span>계약서 사진으로 채우기</span>
-                <Text type="supporting">시연용 가상 계약서만 올려 주세요. 사진은 저장하지 않아요</Text>
-                <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
-                  onChange={(e) => {
-                    const input = e.target
-                    const file = input.files?.[0]
-                    // 칸을 읽기 전에 비우면 파일을 못 읽고 멈추는 브라우저가 있어, 다 읽은 뒤에 비운다(같은 사진 다시 고르기용)
-                    if (file) void readPhoto(file).finally(() => { input.value = '' })
-                  }} />
-              </label>
-              {busy && <Waiting message="사진을 읽고 있어요. 몇 초 걸려요" art={<Mascot pose="read" small />} />}
-              {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
-              <Text type="supporting">사진이 없으면 아래에 직접 적어 주세요</Text>
-            </VStack>
-          )}
+          <VStack gap={2}>
+            {/* 사진 고르기는 네이티브 입력을 쓴다(2026-11-16, 꾸민 파일 입력이 Edge에서 멈춘 적이 있다) */}
+            <label className="photo-input">
+              <span>{upload ? '계약서 사진으로 채우기' : '계약서 사진 첨부'}</span>
+              <Text type="supporting">{upload
+                ? '시연용 가상 계약서만 올려 주세요. 사진은 저장하지 않아요'
+                : '시연용 가상 계약서만 선택해 주세요. 사진을 보면서 아래 칸에 직접 적을 수 있어요'}</Text>
+              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
+                onChange={(e) => {
+                  const input = e.target
+                  const file = input.files?.[0]
+                  // 다 읽은 뒤 비워야 다음에도 같은 사진을 고를 수 있다
+                  if (file) void readPhoto(file).finally(() => { input.value = '' })
+                }} />
+            </label>
+            {busyOperation === 'photo' && <Waiting message={upload ? '사진을 읽고 있어요. 몇 초 걸려요' : '사진을 여는 중이에요'} art={<Mascot pose="read" small />} />}
+            {photoPreview && (
+              <VStack gap={2}>
+                <img className="max-h-64 w-full rounded-lg bg-muted object-contain" src={photoPreview} alt="첨부한 계약서 사진" />
+                <Button className="self-end" size="sm" variant="ghost" label="사진 빼기" isDisabled={busy} onClick={() => setPhotoPreview('')} />
+              </VStack>
+            )}
+            {photoNote && <Text as="p" type="supporting" role="status">{photoNote}</Text>}
+            {upload && <Text type="supporting">사진이 없으면 아래에 직접 적어 주세요</Text>}
+          </VStack>
           <TextInput label="업체 이름" value={c.gym_name} onChange={(v) => edit('gym_name', { ...c, gym_name: v })}
             status={checks.has('gym_name') ? CHECK : undefined} />
           <TextInput label="실제로 낸 돈(원)" value={c.total_paid ? String(c.total_paid) : ''}
