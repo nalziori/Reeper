@@ -653,44 +653,6 @@ def business_accept_disputed(browser, base):
     ctx.close()
 
 
-def industry_gate(browser, base):
-    """기준을 확인하지 않은 업종이면 금액·시작 버튼 대신 1372 안내가 나오고, 확인된 업종으로 돌리면 금액이 다시 보인다."""
-    errors: list[str] = []
-    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
-    tag = "업종"
-    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
-    btn(page, "이 금액으로 시작").wait_for()
-    rec(f"{tag}: 기본은 헬스장", page.get_by_role("radio", name=re.compile("헬스장")).is_checked())
-    page.get_by_role("radio", name=re.compile("그 밖의 업종")).check()
-    page.get_by_text("이 업종은 아직 계산하지 않아요").wait_for()
-    rec(f"{tag}: 그 밖이면 금액·시작 버튼 없음", page.get_by_role("heading", name="예상 환불액").count() == 0
-        and btn(page, "이 금액으로 시작").count() == 0)
-    rec(f"{tag}: 그 밖이면 1372 안내", page.get_by_text("국번 없이 1372").count() == 1)
-    page.screenshot(path=SHOTS / "업종.png", full_page=True)
-    page.get_by_role("radio", name=re.compile("요가")).check()
-    btn(page, "이 금액으로 시작").wait_for()
-    rec(f"{tag}: 요가·필라테스는 금액 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
-    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
-    ctx.close()
-
-
-def zero_refund(browser, base):
-    """계산한 환불액이 0원이면 시작 버튼 대신 안내가 나온다. 0원 환불을 요청하는 문자를 만들지 않는다(2026-11-22 시나리오 점검)."""
-    errors: list[str] = []
-    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
-
-    def zero(route):
-        body = route.fetch().json()
-        route.fulfill(json={**body, "refund": 0, "per_day_loss": 0})
-    page.route("**/api/refund-preview", zero)
-    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
-    shown = shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
-    rec("0원 환불: 안내가 나오고 시작 버튼은 없음", shown and btn(page, "이 금액으로 시작").count() == 0
-        and btn(page, "계약 수정").count() == 1)
-    rec("0원 환불: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
-    ctx.close()
-
-
 def late_notice(browser, base):
     """사건을 연 날(11/16)과 문자를 보내는 날(11/20)이 다르면, 문안·막대 금액이 보내는 날 기준이고 줄었다는 안내가 나온다.
     보낸 뒤 업체가 맞는 금액을 말해도 정한 적 없는 하한선 때문에 경고가 뜨지 않는다(2026-11-22 시나리오 점검)."""
@@ -751,6 +713,44 @@ def late_notice(browser, base):
     rec(f"{tag}: 계약 종료 뒤에는 0원 안내만 있고 보내기 버튼 없음", shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
         and btn(page, "문자로 보냈어요").count() == 0 and page.locator(".draft").count() == 0)
     rec(f"{tag}: 종료 뒤 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def industry_gate(browser, base):
+    """기준을 확인하지 않은 업종이면 금액·시작 버튼 대신 1372 안내가 나오고, 확인된 업종으로 돌리면 금액이 다시 보인다."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    tag = "업종"
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").wait_for()
+    rec(f"{tag}: 기본은 헬스장", page.get_by_role("radio", name=re.compile("헬스장")).is_checked())
+    page.get_by_role("radio", name=re.compile("그 밖의 업종")).check()
+    page.get_by_text("이 업종은 아직 계산하지 않아요").wait_for()
+    rec(f"{tag}: 그 밖이면 금액·시작 버튼 없음", page.get_by_role("heading", name="예상 환불액").count() == 0
+        and btn(page, "이 금액으로 시작").count() == 0)
+    rec(f"{tag}: 그 밖이면 1372 안내", page.get_by_text("국번 없이 1372").count() == 1)
+    page.screenshot(path=SHOTS / "업종.png", full_page=True)
+    page.get_by_role("radio", name=re.compile("요가")).check()
+    btn(page, "이 금액으로 시작").wait_for()
+    rec(f"{tag}: 요가·필라테스는 금액 보임", page.get_by_role("heading", name="예상 환불액").count() == 1)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def zero_refund(browser, base):
+    """계산한 환불액이 0원이면 시작 버튼 대신 안내가 나온다. 0원 환불을 요청하는 문자를 만들지 않는다(2026-11-22 시나리오 점검)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+
+    def zero(route):
+        body = route.fetch().json()
+        route.fulfill(json={**body, "refund": 0, "per_day_loss": 0})
+    page.route("**/api/refund-preview", zero)
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    shown = shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
+    rec("0원 환불: 안내가 나오고 시작 버튼은 없음", shown and btn(page, "이 금액으로 시작").count() == 0
+        and btn(page, "계약 수정").count() == 1)
+    rec("0원 환불: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
 
@@ -830,9 +830,9 @@ def main() -> int:
             business_without_cases(browser, base)
             business_negotiation(browser, base)
             business_accept_disputed(browser, base)
+            late_notice(browser, base)
             industry_gate(browser, base)
             zero_refund(browser, base)
-            late_notice(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)
             storage_recovery(browser, base)
