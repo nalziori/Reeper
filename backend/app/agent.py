@@ -32,6 +32,9 @@ MORE_FIELDS = {"unit": "string", "total_count": "integer", "addon_value": "integ
 
 TEMPLATES = {p.stem: p.read_text(encoding="utf-8").strip() for p in (DATA / "templates").glob("*.txt")}
 BUSINESS_COUNTER_PENALTY = TEMPLATES.pop("counter_penalty_business")
+# 통화 대본의 "상대가 이렇게 말하면" 칸 맨 위에 업체 사정 사건만 더하는 줄(양식 파일). 소비자 사정이면 빈 문자열이라 대본이 그대로다.
+# 조문은 근거 표의 G4(제4조 제1항)만, 금액은 서버가 계산한 환불액만 쓴다
+BUSINESS_CALL_ANSWERS = TEMPLATES.pop("call_card_business_answers")
 COUNTER_KIND = {"refuse": "counter_refuse", "list_price": "counter_list_price",
                 "visit": "counter_visit", "low_offer": "counter_low_offer"}
 # ponytail: 위약금 비율 주장을 키워드로 알아본다. 놓치는 표현이 나오면 평가셋(eval/)으로 보강한다.
@@ -415,6 +418,7 @@ def facts(case: Case) -> dict[str, str]:
         # 소비자 사정 문안은 위약금이 0원일 때도 기존 표기를 유지한다
         "why": reason,
         "business_reason_part": f"{reason} " if c.cancel_reason == "business" else "",
+        "business_answers": BUSINESS_CALL_ANSWERS.format(why=reason, refund=f"{r.refund:,}") + "\n" if c.cancel_reason == "business" else "",
         "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty or c.cancel_reason == "consumer" else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": deposit_note,
