@@ -205,6 +205,10 @@ def next_action(case: Case, today: date) -> Action:
             if c.offered >= c.target:
                 return Action(type="confirm_agreement", reason="제시액이 희망 금액 이상이에요")
             return Action(type="counter", reason="제시액이 하한선 이상이지만 희망 금액보다 적어요. 받아들일지 정하세요")
+        if c.last_reply == "unknown":
+            # 유형이 분명하지 않은 답. 접수 안내면 요청 내용과 처리 기한을 묻는 문안, 위약금 비율·책임을 말했으면 위약금 근거
+            # 문안이 나간다(agent._counter_kind). 둘 다 요청 금액을 다시 밝히므로 '근거를 들어'가 아니라 이 안내가 맞다
+            return Action(type="counter", reason="요청한 금액을 다시 밝혀 두세요")
         return Action(type="counter", reason="근거를 들어 다시 요청하세요")
     if c.stage == "agreed":
         left = f" (남은 {c.agreed_amount - c.deposited:,}원)" if c.deposited else ""

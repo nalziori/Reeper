@@ -446,9 +446,11 @@ def _history(case: Case) -> str:
     if case.stage in ("agreed", "handed_off") and case.agreed_amount is not None:
         got = f"{case.deposited:,}원만 받음" if case.deposited else "입금받지 못함"
         return f"{case.agreed_amount:,}원에 합의했으나 입금 기한이 지나도록 {got}"
+    # 업체가 마지막에 금액을 제시했으면 상담원이 바로 알 수 있게 적는다(받아들이지 않은 제시액이다)
+    offer = f". 업체 제시액은 {case.offered:,}원" if case.last_reply == "low_offer" and case.offered is not None else ""
     if "escalation_sent" in sent:
-        return "문자와 내용증명으로 요청했으나 해결되지 않음"
-    return "문자로 요청했으나 해결되지 않음"
+        return f"문자와 내용증명으로 요청했으나 해결되지 않음{offer}"
+    return f"문자로 요청했으나 해결되지 않음{offer}"
 
 
 def _request(case: Case, addon_part: str, deposit_note: str) -> str:
@@ -507,11 +509,12 @@ def _counter_kind(case: Case) -> str:
         return kind
     if any(PENALTY_RATE.search(t) for t in said):
         return "counter_penalty"
-    # 업체 쪽 사정 사건은 반박이 한 번뿐이다(engine.BUSINESS_MAX_COUNTERS). 그 한 번을 "확인한 뒤 다시 연락드리겠습니다"로
-    # 쓰면 내 입장을 한 번도 말하지 않은 채 1372로 넘어간다. 위약금이나 책임을 말했으면 위약금 근거로, 아니면(접수 안내 등)
-    # 해지 이유와 요청 금액을 다시 밝히는 문안으로 답한다
-    if case.contract.cancel_reason == "business":
-        return "counter_penalty" if any(FAULT_TALK.search(t) for t in said) else "counter_refuse"
+    # 업체 쪽 사정 사건은 반박이 한 번뿐이다(engine.BUSINESS_MAX_COUNTERS). 위약금이나 책임을 말했으면 위약금 근거로 답한다.
+    # 그 밖의 애매한 답(접수 안내 등)은 counter_unknown이다. 이 양식은 해지 이유·날짜·요청 금액을 다시 밝히고 처리 기한을 묻는다.
+    # 예전 양식("확인한 뒤 다시 연락드리겠습니다")은 입장을 말하지 않은 채 반박 횟수만 썼다(#166). "처리 중"이라는 업체에
+    # 조문 반박(counter_refuse)을 보내는 것도 날이 서서 쓰지 않는다(2026-11-22 시나리오 점검)
+    if case.contract.cancel_reason == "business" and any(FAULT_TALK.search(t) for t in said):
+        return "counter_penalty"
     return kind
 
 
@@ -527,7 +530,14 @@ def drafts_for(case: Case, action: Action) -> dict[str, str]:
         "remind_deposit": ["remind_deposit"],
     }.get(action.type, [])
     if action.type == "wait" and case.stage == "agreed":
-        kinds = ["confirm_agreement"]
+        if case.deposited:
+            # 일부만 들어왔으면 합의 금액 전체를 다시 달라는 글이 아니라, 받은 금액과 남은 금액을 적은 글을 준다
+            kinds = ["remind_deposit"]
+        elif case.offered is not None and case.offered >= case.target and case.agreed_amount == case.offered:
+            # 희망 금액 이상 제시에는 이미 수락 문자(accept_offer, 계좌 포함)를 줬다. 같은 뜻의 글을 또 주지 않는다
+            kinds = []
+        else:
+            kinds = ["confirm_agreement"]
     # 업체가 나중에 연락하겠다고 미뤘으면, 기다리는 동안 언제 연락할지 묻는 문자를 준다.
     # 마지막 기록이 그 답장일 때만이다. last_reply는 다음 답장까지 남으므로, 재요청이나 내용증명을 보낸 뒤에는 주지 않는다
     if (action.type == "wait" and case.stage in ("waiting", "escalated") and case.last_reply == "callback"

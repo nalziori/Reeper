@@ -670,6 +670,23 @@ def industry_gate(browser, base):
     ctx.close()
 
 
+def zero_refund(browser, base):
+    """계산한 환불액이 0원이면 시작 버튼 대신 안내가 나온다. 0원 환불을 요청하는 문자를 만들지 않는다(2026-11-22 시나리오 점검)."""
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+
+    def zero(route):
+        body = route.fetch().json()
+        route.fulfill(json={**body, "refund": 0, "per_day_loss": 0})
+    page.route("**/api/refund-preview", zero)
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    shown = shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
+    rec("0원 환불: 안내가 나오고 시작 버튼은 없음", shown and btn(page, "이 금액으로 시작").count() == 0
+        and btn(page, "계약 수정").count() == 1)
+    rec("0원 환불: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
 def good_offer(browser, base):
     """업체가 받고 싶은 금액 이상을 말하면, 그 금액을 받겠다는 새 문자가 접히지 않고 보인다(보낸 적 없는 문자다)."""
     errors: list[str] = []
@@ -747,6 +764,7 @@ def main() -> int:
             business_negotiation(browser, base)
             business_accept_disputed(browser, base)
             industry_gate(browser, base)
+            zero_refund(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)
             storage_recovery(browser, base)

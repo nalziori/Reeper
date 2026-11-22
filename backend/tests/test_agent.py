@@ -616,16 +616,18 @@ def test_business_case_never_spends_its_one_counter_on_a_holding_reply():
     for text in (dispute, notice):
         assert agent.FAKE.read_reply(text) == ("unknown", None)
     for case, text, want in ((fault_case("trainer_change"), dispute, "counter_penalty"),
-                             (fault_case("trainer_change"), notice, "counter_refuse"),
+                             (fault_case("trainer_change"), notice, "counter_unknown"),
                              (open_case(CONTRACT, D), dispute, "counter_unknown")):
         case = apply(case, Event(type="notice_sent", channel="sms"), D)
         case = apply(case, Event(type="reply_received", text=text, reply_type="unknown"), D)
         drafts = agent.drafts_for(case, next_action(case, D))
         assert list(drafts) == [want] and agent.validate(drafts[want], case)
-        if case.contract.cancel_reason == "business":
-            assert f"{case.refund.refund:,}원" in drafts[want] and "다시 연락드리겠습니다" not in drafts[want]
-        if want == "counter_refuse":
-            assert "약속한 강사" in drafts[want] and "위약금" not in drafts[want]
+        # 소비자 사정 사건도 애매한 답에 요청 금액을 다시 밝힌다(반박 횟수를 '확인 후 연락'으로 쓰지 않는다. 2026-11-22 시나리오 점검)
+        assert f"{case.refund.refund:,}원" in drafts[want] and "다시 연락드리겠습니다" not in drafts[want]
+        if case.contract.cancel_reason == "business" and want == "counter_unknown":
+            # "처리 중"이라는 업체에는 조문을 들이밀지 않고, 해지 이유와 금액을 밝히고 처리 기한을 묻는다
+            body = drafts[want]
+            assert "약속한 강사" in body and "위약금" not in body and "법률" not in body and "처리해 주실 수 있는지" in body
 
 
 def test_refusal_counter_mentions_the_reason_only_for_business_cases():
@@ -720,3 +722,49 @@ def test_every_fault_kind_has_a_reason_phrase():
         phrase = agent.facts(fault_case(kind))["why"]
         assert phrase == agent.WHY[kind] and not agent._problems(phrase, fault_case(kind), D)
         assert not any(w in phrase for w in ("귀책", "잘못", "위반"))
+
+
+def _reply(case, **kw):
+    return apply(case, Event(type="reply_received", **kw), D)
+
+
+def test_partial_deposit_wait_asks_for_the_rest_not_the_whole_amount():
+    """일부만 들어온 뒤 기한 전 대기 화면: 합의 금액 전체를 다시 달라는 글 대신 받은 금액과 남은 금액을 적는다(2026-11-22 시나리오 점검)."""
+    case = _reply(apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D), reply_type="accept")
+    assert list(agent.drafts_for(case, next_action(case, D))) == ["confirm_agreement"]
+    case = apply(case, Event(type="deposit_confirmed", amount=100_000), D)
+    action = next_action(case, D)
+    drafts = agent.drafts_for(case, action)
+    assert action.type == "wait" and list(drafts) == ["remind_deposit"]
+    left = case.agreed_amount - 100_000
+    assert "100,000원만" in drafts["remind_deposit"] and f"{left:,}원" in drafts["remind_deposit"]
+    assert agent.validate(drafts["remind_deposit"], case)
+
+
+def test_no_second_acceptance_text_after_accepting_a_good_offer():
+    """희망 금액 이상 제시에는 수락 문자(계좌 포함)를 이미 줬다. 합의를 기록한 뒤 같은 뜻의 글을 또 주지 않는다.
+    희망 금액보다 적은 제시를 받아들인 경우에는 수락 문자를 준 적이 없어 확인 문자를 그대로 준다."""
+    start = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    good = _reply(start, reply_type="low_offer", amount=start.target)
+    assert list(agent.drafts_for(good, next_action(good, D))) == ["accept_offer"]
+    good = apply(good, Event(type="agreement_recorded", amount=start.target), D)
+    assert agent.drafts_for(good, next_action(good, D)) == {}
+    low = start.model_copy(update={"floor": start.target - 50_000})
+    low = _reply(low, reply_type="low_offer", amount=start.target - 20_000)
+    low = apply(low, Event(type="agreement_recorded", amount=start.target - 20_000), D)
+    assert list(agent.drafts_for(low, next_action(low, D))) == ["confirm_agreement"]
+
+
+def test_1372_text_mentions_the_last_offer_the_user_did_not_take():
+    """제시액을 두고 다투다 1372로 가면 상담 문안의 경과에 업체 제시액을 적는다. 거절로 끝났으면 적지 않는다."""
+    case = apply(open_case(CONTRACT, D), Event(type="notice_sent", channel="sms"), D)
+    for amount in (300_000, 320_000, 340_000):
+        case = _reply(case, reply_type="low_offer", amount=amount)
+        kind = next_action(case, D).type
+        case = apply(case, Event(type={"counter": "counter_sent", "certified_mail": "escalation_sent"}[kind]), D)
+    case = _reply(case, reply_type="low_offer", amount=350_000)
+    action = next_action(case, D)
+    text = agent.drafts_for(case, action)["go_1372"]
+    assert action.type == "go_1372" and "업체 제시액은 350,000원" in text and agent.validate(text, case)
+    refused = _reply(case, reply_type="refuse")
+    assert "업체 제시액" not in agent.drafts_for(refused, next_action(refused, D))["go_1372"]

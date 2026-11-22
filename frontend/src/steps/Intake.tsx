@@ -167,6 +167,8 @@ export function Intake({ onConfirm, rules, upload }: Props) {
     const base = preview
     const contract: Contract = isBiz ? { ...base.contract, cancel_reason: 'business', fault_kind: kind as FaultKind } : base.contract
     const refund = isBiz && bizRefund ? bizRefund : base.refund
+    // 이용분·위약금이 낸 돈을 다 덮으면 돌려받을 돈이 없다. 0원 환불을 요청하는 문자를 만들지 않도록 사건을 열지 않는다
+    const nothingBack = refund.refund === 0
     const unitName = refund.unit_label === '일' ? '일수' : refund.unit_label === '회' ? '이용 횟수' : refund.unit_label
     const targetAmount = target === '' ? refund.refund : Number(target)
     const floorAmount = floor === '' ? refund.refund : Number(floor)
@@ -313,7 +315,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {/* 업체가 다툴 때 금액은 rules.py가 채운 disputed_refund다(isBiz면 늘 있다) */}
             {isBiz && <Text type="supporting">업체가 다투면 위약금 {won(base.refund.penalty)}이 빠져 {won(refund.disputed_refund ?? 0)}이 될 수 있어요</Text>}
             {/* 업체가 적게 주겠다고 할 때 알려 줄 기준. 시작 버튼보다 위에 있어야 정하고 시작한다. 값을 적었거나 오류가 있으면 펼쳐 둔다 */}
-            <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
+            {!nothingBack && <Collapsible isOpen={limitsOpen || target !== '' || floor !== '' || Boolean(limitsError)} onOpenChange={setLimitsOpen}
               trigger={<VStack gap={1}>
                 <Text weight="semibold">희망 금액 정하기(선택)</Text>
                 <Text type="supporting">비우면 업체가 위 금액보다 적게 주겠다고 할 때 알려 드려요</Text>
@@ -324,7 +326,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
                 <TextInput label="하한선(원)" description="업체가 이보다 적게 주겠다고 하면 받지 않아요" value={floor} onChange={setFloor} inputMode="numeric"
                   isDisabled={busy} status={!floorValid || (floorAmount > targetAmount) ? { type: 'error', message: limitsError } : undefined} />
               </VStack>
-            </Collapsible>
+            </Collapsible>}
             {refund.per_day_loss > 0 && (
               <p className="m-0 flex w-fit items-center gap-1.5 rounded-lg bg-warn-soft px-2.5 py-1.5 text-[13px] font-medium text-warn">
                 <ClockIcon className="size-4" aria-hidden />하루 늦으면 {won(refund.per_day_loss)} 줄어요
@@ -340,6 +342,15 @@ export function Intake({ onConfirm, rules, upload }: Props) {
             {refund.provisional && <Text type="supporting">일반 기준으로 계산했어요. 실제와 다를 수 있어요</Text>}
           </VStack>
         </Card>
+        {nothingBack && (
+          <Card>
+            <VStack gap={2}>
+              <Heading level={2}>계산으로는 돌려받을 돈이 없어요</Heading>
+              <Text as="p">쓴 만큼과 위약금을 빼면 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
+              <Text type="supporting">계약 날짜나 금액을 잘못 적었다면 '계약 수정'으로 고쳐 주세요. 계산이 다르다고 보면 1372 소비자상담센터(국번 없이 1372)에 물어보세요</Text>
+            </VStack>
+          </Card>
+        )}
         {/* 업체 사정이면 비슷한 사례를 금액 아래에 접어 둔다(금액이 먼저다) */}
         {isBiz && <FaultCases kind={kind} context="intake" />}
         </>)}
@@ -347,7 +358,7 @@ export function Intake({ onConfirm, rules, upload }: Props) {
         <div className="action-dock">
           <HStack gap={2} wrap="wrap">
             <Button label="계약 수정" isDisabled={busy} onClick={() => { setError(''); setPreview(null) }} />
-            {(reason !== 'business' || isBiz) && <Button variant="primary" label={busy ? '확인 중…' : '이 금액으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
+            {(reason !== 'business' || isBiz) && !nothingBack && <Button variant="primary" label={busy ? '확인 중…' : '이 금액으로 시작'} isDisabled={busy || Boolean(limitsError)} onClick={confirm} />}
           </HStack>
         </div>
       </VStack>
