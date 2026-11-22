@@ -667,6 +667,16 @@ def test_polish_keeps_the_business_reason_or_falls_back_to_the_template(real):
             assert agent.polished(kind, case, "polite") == (softer, True), kind
 
 
+def test_call_card_answers_cover_the_business_replies_only_for_business_cases():
+    mine, theirs = open_case(CONTRACT, D), fault_case("trainer_change")
+    a, b = agent.render("call_card", mine), agent.render("call_card", theirs)
+    assert "저희 귀책이 아니라 위약금은 공제됩니다" not in a and "{business_answers}" not in a
+    assert "문의하겠습니다.\"\n\n[끊기 전에]" in a  # 소비자 사정 대본은 그대로다
+    assert "저희 귀책이 아니라 위약금은 공제됩니다" in b and f"{theirs.refund.refund:,}원 환급" in b
+    assert "제4조 제1항" in b and "10%" not in b and agent.validate(b, theirs)
+    assert "\n\n[끊기 전에]" in b  # 새 줄이 칸 구분을 깨지 않는다
+
+
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:

@@ -400,6 +400,15 @@ def why(case: Case) -> str:
     return WHY[c.fault_kind or "other"] if c.cancel_reason == "business" else WHY["consumer"]
 
 
+# 통화 대본의 "상대가 이렇게 말하면" 칸에 업체 사정 사건만 더하는 줄. 소비자 사정이면 빈 문자열이라 대본이 그대로다.
+# 조문은 근거 표의 G4(제4조 제1항)만, 금액은 서버가 계산한 환불액만 쓴다
+BUSINESS_CALL_ANSWERS = (
+    '\n- "저희 귀책이 아니라 위약금은 공제됩니다" → "{why} 해지를 요청했습니다. 고시 제4조 제1항은 사업자의 귀책사유가 없는 경우에 '
+    '위약금을 청구할 수 있다고 정하고 있어서, 위약금 없이 {refund}원 환급을 부탁드립니다. 공제하신다면 이유와 계산 내역을 문자로 보내 주세요."'
+    '\n- 위약금을 뺀 금액을 말하면 → "항목별 금액과 근거를 문자로 보내 주세요. 확인하고 답드리겠습니다."'
+)
+
+
 def facts(case: Case) -> dict[str, str]:
     c, r = case.contract, case.refund
     reason = why(case)
@@ -415,6 +424,7 @@ def facts(case: Case) -> dict[str, str]:
         # 소비자 사정 문안은 위약금이 0원일 때도 기존 표기를 유지한다
         "why": reason,
         "business_reason_part": f"{reason} " if c.cancel_reason == "business" else "",
+        "business_answers": BUSINESS_CALL_ANSWERS.format(why=reason, refund=f"{r.refund:,}") if c.cancel_reason == "business" else "",
         "penalty_part": f"과 위약금 {r.penalty:,}원" if r.penalty or c.cancel_reason == "consumer" else "",
         "deposit_part": f" 뒤 보증금 {r.security_deposit:,}원을 더한" if r.security_deposit else "",
         "deposit_note": deposit_note,
