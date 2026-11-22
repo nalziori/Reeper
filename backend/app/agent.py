@@ -339,7 +339,9 @@ def polished(kind: str, case: "Case", tone: str) -> tuple[str, bool]:
         _fallback(e)
         return base, False
     gym = facts(case)["gym"]  # 상호를 바꾸거나 빼면 쓰지 않는다
+    reason = why(case) if case.contract.cancel_reason == "business" else ""  # 업체 사정이면 해지 사유 구절도 그대로 둔다
     ok = (bool(out) and validate(out, case) and _numbers(out) == _numbers(base) and _same_claims(out, base)
+          and (not reason or out.count(reason) == base.count(reason))
           and out.count(gym) == base.count(gym) and out.count(ACCOUNT_SLOT) == base.count(ACCOUNT_SLOT))
     return (out, True) if ok else (base, False)
 

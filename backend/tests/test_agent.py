@@ -632,6 +632,20 @@ def test_reason_reaches_the_call_script_and_other_drafts_only_for_business_cases
         assert agent.validate(b, theirs) and "개인 사정으로" not in b, kind
 
 
+def test_polish_keeps_the_business_reason_or_falls_back_to_the_template(real):
+    case = apply(fault_case("closure"), Event(type="notice_sent", channel="sms"), D)
+    reason = agent.why(case)
+    for kind in ("after_call_sms", "certified_mail", "follow_up", "notice_sms"):  # call_card는 다듬지 않는 양식(NOT_SENT)이다
+        base = agent.render(kind, case)
+        assert base.count(reason) == 1, kind
+        real({"text": base.replace(f"{reason} ", "", 1)})  # 사유만 뺀 글은 쓰지 않는다
+        assert agent.polished(kind, case, "polite") == (base, False), kind
+        softer = base.replace("부탁드립니다", "부탁드리겠습니다", 1).replace("요청드립니다", "요청드리겠습니다", 1)
+        real({"text": softer})  # 사유를 그대로 둔 글은 쓴다
+        if softer != base:
+            assert agent.polished(kind, case, "polite") == (softer, True), kind
+
+
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:
