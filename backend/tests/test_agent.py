@@ -720,3 +720,17 @@ def test_every_fault_kind_has_a_reason_phrase():
         phrase = agent.facts(fault_case(kind))["why"]
         assert phrase == agent.WHY[kind] and not agent._problems(phrase, fault_case(kind), D)
         assert not any(w in phrase for w in ("귀책", "잘못", "위반"))
+
+
+def test_analysis_is_told_when_the_disputed_offer_can_be_taken():
+    """업체 사정 사건에서 다툴 때 금액 이상이면 화면에 받기 버튼이 있다(#171). 분석도 같은 조건을 받아 "합의로 읽힐 답 하지 마세요"
+    대신 받을지는 소비자가 정한다고 말한다. 조건은 서버가 정하고 모델이 금액을 비교하지 않는다."""
+    def after(case, amount):
+        case = apply(case, Event(type="notice_sent", channel="sms"), D)
+        case = apply(case, Event(type="reply_received", text="위약금 빼고 드릴게요", reply_type="low_offer", amount=amount), D)
+        return case, next_action(case, D)
+    theirs = fault_case("trainer_change")
+    other = apply(theirs, Event(type="notice_sent", channel="sms"), D).refund.disputed_refund
+    assert agent._can_take(*after(theirs, other)) and agent._can_take(*after(theirs, other + 1))
+    assert not agent._can_take(*after(theirs, other - 1))
+    assert not agent._can_take(*after(open_case(CONTRACT, D), 300_000))  # 소비자 사정은 그대로 경고만

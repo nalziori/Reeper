@@ -642,6 +642,7 @@ ANALYZE_SYSTEM = """소비자가 헬스장에 회원권 환불을 요청했고 �
     - 업체가 자기 책임이 아니라며 위약금을 빼겠다고 할 수 있다는 점을 알려 준다. '업체가 다퉈 소비자 사정으로 계산될 때의 환불액'이 있으면 그 금액을 그대로 알려 준다. 직접 계산하지 않는다.
     - 업체가 받아들이지 않으면 1372 소비자상담센터에서 따져 볼 수 있다고 안내한다. 배상금을 더 받을 수 있다고 쓰지 않는다.
   - '제시액이 기준보다 적음'이 참이면, 그 금액에 합의한다는 뜻으로 읽힐 답을 하지 않도록 알려 준다. 기준은 '비교 기준 이름'에 적힌 말(하한선 또는 예상 환불액)로만 부른다.
+  - '받고 끝낼 수 있는 제시'가 참이면(업체 쪽 사정 사건에서 업체가 다툴 때의 환불액 이상을 제시함) 위 말 대신, 그 금액을 받고 끝낼지는 소비자가 정할 수 있다고 알려 준다. 받으면 위약금 없이 요청할 여지를 내려놓는 것이고, 받지 않을 거라면 합의로 읽힐 답은 피하라고 쓴다. 받으라거나 받지 말라고 권하지 않는다.
 
 지키는 것:
 - 금액은 '계산 결과', '서버 판단', 업체 답장에 있는 숫자만 쓴다. 직접 계산하지 않는다. 473,334원처럼 쉼표를 넣어 원 단위로 쓴다.
@@ -660,6 +661,13 @@ ANALYZE_SCHEMA = {
 }
 
 
+def _can_take(case: Case, action: Action) -> bool:
+    """하한선보다 적어 경고가 떠도 사용자가 받고 끝낼 수 있는 제시인지. 화면의 받기 버튼(Respond.tsx의 takeDisputed, #171)과 같은 조건이다."""
+    other = case.refund.disputed_refund
+    return bool(action.warn and case.contract.cancel_reason == "business" and other is not None
+                and case.offered is not None and case.offered >= other)
+
+
 def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
     """업체 답장의 주장을 짚는다. case는 답장을 반영한 뒤의 사건, action은 서버가 정한 다음 행동이다.
 
@@ -674,7 +682,8 @@ def analyze_reply(case: Case, reply: str, action: Action, today: date) -> dict:
     payload = {**_brief(case, today), "업체 답장": reply,
                "서버 판단": {"다음 행동": action.type, "이유": action.reason, "업체 제시액": case.offered,
                          "요청액과 제시액의 차이": _gap(case), "희망 금액": case.target, floor_name(case): case.floor,
-                         "비교 기준 이름": floor_name(case), "제시액이 기준보다 적음": action.warn}}
+                         "비교 기준 이름": floor_name(case), "제시액이 기준보다 적음": action.warn,
+                         "받고 끝낼 수 있는 제시": _can_take(case, action)}}
     try:
         out = cur._chat(ANALYZE_SYSTEM, json.dumps(payload, ensure_ascii=False), ANALYZE_SCHEMA)
     except Exception as e:
