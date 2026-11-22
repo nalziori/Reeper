@@ -623,6 +623,15 @@ def test_refusal_counter_mentions_the_reason_only_for_business_cases():
     assert "개인 사정으로" not in business
 
 
+def test_reason_reaches_the_call_script_and_other_drafts_only_for_business_cases():
+    reason = "휴업이나 시설 폐쇄로 계약한 시설을 이용할 수 없게 되어"
+    mine, theirs = open_case(CONTRACT, D), fault_case("closure")
+    for kind in ("call_card", "after_call_sms", "certified_mail", "follow_up"):
+        a, b = agent.render(kind, mine), agent.render(kind, theirs)
+        assert reason not in a and f"{reason} " in b, kind
+        assert agent.validate(b, theirs) and "개인 사정으로" not in b, kind
+
+
 def test_every_template_still_passes_for_a_business_fault_case():
     case = apply(fault_case(), Event(type="notice_sent", channel="sms"), D)
     for kind in agent.TEMPLATES:
