@@ -673,8 +673,12 @@ def test_call_card_answers_cover_the_business_replies_only_for_business_cases():
     assert "저희 귀책이 아니라 위약금은 공제됩니다" not in a and "{business_answers}" not in a
     assert "문의하겠습니다.\"\n\n[끊기 전에]" in a  # 소비자 사정 대본은 그대로다
     assert "저희 귀책이 아니라 위약금은 공제됩니다" in b and f"{theirs.refund.refund:,}원 환급" in b
-    assert "제4조 제1항" in b and "10%" not in b and agent.validate(b, theirs)
+    assert "고시(계속거래 위약금 산정기준) 제4조 제1항" in b and "10%" not in b and agent.validate(b, theirs)
+    assert "call_card_business_answers" not in agent.TEMPLATES  # 화면의 양식 목록에는 나오지 않는다
     assert "\n\n[끊기 전에]" in b  # 새 줄이 칸 구분을 깨지 않는다
+    section = b.split("[상대가 이렇게 말하면]\n")[1].split("\n\n")[0].splitlines()
+    assert section[0].startswith('- "저희 귀책이 아니라') and section[1].startswith("- 위약금을 뺀 금액을 말하면")  # 칸 맨 위에 둔다
+    assert "항목별 금액과 근거" not in b and f"위약금 없이 {theirs.refund.refund:,}원을 요청드렸습니다" in b
 
 
 def test_every_template_still_passes_for_a_business_fault_case():
