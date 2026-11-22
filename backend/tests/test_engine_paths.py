@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import Contract
-from app.rules import POLICY
+from app.rules import POLICY, calculate
 
 api = TestClient(app)
 CONTRACT = Contract(gym_name="가상피트니스", total_paid=600_000,
@@ -304,3 +304,58 @@ def test_old_month_case_cannot_send_first_notice():
     assert r.status_code == 200
     kept = r.json()["case"]
     assert (kept["floor"], kept["target"], kept["timeline"][0]["type"]) == (275_000, 300_000, "call_attempted")
+
+
+# ---- 알리기 전에 날짜가 지났을 때(2026-11-22 시나리오 점검) ----------------------------------------
+# 환불액은 첫 통지일로 고정되지만 그 전에는 하루씩 줄어든다. 열 때의 금액으로 문안을 보여 주면 며칠 뒤 보내는 문자가
+# 더 많은 금액을 "오늘 자로" 요청하고, 보낸 뒤에는 정한 적 없는 하한선이 옛 금액으로 남아 맞는 제시에도 경고가 뜬다.
+
+def test_waiting_to_notify_reprices_the_amount_and_the_draft_to_today():
+    f = Flow()
+    opened = f.res["case"]["refund"]["refund"]
+    assert f.step(days=0, type="time_passed") == "send_notice" and f.res["case"]["refund"]["refund"] == opened  # 같은 날은 그대로
+    f.step(days=4, type="time_passed")
+    case = f.res["case"]
+    assert case["refund"]["refund"] == calculate(CONTRACT, D + timedelta(days=4)).refund < opened and case["stage"] == "ready"
+    assert f"{case['refund']['refund']:,}원" in f.res["drafts"]["notice_sms"] and f"{opened:,}원" not in f.res["drafts"]["notice_sms"]
+    # 정하지 않은 희망 금액·하한선은 새 금액을 따라간다
+    assert case["target"] == case["floor"] == case["refund"]["refund"]
+    assert case["notified_on"] is None and case["timeline"] == []  # 통지로 보지 않는다
+
+
+def test_a_correct_offer_after_a_late_notice_is_not_below_the_floor():
+    f = Flow()
+    f.step(days=4, type="time_passed")
+    f.step(type="notice_sent", channel="sms")
+    refund = f.res["case"]["refund"]["refund"]
+    assert f.res["case"]["floor"] == refund
+    f.step(days=1, type="reply_received", reply_type="low_offer", amount=refund)
+    assert f.res["action"]["type"] == "confirm_agreement" and not f.warn  # 맞는 금액이다
+    # 통지 때 처음 다시 계산돼도 같다(앱을 열지 않고 며칠 뒤 바로 보낸 경우)
+    g = Flow()
+    g.step(days=4, type="notice_sent", channel="sms")
+    assert g.res["case"]["floor"] == g.res["case"]["target"] == g.res["case"]["refund"]["refund"]
+
+
+def test_limits_the_user_set_do_not_move_when_the_amount_does():
+    f = Flow(target=460_000 + 10_000, floor=440_000)
+    f.step(days=4, type="time_passed")
+    case = f.res["case"]
+    assert (case["target"], case["floor"]) == (470_000, 440_000)  # 정한 값은 그대로
+    only_floor = Flow(floor=440_000)  # 희망 금액만 기본이면 새 금액을 따라가고, 하한선은 희망 금액을 넘지 않는다
+    only_floor.step(days=4, type="time_passed")
+    c = only_floor.res["case"]
+    assert c["target"] == c["refund"]["refund"] and c["floor"] == min(440_000, c["target"])
+
+
+def test_amounts_after_the_first_notice_stay_fixed_when_time_passes():
+    f = Flow()
+    f.step(type="notice_sent", channel="sms")
+    fixed = f.res["case"]["refund"]["refund"]
+    f.step(days=WAIT + 1, type="time_passed")
+    f.step(days=1, type="time_passed")
+    assert f.res["case"]["refund"]["refund"] == fixed  # 통지 뒤에는 날짜가 지나도 바뀌지 않는다
+    after_call = Flow()
+    after_call.step(type="call_attempted")  # 연결되지 않은 통화는 도달이 아니다. 아직 알리기 전이다
+    after_call.step(days=4, type="time_passed")
+    assert after_call.res["case"]["refund"]["refund"] < fixed and after_call.stage == "ready"

@@ -9,6 +9,7 @@ import { DemoPanel } from './components/DemoPanel'
 import { ExportMenu } from './components/ExportMenu'
 import { JourneyProgress } from './components/JourneyProgress'
 import { OfferCompare } from './components/OfferCompare'
+import { canTakeDisputed } from './offer'
 import { PolishContext } from './components/PolishContext'
 import { RealityNote } from './components/RealityNote'
 import { StrategyCard } from './components/StrategyCard'
@@ -251,7 +252,8 @@ export default function App() {
       {c.stage === 'closed' && <Mascot pose="done" />}
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>
-        {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund} />}
+        {action.warn && <OfferCompare offered={c.offered ?? 0} floor={c.floor} refund={c.refund.refund}
+          takeable={canTakeDisputed(c, action) ? c.refund.disputed_refund ?? undefined : undefined} />}
         <ReplyReading step={saved.step} rules={rules} />
         {/* 옛 월 단위 사건은 금액을 확인하기 전까지 옛 금액 문안과 발송 버튼을 보이지 않는다. 서버는 기록만 막고 발송은 막지 못한다 */}
         {phase === 3 && !isOldMonth(c) && <Prepare saved={saved} send={send} />}

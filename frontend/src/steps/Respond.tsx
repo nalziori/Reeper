@@ -8,6 +8,7 @@ import { Guide1372 } from '../components/Guide1372'
 import { ReplyButtons } from '../components/ReplyButtons'
 import { REPLY_LABEL, won } from '../format'
 import type { Saved, Send } from '../useCase'
+import { canTakeDisputed } from '../offer'
 import { Mascot } from '../components/Mascot'
 
 type Props = {
@@ -80,8 +81,7 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   const sendFirst = ['follow_up', 'counter', 'certified_mail', 'confirm_agreement'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
   // 업체 잘못 사건에서 업체가 위약금을 뺀 금액(rules.py의 disputed_refund) 이상을 내면, 하한선보다 적어 경고가 떠도
   // 받고 끝낼지는 사용자가 정한다. 경고는 그대로 두고 받기 버튼만 함께 둔다. 서버는 하한선과 관계없이 합의를 받는다
-  const disputed = c.refund.disputed_refund
-  const takeDisputed = action.warn && c.contract.cancel_reason === 'business' && disputed != null && c.offered != null && c.offered >= disputed
+  const takeDisputed = canTakeDisputed(c, action)
   const canAgree = c.stage === 'negotiating' && c.offered != null && c.offered > 0 && (!action.warn || takeDisputed)
   const hasDock = sendFirst || canAgree
   const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
