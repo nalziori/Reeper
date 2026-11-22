@@ -499,7 +499,10 @@ def _counter_kind(case: Case) -> str:
         if r.type != "reply_received":
             break
         said.append(r.text)
-    return "counter_penalty" if kind == "counter_unknown" and any(PENALTY_RATE.search(t) for t in said) else kind
+    # 업체 쪽 사정 사건은 반박이 한 번뿐이다(engine.BUSINESS_MAX_COUNTERS). 그 한 번을 "확인한 뒤 다시 연락드리겠습니다"로
+    # 쓰면 내 입장을 한 번도 말하지 않은 채 1372로 넘어간다. 어떤 답인지 모르겠으면 위약금 없는 환급을 요청하는 양식으로 답한다
+    business = case.contract.cancel_reason == "business"
+    return "counter_penalty" if kind == "counter_unknown" and (business or any(PENALTY_RATE.search(t) for t in said)) else kind
 
 
 def drafts_for(case: Case, action: Action) -> dict[str, str]:
