@@ -25,7 +25,7 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
       <Card>
         <VStack gap={2}>
           <Heading level={2}>계산으로는 돌려받을 돈이 없어요</Heading>
-          <Text as="p">{dropped ? `며칠 지나 예상 환불액이 ${won(saved.refundFrom!)}에서 0원으로 줄었어요. ` : ''}오늘 기준으로 쓴 만큼과 위약금을 빼면 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
+          <Text as="p">{dropped ? `며칠 지나 예상 환불액이 ${won(saved.refundFrom!)}에서 0원으로 줄었어요. ` : ''}오늘 기준으로 {saved.step.case.refund.penalty > 0 ? '쓴 만큼과 위약금을 빼면' : '쓴 만큼을 빼면'} 낸 돈이 남지 않아요. 그래서 업체에 보낼 환불 요청을 만들지 않아요</Text>
           <Text type="supporting">계산이 다르다고 보면 1372 소비자상담센터(국번 없이 1372)에 물어보세요. 처음부터 다시 하려면 위 '새로 시작'을 누르세요</Text>
         </VStack>
       </Card>

@@ -712,6 +712,14 @@ def late_notice(browser, base):
     page.reload(wait_until="networkidle")
     rec(f"{tag}: 계약 종료 뒤에는 0원 안내만 있고 보내기 버튼 없음", shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
         and btn(page, "문자로 보냈어요").count() == 0 and page.locator(".draft").count() == 0)
+    rec(f"{tag}: 내 사정이면 0원 안내에 쓴 만큼과 위약금", page.get_by_text("쓴 만큼과 위약금을 빼면").count() == 1)
+    # 업체 잘못은 위약금이 0원이라 안내도 위약금을 말하지 않는다(#179 C 리뷰)
+    biz = {**contract, "cancel_reason": "business", "fault_kind": "trainer_change"}
+    _, bres = call(base, "/api/cases", {"contract": biz, "today": "2026-11-16"})
+    page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": bres, "offset": 80})
+    page.reload(wait_until="networkidle")
+    rec(f"{tag}: 업체 잘못이면 0원 안내에 위약금을 말하지 않음", shows(page.get_by_text("쓴 만큼을 빼면"))
+        and page.get_by_text("위약금을 빼면").count() == 0)
     rec(f"{tag}: 종료 뒤 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
