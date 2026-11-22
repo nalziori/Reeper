@@ -553,6 +553,65 @@ def business_negotiation(browser, base):
     rec(f"{tag}: 반박 뒤 거절이면 내용증명 없이 1372", res["action"]["type"] == "go_1372"
         and btn(page, "내용증명을 보냈어요").count() == 0 and btn(page, "1372에 접수했어요").count() == 1)
     rec(f"{tag}: 1372 단계에도 비슷한 사례", page.get_by_text("비슷한 사례 3건 참고하기").count() == 1)
+    # 거절도 제시도 아닌(unknown) 답이라도 업체가 귀책·위약금을 말하면, 한 번뿐인 반박은 위약금 반박이다.
+    # "확인한 뒤 다시 연락드리겠습니다"로 나가면 안 된다(#166)
+    _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
+    for event in ({"type": "notice_sent", "channel": "sms"},
+                  {"type": "reply_received", "reply_type": "unknown", "text": "새 강사를 배정했으니 저희 귀책이 아니고, 위약금 부담은 어렵습니다"}):
+        _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": "2026-11-16"})
+    load(res)
+    page.locator(".draft").first.wait_for()
+    rec(f"{tag}: 귀책·위약금을 말한 unknown 답에는 위약금 반박", res["action"]["type"] == "counter"
+        and page.get_by_text("위약금을 공제하지 않고").filter(visible=True).count() >= 1
+        and page.get_by_text("확인한 뒤 다시 연락드리겠습니다").count() == 0)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def business_accept_disputed(browser, base):
+    """업체 사정 사건에서 업체가 위약금을 뺀 금액(disputed_refund) 이상을 내면, 하한선 경고는 그대로 두고
+    받기 버튼을 함께 보인다. 그보다 적으면 받기 버튼이 없다. 반박 뒤 1372 단계에서도 받고 끝낼 수 있다."""
+    from lib import call
+    contract = {**call(base, "/api/samples")[1][0]["contract"], "cancel_reason": "business", "fault_kind": "trainer_change"}
+    day = "2026-11-16"
+    _, res = call(base, "/api/cases", {"contract": contract, "today": day})
+    _, res = call(base, "/api/cases/step", {"case": res["case"], "event": {"type": "notice_sent", "channel": "sms"}, "today": day})
+    noticed = res["case"]
+    disputed = noticed["refund"]["disputed_refund"]
+    tag = "업체 사정 위약금 뺀 금액"
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+
+    def offer(case, amount):
+        event = {"type": "reply_received", "reply_type": "low_offer", "amount": amount, "text": "새 강사를 배정했으니 위약금은 뺍니다"}
+        return call(base, "/api/cases/step", {"case": case, "event": event, "today": day})[1]
+
+    def load(step):
+        page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": step, "offset": 0})
+        page.reload(wait_until="networkidle")
+
+    rec(f"{tag}: 시험 사건에 위약금이 있음", disputed is not None and 0 < disputed < noticed["refund"]["refund"])
+    # 위약금 뺀 금액보다 적으면 경고만 있고 받기 버튼은 없다
+    load(offer(noticed, disputed - 1000))
+    btn(page, "이 문자를 보냈어요").wait_for()
+    rec(f"{tag}: 그보다 적으면 받기 버튼 없음", btn(page, "으로 받을게요").count() == 0 and btn(page, "에 합의했어요").count() == 0)
+    # 위약금 뺀 금액이면 경고와 받기 버튼이 함께 있다. 반박이 주 버튼이다
+    res = offer(noticed, disputed)
+    load(res)
+    btn(page, "으로 받을게요").wait_for()
+    rec(f"{tag}: 같은 금액이면 경고와 받기 버튼", res["action"]["warn"] and page.get_by_text("보다 적어요").count() >= 1
+        and btn(page, "이 문자를 보냈어요").count() == 1)
+    # 반박 한 번 뒤 같은 금액이면 1372 안내와 받기 버튼이 함께 있고, 누르면 합의로 넘어간다
+    _, res = call(base, "/api/cases/step", {"case": res["case"], "event": {"type": "counter_sent"}, "today": day})
+    res = offer(res["case"], disputed + 500)
+    load(res)
+    page.get_by_role("heading", name="1372에 상담하기").wait_for()
+    rec(f"{tag}: 반박 뒤에도 1372와 받기 버튼", res["action"]["type"] == "go_1372" and res["action"]["warn"]
+        and btn(page, "1372에 접수했어요").count() == 1 and btn(page, "으로 받을게요").count() == 1)
+    btn(page, "으로 받을게요").click()
+    page.wait_for_function("() => JSON.parse(localStorage.getItem('reeper.case')).step.case.stage === 'agreed'")
+    saved = page.evaluate("() => JSON.parse(localStorage.getItem('reeper.case')).step.case")
+    rec(f"{tag}: 받으면 그 금액으로 합의", saved["stage"] == "agreed" and saved["agreed_amount"] == disputed + 500)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
@@ -649,6 +708,7 @@ def main() -> int:
             business_amount(browser, base)
             business_without_cases(browser, base)
             business_negotiation(browser, base)
+            business_accept_disputed(browser, base)
             industry_gate(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)
