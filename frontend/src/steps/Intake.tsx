@@ -53,9 +53,9 @@ function WhyBox({ ids, rules, children }: { ids: string[]; rules: Rules; childre
   )
 }
 
-type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean }
+type Props = { onConfirm: (step: Step, today: string) => void; rules: Rules; upload: boolean; onPreviewChange?: (on: boolean) => void }
 
-export function Intake({ onConfirm, rules, upload }: Props) {
+export function Intake({ onConfirm, rules, upload, onPreviewChange }: Props) {
   const [samples, setSamples] = useState<Sample[]>([])
   const [c, setC] = useState<Contract>({ gym_name: '', total_paid: 0, start_date: '', end_date: '' })
   const [preview, setPreview] = useState<{ contract: Contract; refund: Refund; today: string } | null>(null)
@@ -83,6 +83,9 @@ export function Intake({ onConfirm, rules, upload }: Props) {
   const [limitsOpen, setLimitsOpen] = useState(false)
   // 계약 입력과 근거 확인을 오가면 맨 위에서 시작한다
   useEffect(() => { window.scrollTo({ top: 0 }) }, [preview === null])
+  // 금액 화면이 열려 있는지 위 막대에 알린다(그때부터 '새로 시작'이 보인다)
+  const previewOpen = preview !== null
+  useEffect(() => { onPreviewChange?.(previewOpen) }, [previewOpen, onPreviewChange])
   // 업체 잘못 + 유형이면 같은 계약을 업체 잘못으로 다시 계산한다. 폐쇄 유형도 연다(시설 일부만 닫고 영업 중인 경우가 있다, #154 B 리뷰)
   useEffect(() => {
     if (!preview || reason !== 'business' || !kind) return

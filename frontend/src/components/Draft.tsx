@@ -57,7 +57,8 @@ function CallScript({ text, answers }: { text: string; answers?: CallAnswers }) 
           {steps.map(({ label, script }, i) => {
             const first = i === 0
             return (
-              <li key={i} className={first ? 'call-script-opening' : undefined}>
+              // 모든 순서를 같은 무게로 둔다. 첫 항목만 배경을 주면 번호가 배경 밖에 남아 어색했다
+              <li key={i}>
                 {(first || label) && <strong>{first ? '인사하고 해지 의사 전하기' : label}</strong>}
                 <p className="call-script-line">{first ? [...opening.lines, script].join('\n') : script}</p>
               </li>

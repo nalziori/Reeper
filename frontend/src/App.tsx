@@ -110,6 +110,10 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [flash])
   const reset = () => { forgetAccount(); setConfirmReset(false); setSettlement(''); setTabAt(null); keep(null) }
+  // 사건을 열기 전 금액 화면에서도 새로 시작할 수 있다. 저장된 것이 없어 묻지 않고 빈 입력 화면으로 돌아간다
+  const [intakeKey, setIntakeKey] = useState(0)
+  const [previewing, setPreviewing] = useState(false)
+  const restartIntake = () => { setIntakeKey((k) => k + 1); setPreviewing(false) }
   // 환불이 끝나면 계좌는 더 쓸 데가 없다. 같이 쓰는 PC에서 다음 사람이 보지 않게 브라우저에서 지운다
   const closed = saved?.step.case.stage === 'closed'
   useEffect(() => { if (closed) forgetAccount() }, [closed])
@@ -142,8 +146,8 @@ export default function App() {
       <div className="app-bar-brand">
         <HStack hAlign="between" vAlign="center">
           <Heading level={1}>Reeper</Heading>
-          {saved && <Button variant="ghost" size="sm" label="새로 시작" icon={<PlusIcon aria-hidden />} isDisabled={busy}
-            onClick={() => saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
+          {(saved || previewing) && <Button variant="ghost" size="sm" label="새로 시작" icon={<PlusIcon aria-hidden />} isDisabled={busy}
+            onClick={() => !saved ? restartIntake() : saved.step.case.stage === 'closed' ? reset() : setConfirmReset(true)} />}
         </HStack>
       </div>
       {sc && (
@@ -197,7 +201,8 @@ export default function App() {
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
         <main ref={intakeRef} tabIndex={-1} aria-label="계약 입력">
-          <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
+          <Intake key={intakeKey} rules={rules} upload={health?.upload === true} onPreviewChange={setPreviewing}
+            onConfirm={(step, today) => { setPreviewing(false); keep({ offset: 0, step, actionDate: today }) }} />
         </main>
       </VStack>
     )
@@ -231,7 +236,8 @@ export default function App() {
       {/* 지금 할 일 한 문장과 기한. 금액 제시 없이 다시 요청하는 반박('근거를 들어 다시 요청하세요', 애매한 답의
           '요청한 금액을 다시 밝혀 두세요')은 아래 문자 카드와 같은 말이고 기한도 없어서 보이지 않는다. 그 문장은 답장 분석에
           '이유'로만 들어간다. 이유나 기한이 있는 문장은 그대로 둔다(문장은 engine.py가 정한다) */}
-      {!(phase === 3 && action.type === 'send_notice') && !(action.type === 'counter' && !action.warn && c.offered == null) && <Card className="mb-3">
+      {/* 끝난 사건은 아래 '환불 완료' 카드가 같은 말을 하므로 맨 위 안내를 두지 않는다 */}
+      {!(phase === 3 && action.type === 'send_notice') && !(action.type === 'counter' && !action.warn && c.offered == null) && c.stage !== 'closed' && <Card className="mb-3">
         <HStack hAlign="between" vAlign="start" gap={2}>
           <VStack gap={3}>
             <Heading level={2}>{action.reason}</Heading>
