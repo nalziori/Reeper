@@ -1,7 +1,8 @@
-import { BottomSheet, Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
+import { Banner, BottomSheet, Button, Card, Dock, HStack, Heading, SegmentedControl, SegmentedControlItem, Text, VStack } from '../ui'
 import { useState } from 'react'
 import type { Step } from '../api'
 import { Draft, DraftList } from '../components/Draft'
+import { won } from '../format'
 import type { Saved, Send } from '../useCase'
 
 type Channel = 'sms' | 'call'
@@ -15,8 +16,13 @@ export function Prepare({ saved, send }: { saved: Saved; send: Send }) {
   const [sheet, setSheet] = useState<'answers' | 'outcome' | null>(null)
   const callMode = action.type === 'send_notice' && channel === 'call'
   const shown = Object.fromEntries(Object.entries(drafts).filter(([k]) => k !== 'call_card'))
+  // 알리기 전에 날짜가 지나면 예상 환불액이 줄어든다. 아래 문안은 이미 오늘 기준 금액이라, 처음 본 금액과 다르다는 것을 알린다
+  const now = saved.step.case.refund.refund
+  const dropped = saved.refundFrom !== undefined && saved.refundFrom > now
   return (
     <>
+      {dropped && <Banner status="info" collapsible={false}
+        title={`며칠 지나 예상 환불액이 ${won(saved.refundFrom!)}에서 ${won(now)}으로 줄었어요. 오늘 보내면 이 금액으로 요청해요`} />}
       {/* 알리는 방법과 그 방법의 문안은 한 장에 둔다(고르고 바로 본다) */}
       <VStack gap={3} className={callMode ? 'call-preparation' : undefined}>
         {action.type === 'send_notice' && channel === 'sms' && (

@@ -628,12 +628,16 @@ def business_accept_disputed(browser, base):
     load(offer(noticed, disputed - 1000))
     btn(page, "이 문자를 보냈어요").wait_for()
     rec(f"{tag}: 그보다 적으면 받기 버튼 없음", btn(page, "으로 받을게요").count() == 0 and btn(page, "에 합의했어요").count() == 0)
+    rec(f"{tag}: 그보다 적으면 근거를 물어보라고 안내", page.get_by_text("받아들이기 전에 항목별 근거를 물어보세요").count() == 1
+        and page.get_by_text("받고 끝낼 수도 있어요").count() == 0)
     # 위약금 뺀 금액이면 경고와 받기 버튼이 함께 있다. 반박이 주 버튼이다
     res = offer(noticed, disputed)
     load(res)
     btn(page, "으로 받을게요").wait_for()
     rec(f"{tag}: 같은 금액이면 경고와 받기 버튼", res["action"]["warn"] and page.get_by_text("보다 적어요").count() >= 1
         and btn(page, "이 문자를 보냈어요").count() == 1)
+    rec(f"{tag}: 받을 수 있으면 근거만 물어보라고 하지 않고 받을 수 있다고 안내", page.get_by_text("받고 끝낼 수도 있어요").count() == 1
+        and page.get_by_text("받아들이기 전에 항목별 근거를 물어보세요").count() == 0)
     # 반박 한 번 뒤 같은 금액이면 1372 안내와 받기 버튼이 함께 있고, 누르면 합의로 넘어간다
     _, res = call(base, "/api/cases/step", {"case": res["case"], "event": {"type": "counter_sent"}, "today": day})
     res = offer(res["case"], disputed + 500)
@@ -684,6 +688,43 @@ def zero_refund(browser, base):
     rec("0원 환불: 안내가 나오고 시작 버튼은 없음", shown and btn(page, "이 금액으로 시작").count() == 0
         and btn(page, "계약 수정").count() == 1)
     rec("0원 환불: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+
+
+def late_notice(browser, base):
+    """사건을 연 날(11/16)과 문자를 보내는 날(11/20)이 다르면, 문안·막대 금액이 보내는 날 기준이고 줄었다는 안내가 나온다.
+    보낸 뒤 업체가 맞는 금액을 말해도 정한 적 없는 하한선 때문에 경고가 뜨지 않는다(2026-11-22 시나리오 점검)."""
+    from lib import call
+    contract = call(base, "/api/samples")[1][0]["contract"]
+    _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
+    opened = res["case"]["refund"]["refund"]
+    _, later = call(base, "/api/cases/step", {"case": res["case"], "event": {"type": "time_passed"}, "today": "2026-11-20"})
+    now = later["case"]["refund"]["refund"]
+    tag = "늦은 통지"
+    errors: list[str] = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    # 열 때(11/16)의 사건 그대로 저장하고, 화면의 오늘은 11/20이다. 앱이 열리면서 서버에 다시 계산을 받는다
+    page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": res, "offset": 4})
+    page.reload(wait_until="networkidle")
+    shown = shows(page.get_by_text("며칠 지나 예상 환불액이"))
+    won = lambda n: f"{n:,}원"
+    rec(f"{tag}: 줄었다는 안내", shown and page.get_by_text(f"{won(opened)}에서 {won(now)}으로 줄었어요").count() == 1, f"{opened}->{now}")
+    draft = page.locator(".draft").first.inner_text()
+    rec(f"{tag}: 문안은 보내는 날 기준 금액", won(now) in draft and won(opened) not in draft)
+    rec(f"{tag}: 막대도 보내는 날 기준 금액", won(now) in page.locator(".app-bar").inner_text() and won(opened) not in page.locator(".app-bar").inner_text())
+    btn(page, "문자로 보냈어요").click()
+    page.wait_for_function("() => JSON.parse(localStorage.getItem('reeper.case')).step.case.stage === 'waiting'")
+    saved = page.evaluate("() => JSON.parse(localStorage.getItem('reeper.case'))")
+    case = saved["step"]["case"]
+    rec(f"{tag}: 보낸 뒤 환불액·희망 금액·하한선이 같음", case["refund"]["refund"] == now and case["target"] == now and case["floor"] == now)
+    _, offer = call(base, "/api/cases/step", {"case": case, "today": "2026-11-21",
+        "event": {"type": "reply_received", "reply_type": "low_offer", "amount": now, "text": ""}})
+    page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": offer, "offset": 5})
+    page.reload(wait_until="networkidle")
+    btn(page, "에 합의했어요").wait_for()
+    rec(f"{tag}: 맞는 금액이면 경고 없이 합의 버튼", not offer["action"]["warn"] and page.get_by_text("하한선").count() == 0
+        and page.get_by_text("보다 적어요").count() == 0)
+    rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
 
@@ -765,6 +806,7 @@ def main() -> int:
             business_accept_disputed(browser, base)
             industry_gate(browser, base)
             zero_refund(browser, base)
+            late_notice(browser, base)
             good_offer(browser, base)
             callback_draft(browser, base)
             storage_recovery(browser, base)

@@ -7,7 +7,8 @@ const KEY = STORAGE_KEY
 const VERSION = 1
 const REFRESH_ERROR = '다음 행동을 새로 불러오지 못했습니다.'
 
-export type Saved = { step: Step; offset: number; note?: string; actionDate?: string }
+// refundFrom: 알리기 전에 날짜가 지나 예상 환불액이 줄었을 때, 처음 보았던 금액. 줄었다는 안내(Prepare)에만 쓴다
+export type Saved = { step: Step; offset: number; note?: string; actionDate?: string; refundFrom?: number }
 export type Send = (event: CaseEvent, patch?: Partial<Saved>, opts?: { analyze?: boolean }) => Promise<boolean>
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -60,7 +61,8 @@ const parse = (raw: string | null): Saved | null => {
   if (typeof v.offset !== 'number' || !Number.isFinite(v.offset)) return null
   if (v.note !== undefined && typeof v.note !== 'string') return null
   if (v.actionDate !== undefined && typeof v.actionDate !== 'string') return null
-  return { step: v.step, offset: v.offset, note: v.note, actionDate: v.actionDate }
+  if (v.refundFrom !== undefined && (typeof v.refundFrom !== 'number' || !Number.isFinite(v.refundFrom))) return null
+  return { step: v.step, offset: v.offset, note: v.note, actionDate: v.actionDate, refundFrom: v.refundFrom }
 }
 
 // 옛 규칙(개월로 셈)으로 열고 아직 통지하지 않은 월 단위 사건. 첫 통지 때 예상 환불액만 일할로 바뀌고
@@ -105,9 +107,13 @@ export function useCase() {
       refreshing = true
       const expected = revision.current
       try {
-        const { action, drafts } = await api.step(saved.step.case, { type: 'time_passed' }, today)
+        // 알리기 전 사건은 서버가 오늘 기준 환불액으로 다시 계산해 돌려준다. 그 밖의 단계는 사건이 그대로다
+        const { action, drafts, case: next } = await api.step(saved.step.case, { type: 'time_passed' }, today)
         if (active && expected === revision.current) {
-          keep({ ...saved, actionDate: today, step: { ...saved.step, action, drafts } })
+          const before = saved.step.case.refund.refund
+          const dropped = saved.step.case.stage === 'ready' && next.refund.refund < before
+          keep({ ...saved, actionDate: today, refundFrom: dropped ? saved.refundFrom ?? before : saved.refundFrom,
+            step: { ...saved.step, case: next, action, drafts } })
           setError((current) => current === REFRESH_ERROR ? '' : current)
         }
       } catch {
