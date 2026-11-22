@@ -726,6 +726,32 @@ def late_notice(browser, base):
         and page.get_by_text("보다 적어요").count() == 0)
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
+    # 시연 버튼(기록을 보내는 길)으로 날짜를 보내도 같은 안내가 나온다. 날짜 갱신 길로만 계산하면 금액만 말없이 줄었다
+    errors = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
+    btn(page, "이 금액으로 시작").click()
+    btn(page, "문자로 보냈어요").wait_for()
+    btn(page, "4일 지남").click()
+    rec(f"{tag}: 시연 버튼으로 4일 지나도 줄었다는 안내", shows(page.get_by_text("며칠 지나 예상 환불액이"))
+        and won(now) in page.locator(".draft").first.inner_text())
+    btn(page, "4일 지남").click()
+    page.wait_for_function("() => document.body.innerText.includes('며칠 지나')")
+    rec(f"{tag}: 더 지나도 안내는 처음 본 금액에서 시작", page.get_by_text(f"{won(opened)}에서").count() == 1)
+    btn(page, "문자로 보냈어요").click()
+    page.get_by_text("까지 답을 기다려요").wait_for()
+    rec(f"{tag}: 보낸 뒤에는 안내가 사라짐", page.get_by_text("며칠 지나 예상 환불액이").count() == 0)
+    rec(f"{tag}: 시연 경로 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
+    # 계약이 끝난 뒤에는 0원이라 요청 문자를 만들지 않는다
+    errors = []
+    ctx, page = new_page(browser, base, {"width": 390, "height": 844}, errors)
+    page.evaluate("(s) => localStorage.setItem('reeper.case', JSON.stringify(s))", {"version": 1, "step": res, "offset": 80})
+    page.reload(wait_until="networkidle")
+    rec(f"{tag}: 계약 종료 뒤에는 0원 안내만 있고 보내기 버튼 없음", shows(page.get_by_role("heading", name="계산으로는 돌려받을 돈이 없어요"))
+        and btn(page, "문자로 보냈어요").count() == 0 and page.locator(".draft").count() == 0)
+    rec(f"{tag}: 종료 뒤 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
+    ctx.close()
 
 
 def good_offer(browser, base):
