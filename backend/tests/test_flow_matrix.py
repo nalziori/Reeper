@@ -66,12 +66,13 @@ SEQS = list(product(REPLIES, repeat=4))  # 소비자 사정은 반박 두 번, �
 @pytest.mark.parametrize("reason", ["consumer", "business"])
 def test_no_case_reaches_1372_without_stating_the_users_position(reason):
     """1372로 넘어가기 전에, 해지 이유·요청 금액을 밝힌 글(반박이나 내용증명)을 한 번은 보낸다.
-    업체 사정 사건은 반박이 한 번뿐이라, 어떤 답이 와도 그 반박이 입장을 밝힌다."""
+    어떤 답이 와도 반박은 입장을 밝힌다(업체 사정 사건은 반박이 한 번뿐이라 특히 그렇다)."""
     reached = 0
     for seq in SEQS:
         seen = run(reason, seq)
-        if reason == "business":
-            assert all(ok for a, _, ok in seen if a == "counter"), (seq, seen)
+        # 반박은 소비자 사정 사건에서도 늘 입장을 밝힌다. 예전 counter_unknown("확인한 뒤 다시 연락드리겠습니다")은
+        # 소비자 사건에서 반박 두 번 중 하나를 입장 없이 썼다(2026-11-22 시나리오 점검)
+        assert all(ok for a, _, ok in seen if a == "counter"), (seq, seen)
         if seen and seen[-1][0] == "go_1372":
             reached += 1
             assert any(ok for a, _, ok in seen[:-1] if a in SENT_FOR), (reason, seq, seen)
