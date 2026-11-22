@@ -31,12 +31,12 @@ REPLIES = {
 SENT_FOR = {"counter": "counter_sent", "certified_mail": "escalation_sent"}
 
 
-def run(reason: str, seq: tuple[str, ...]) -> list[tuple[str, str]]:
-    """답장을 차례로 넣고, 보낼 글이 나오면 보냈다고 기록한다. 지나간 (행동, 문안) 목록을 돌려준다."""
+def run(reason: str, seq: tuple[str, ...]) -> list[tuple[str, str, bool]]:
+    """답장을 차례로 넣고, 보낼 글이 나오면 보냈다고 기록한다. 지나간 (행동, 문안 이름, 입장을 밝혔는지) 목록을 돌려준다."""
     case = open_case(CONTRACT.model_copy(update={"cancel_reason": reason,
                                                  "fault_kind": "trainer_change" if reason == "business" else None}), D)
     case = apply(case, Event(type="notice_sent", channel="sms"), D)
-    seen: list[tuple[str, str]] = []
+    seen: list[tuple[str, str, bool]] = []
     for name in seq:
         kind, text, amount = REPLIES[name]
         if name == "low_disputed":
@@ -46,7 +46,7 @@ def run(reason: str, seq: tuple[str, ...]) -> list[tuple[str, str]]:
         drafts = agent.drafts_for(case, action)
         for k, body in drafts.items():
             assert agent.validate(body, case), (reason, seq, k, body)
-            seen.append((action.type, k))
+            seen.append((action.type, k, states_position(body, case)))
         if action.type == "go_1372":
             break
         if action.type in SENT_FOR:
@@ -54,20 +54,36 @@ def run(reason: str, seq: tuple[str, ...]) -> list[tuple[str, str]]:
     return seen
 
 
+def states_position(body: str, case) -> bool:
+    """문안 이름이 아니라 본문으로 본다(#169 A 리뷰): 요청 금액을 적었고 '확인 후 연락'이 아니다.
+    ponytail: 업체 사정 사건의 해지 이유 구절은 보지 않는다. 정상가·방문·낮은 제시액 반박 양식에는 아직 없다(C에게 알림)."""
+    return f"{case.refund.refund:,}원" in body and "다시 연락드리겠습니다" not in body
+
+
 SEQS = list(product(REPLIES, repeat=4))  # 소비자 사정은 반박 두 번, 내용증명, 다시 거절까지 답장 네 번이 지나야 1372에 닿는다
 
 
 @pytest.mark.parametrize("reason", ["consumer", "business"])
 def test_no_case_reaches_1372_without_stating_the_users_position(reason):
-    """1372로 넘어가기 전에, 해지 이유·금액을 밝힌 글(확인 후 연락이 아닌 반박이나 내용증명)을 한 번은 보낸다.
-    업체 사정 사건은 반박이 한 번뿐이라, 어떤 답이 와도 반박 문안이 '확인 후 연락'이 되지 않는다."""
+    """1372로 넘어가기 전에, 해지 이유·요청 금액을 밝힌 글(반박이나 내용증명)을 한 번은 보낸다.
+    업체 사정 사건은 반박이 한 번뿐이라, 어떤 답이 와도 그 반박이 입장을 밝힌다."""
     reached = 0
     for seq in SEQS:
         seen = run(reason, seq)
         if reason == "business":
-            assert ("counter", "counter_unknown") not in seen, seq
+            assert all(ok for a, _, ok in seen if a == "counter"), (seq, seen)
         if seen and seen[-1][0] == "go_1372":
             reached += 1
-            sent = [k for a, k in seen[:-1] if a in SENT_FOR]
-            assert any(k != "counter_unknown" for k in sent), (reason, seq, seen)
+            assert any(ok for a, _, ok in seen[:-1] if a in SENT_FOR), (reason, seq, seen)
     assert reached > 0  # 조합이 실제로 1372까지 닿는지(검사가 비어 있지 않은지)
+
+
+def test_the_reported_business_reply_gets_a_counter_that_asks_for_the_refund():
+    """2026-11-22에 겪은 순서 그대로: 귀책 부인 답 뒤의 한 번뿐인 반박 본문에 환급 요청과 요청 금액이 있다."""
+    case = open_case(CONTRACT.model_copy(update={"cancel_reason": "business", "fault_kind": "trainer_change"}), D)
+    case = apply(case, Event(type="notice_sent", channel="sms"), D)
+    kind, text, _ = REPLIES["unknown_fault"]
+    case = apply(case, Event(type="reply_received", reply_type=kind, text=text), D)
+    (body,) = agent.drafts_for(case, next_action(case, D)).values()
+    assert "위약금을 공제하지 않고" in body and "환급해 주시기 바랍니다" in body and states_position(body, case)
+    assert agent.why(case) in body
