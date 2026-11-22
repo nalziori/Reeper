@@ -735,6 +735,9 @@ def test_analysis_is_told_when_the_disputed_offer_can_be_taken():
     assert not agent._can_take(*after(theirs, other - 1))
     assert not agent._can_take(*after(open_case(CONTRACT, D), 300_000))  # 소비자 사정은 그대로 경고만
     # 다툴 때 금액이 0원인 사건에 0원 제시: 하한선 경고는 뜨지만 0원 합의는 받을 수 없다(#175 C 리뷰)
-    zero = theirs.model_copy(update={"refund": theirs.refund.model_copy(update={"disputed_refund": 0})})
-    case, action = after(zero, 0)
-    assert action.warn and not agent._can_take(case, action)
+    # 통지할 때 엔진이 환불액을 다시 계산하므로, 다툴 때 금액은 통지 뒤에 바꾼다
+    noticed = apply(theirs, Event(type="notice_sent", channel="sms"), D)
+    zero = noticed.model_copy(update={"refund": noticed.refund.model_copy(update={"disputed_refund": 0})})
+    case = apply(zero, Event(type="reply_received", text="위약금 빼면 드릴 게 없습니다", reply_type="low_offer", amount=0), D)
+    action = next_action(case, D)
+    assert case.refund.disputed_refund == 0 and case.offered == 0 and action.warn and not agent._can_take(case, action)
