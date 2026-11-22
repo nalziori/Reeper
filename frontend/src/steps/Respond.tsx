@@ -78,7 +78,12 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
   // 한 화면에 할 일 하나. 보내거나 말할 글이 있으면(재요청, 반박, 수락, 내용증명, 1372 접수) 그 글과 '했어요' 버튼이 이 화면의 일이고,
   // 답장 기록은 접어 둔다. 보낼 것이 없으면 답장 기록이 이 화면의 일이고, 지난 문자를 접어 둔다
   const sendFirst = ['follow_up', 'counter', 'certified_mail', 'confirm_agreement'].includes(action.type) || (action.type === 'go_1372' && c.stage !== 'handed_off')
-  const hasDock = sendFirst || (c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn)
+  // 업체 잘못 사건에서 업체가 위약금을 뺀 금액(rules.py의 disputed_refund) 이상을 내면, 하한선보다 적어 경고가 떠도
+  // 받고 끝낼지는 사용자가 정한다. 경고는 그대로 두고 받기 버튼만 함께 둔다. 서버는 하한선과 관계없이 합의를 받는다
+  const disputed = c.refund.disputed_refund
+  const takeDisputed = action.warn && c.contract.cancel_reason === 'business' && disputed != null && c.offered != null && c.offered >= disputed
+  const canAgree = c.stage === 'negotiating' && c.offered != null && c.offered > 0 && (!action.warn || takeDisputed)
+  const hasDock = sendFirst || canAgree
   const replyStage = ['waiting', 'negotiating', 'escalated'].includes(c.stage)
   // 답장 기록은 아래에서 올라오는 시트에서 한다. 읽는 중이거나 읽은 결과가 있으면 열어 둔다(시연 버튼으로 넣은 답장도 바로 보인다)
   const [sheet, setSheet] = useState(false)
@@ -140,8 +145,11 @@ export function Respond({ saved, send, reply, setReply, settlement, setSettlemen
             {action.type === 'certified_mail' && <Button variant="primary" label="내용증명을 보냈어요" onClick={() => send({ type: 'escalation_sent' })} />}
             {action.type === 'go_1372' && c.stage !== 'handed_off' && <Button variant="primary" label="1372에 접수했어요" onClick={() => send({ type: 'handoff_done' })} />}
             {/* 합의 금액은 0원보다 커야 한다(서버가 0원 이하는 409로 거절) */}
-            {c.stage === 'negotiating' && c.offered != null && c.offered > 0 && !action.warn && (
-              <Button variant="primary" label={`${won(c.offered)}에 합의했어요`} onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} />
+            {/* 경고가 떠 있을 때는 반박·1372 접수가 주 버튼이고, 받기는 보조 버튼으로 둔다 */}
+            {canAgree && c.offered != null && (
+              <Button variant={takeDisputed ? 'secondary' : 'primary'}
+                label={takeDisputed ? `${won(c.offered)}으로 받을게요` : `${won(c.offered)}에 합의했어요`}
+                onClick={() => send({ type: 'agreement_recorded', amount: c.offered })} />
             )}
           </HStack>
         </Dock>

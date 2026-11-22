@@ -56,7 +56,11 @@ def call(base: str, path: str, body=None, raw: bytes | None = None) -> tuple[int
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.status, json.loads(r.read() or b"null")
     except urllib.error.HTTPError as e:
-        text = e.read().decode(errors="replace")
+        try:
+            text = e.read().decode(errors="replace")
+        except ConnectionError:
+            # 서버가 큰 본문(413)을 다 받기 전에 연결을 닫으면 Windows에서 본문 읽기가 끊긴다. 상태 코드만 돌려준다
+            return e.code, ""
         try:
             return e.code, json.loads(text)
         except ValueError:
