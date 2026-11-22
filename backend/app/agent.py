@@ -36,6 +36,8 @@ COUNTER_KIND = {"refuse": "counter_refuse", "list_price": "counter_list_price",
                 "visit": "counter_visit", "low_offer": "counter_low_offer"}
 # ponytail: 위약금 비율 주장을 키워드로 알아본다. 놓치는 표현이 나오면 평가셋(eval/)으로 보강한다.
 PENALTY_RATE = re.compile(r"위약금.*?\d+\s*(?:%|퍼센트|프로)|\d+\s*(?:%|퍼센트|프로).*?위약금")
+# 업체 쪽 사정 사건에서 업체가 위약금이나 자기 책임을 말했는지
+FAULT_TALK = re.compile(r"위약금|귀책|책임|잘못")
 
 
 class FakeLLM:
@@ -499,10 +501,16 @@ def _counter_kind(case: Case) -> str:
         if r.type != "reply_received":
             break
         said.append(r.text)
+    if kind != "counter_unknown":
+        return kind
+    if any(PENALTY_RATE.search(t) for t in said):
+        return "counter_penalty"
     # 업체 쪽 사정 사건은 반박이 한 번뿐이다(engine.BUSINESS_MAX_COUNTERS). 그 한 번을 "확인한 뒤 다시 연락드리겠습니다"로
-    # 쓰면 내 입장을 한 번도 말하지 않은 채 1372로 넘어간다. 어떤 답인지 모르겠으면 위약금 없는 환급을 요청하는 양식으로 답한다
-    business = case.contract.cancel_reason == "business"
-    return "counter_penalty" if kind == "counter_unknown" and (business or any(PENALTY_RATE.search(t) for t in said)) else kind
+    # 쓰면 내 입장을 한 번도 말하지 않은 채 1372로 넘어간다. 위약금이나 책임을 말했으면 위약금 근거로, 아니면(접수 안내 등)
+    # 해지 이유와 요청 금액을 다시 밝히는 문안으로 답한다
+    if case.contract.cancel_reason == "business":
+        return "counter_penalty" if any(FAULT_TALK.search(t) for t in said) else "counter_refuse"
+    return kind
 
 
 def drafts_for(case: Case, action: Action) -> dict[str, str]:
