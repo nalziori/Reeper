@@ -57,6 +57,8 @@ function TabBar({ value, onChange }: { value: TabKey; onChange: (v: TabKey) => v
 
 export default function App() {
   const { saved, error, busy, keep, send, plan, rebase } = useCase()
+  const [showWelcome, setShowWelcome] = useState(!saved)
+  const intakeRef = useRef<HTMLElement>(null)
   const [rules, setRules] = useState<Rules>({})
   const [reply, setReply] = useState('')
   const [settlement, setSettlement] = useState('')
@@ -113,8 +115,25 @@ export default function App() {
   useEffect(() => { if (closed) forgetAccount() }, [closed])
   const tab: TabKey = saved && tabAt?.stage === saved.step.case.stage ? tabAt.tab : 'now'
   // 단계가 바뀌거나 탭을 오가면 맨 위에서 시작한다. 앞 화면의 스크롤 위치에 남으면 새 단계 안내가 가려진다
-  const view = saved ? `${journeyPhase(saved.step.case.stage)}:${tab}` : 'intake'
-  useEffect(() => { window.scrollTo({ top: 0 }) }, [view])
+  const view = saved ? `${journeyPhase(saved.step.case.stage)}:${tab}` : showWelcome ? 'welcome' : 'intake'
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+    if (view === 'intake') intakeRef.current?.focus({ preventScroll: true })
+  }, [view])
+
+  if (view === 'welcome') {
+    return (
+      <VStack role="main" gap={7} padding={6} className="page items-center justify-center bg-brand-soft text-center">
+        <Mascot pose="hello" />
+        <VStack gap={2}>
+          <Heading level={1} className="text-5xl font-bold tracking-tight">Reeper</Heading>
+          <Text as="p">헬스장·PT·필라테스 환불, 입금까지 챙겨 드려요.</Text>
+        </VStack>
+        <Button variant="primary" size="lg" className="h-12 w-full max-w-64" label="시작하기" onClick={() => setShowWelcome(false)} />
+      </VStack>
+    )
+  }
+
   // 위에 붙어 있는 막대: 이름, 새로 시작, 사건이 있으면 업체·받을 돈과 진행 단계. 내려도 어디까지 왔는지 보인다
   const sc = saved?.step.case
   const appBar = (
@@ -177,7 +196,9 @@ export default function App() {
       <VStack gap={4} padding={4} maxWidth={PAGE_WIDTH} className="page">
         {header}
         {error && <Banner status="error" title={error} collapsible={false} />}
-        <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
+        <main ref={intakeRef} tabIndex={-1} aria-label="계약 입력">
+          <Intake rules={rules} upload={health?.upload === true} onConfirm={(step, today) => keep({ offset: 0, step, actionDate: today })} />
+        </main>
       </VStack>
     )
   }
@@ -210,15 +231,16 @@ export default function App() {
       {/* 지금 할 일 한 문장과 기한. 금액 제시 없이 다시 요청하는 반박(근거를 들어 다시 요청하세요)은 아래 문자 카드와
           같은 말이고 기한도 없어서 보이지 않는다. 이유나 기한이 있는 문장은 그대로 둔다(문장은 engine.py가 정한다) */}
       {!(phase === 3 && action.type === 'send_notice') && !(action.type === 'counter' && !action.warn && c.offered == null) && <Card className="mb-3">
-        <VStack gap={3}>
-          <Heading level={2}>{action.reason}</Heading>
-          <DeadlineLine c={c} offset={saved.offset} />
-        </VStack>
+        <HStack hAlign="between" vAlign="start" gap={2}>
+          <VStack gap={3}>
+            <Heading level={2}>{action.reason}</Heading>
+            <DeadlineLine c={c} offset={saved.offset} />
+          </VStack>
+          {action.type === 'wait' && c.stage === 'agreed' && <Mascot pose="wait" small />}
+        </HStack>
       </Card>}
-      {/* 기다릴 때와 다 끝났을 때만 마스코트를 둔다. 빈 화면을 채우는 그림이다 */}
-      {/* 보낼 글이 없는 기다림 화면에만 둔다. 입금 기다림(합의 확인 문자)이나 다시 연락 뒤(연락 시각 확인 문자)는
-          wait여도 할 일이 있어서 그림이 그 앞을 밀어내지 않게 숨긴다(#155 B 리뷰) */}
-      {action.type === 'wait' && Object.keys(saved.step.drafts).length === 0 && <Mascot pose="wait" />}
+      {/* 업체 답을 기다릴 때는 보낼 문안이 없어야 마스코트를 크게 보여 준다. */}
+      {action.type === 'wait' && c.stage !== 'agreed' && Object.keys(saved.step.drafts).length === 0 && <Mascot pose="wait" />}
       {c.stage === 'closed' && <Mascot pose="done" />}
       {/* 한 화면에 할 일 하나: 지금 단계의 일을 위에서부터 쌓고, 참고용(조언·시연)은 맨 아래에 접어 둔다 */}
       <VStack gap={3}>

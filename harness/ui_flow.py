@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 from lib import ROOT, server
 
@@ -28,6 +28,20 @@ def rec(name, ok, note=""):
 
 def btn(page, name, exact=False):
     return page.get_by_role("button", name=name, exact=exact)
+
+
+def start_intake(page):
+    btn(page, "시작하기", exact=True).click()
+    expect(page.get_by_role("heading", name="내 계약 입력")).to_be_visible()
+
+
+def shows(locator, timeout=5000) -> bool:
+    """보이면 참. 확인 결과를 예외 대신 rec로 남길 때 쓴다(실패해도 하니스가 멈추지 않는다)."""
+    try:
+        locator.first.wait_for(timeout=timeout)
+        return True
+    except Exception:
+        return False
 
 
 def record_amount(page, amount: str) -> None:
@@ -66,6 +80,7 @@ def new_page(browser, base, viewport, errors):
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
     page.on("response", lambda r: errors.append(f"{r.status} {r.url}") if r.status >= 400 else None)
     page.goto(base + "/?demo", wait_until="networkidle")  # 시연 조작은 ?demo가 있을 때만 보인다
+    start_intake(page)
     return ctx, page
 
 
@@ -218,6 +233,9 @@ def full_flow(browser, base, tag, viewport):
     # 새로고침해도 이어진다
     page.reload(wait_until="networkidle")
     rec(f"{tag}: 새로고침 뒤 사건 유지", page.get_by_role("heading", name="환불금을 받았어요").count() == 1)
+    rec(f"{tag}: 저장된 사건이면 대문을 건너뜀", btn(page, "시작하기", exact=True).count() == 0)
+    btn(page, "새로 시작", exact=True).click()
+    rec(f"{tag}: 새로 시작하면 입력 화면", shows(page.get_by_role("heading", name="내 계약 입력")))
     rec(f"{tag}: 콘솔 오류 없음", not errors, "; ".join(errors)[:200])
     ctx.close()
 
@@ -227,6 +245,9 @@ def demo_hidden(browser, base):
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, locale="ko-KR")
     page = ctx.new_page()
     page.goto(base, wait_until="networkidle")
+    rec("대문: 마스코트와 시작하기, 입력 화면은 아직 없음", shows(page.get_by_role("main").locator("img"))
+        and btn(page, "시작하기", exact=True).count() == 1 and page.get_by_role("heading", name="내 계약 입력").count() == 0)
+    start_intake(page)
     page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
@@ -290,6 +311,7 @@ def photo_fill(browser, base):
     page.route("**/api/health", health)
     page.route("**/api/contracts/extract", lambda r: r.fulfill(json={"fields": fields, "llm_fallback": False}))
     page.goto(base, wait_until="networkidle")
+    start_intake(page)
     png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
     page.locator("input[type=file]").set_input_files({"name": "c.png", "mimeType": "image/png", "buffer": png})
     page.get_by_text("사진에서 읽어 채웠어요").wait_for()
@@ -363,6 +385,7 @@ def not_sent_drafts(browser, base):
     page = ctx.new_page()
     page.route("**/api/health", lambda r: r.fulfill(json={**r.fetch().json(), "llm": "OpenAILLM", "calls_left": 5}))
     page.goto(base, wait_until="networkidle")
+    start_intake(page)
     page.get_by_role("group", name="가상 계약서로 해 보기").get_by_role("button").first.click()
     btn(page, "이 금액으로 시작").click()
     btn(page, "문자로 보냈어요").wait_for()
@@ -545,6 +568,8 @@ def business_negotiation(browser, base):
     load(res)
     page.get_by_text("비슷한 사례 3건 참고하기").wait_for()
     rec(f"{tag}: 거절 뒤 반박 문자와 비슷한 사례", res["action"]["type"] == "counter" and page.locator(".draft").count() >= 1)
+    angry = page.locator('img[src*="angry"]')
+    rec(f"{tag}: 업체가 거절하면 반박 문자 제목 옆에 화난 마스코트", angry.count() == 1)
     for event in ({"type": "counter_sent"}, {"type": "reply_received", "reply_type": "refuse", "text": "그래도 환불은 어렵습니다"}):
         # 화면의 오늘은 new_page가 2026-11-16으로 고정한다. 그보다 늦은 기록이면 화면이 409를 받는다
         _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": "2026-11-16"})
@@ -553,6 +578,14 @@ def business_negotiation(browser, base):
     rec(f"{tag}: 반박 뒤 거절이면 내용증명 없이 1372", res["action"]["type"] == "go_1372"
         and btn(page, "내용증명을 보냈어요").count() == 0 and btn(page, "1372에 접수했어요").count() == 1)
     rec(f"{tag}: 1372 단계에도 비슷한 사례", page.get_by_text("비슷한 사례 3건 참고하기").count() == 1)
+    # 거절이 아닌 답(접수 안내)에도 같은 반박 문안이 나가지만, 화낼 일이 아니라 화난 마스코트는 두지 않는다(#170 리뷰)
+    _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
+    for event in ({"type": "notice_sent", "channel": "sms"},
+                  {"type": "reply_received", "reply_type": "unknown", "text": "환불 요청은 접수했습니다. 처리 중입니다."}):
+        _, res = call(base, "/api/cases/step", {"case": res["case"], "event": event, "today": "2026-11-16"})
+    load(res)
+    page.locator(".draft").first.wait_for()
+    rec(f"{tag}: 거절이 아닌 답에는 화난 마스코트 없음", res["action"]["type"] == "counter" and angry.count() == 0)
     # 거절도 제시도 아닌(unknown) 답이라도 업체가 귀책·위약금을 말하면, 한 번뿐인 반박은 위약금 반박이다.
     # "확인한 뒤 다시 연락드리겠습니다"로 나가면 안 된다(#166)
     _, res = call(base, "/api/cases", {"contract": contract, "today": "2026-11-16"})
@@ -687,8 +720,12 @@ def storage_recovery(browser, base):
         page.goto(base, wait_until="networkidle")
         page.evaluate("(raw) => localStorage.setItem('reeper.case', raw)", raw)
         page.reload(wait_until="networkidle")
-        ok_intro = page.get_by_text("가상 계약서로 해 보기").count() == 1
-        rec(f"저장값 복구: {label}", ok_intro and not page.locator("[role=alert]").filter(has_text=re.compile(r"\S")).count(), "; ".join(errors)[:120])
+        # 망가진 저장값은 버리고 대문부터 다시 연다. 시작하기를 누르면 가상 계약서로 해 보기가 보인다
+        ok_start = shows(btn(page, "시작하기", exact=True))
+        if ok_start:
+            btn(page, "시작하기", exact=True).click()
+        ok_intro = shows(page.get_by_text("가상 계약서로 해 보기"))
+        rec(f"저장값 복구: {label}", ok_start and ok_intro and not page.locator("[role=alert]").filter(has_text=re.compile(r"\S")).count(), "; ".join(errors)[:120])
         ctx.close()
 
 

@@ -191,7 +191,13 @@ ol.call-script-list { list-style: decimal; padding-inline-start: 1.5em; }
 /* 계약서 사진 칸: 이름, 설명, 파일 선택을 위아래로 쌓는다 */
 .photo-input {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
+}
+
+.photo-input input[type='file'] {
+  width: 100%;
+  min-width: 0;
 }
 
 .photo-input input[type='file'],
