@@ -607,6 +607,27 @@ def test_an_offer_that_only_takes_the_penalty_off_gets_the_penalty_answer():
     assert list(after(open_case(CONTRACT, D), 300_000)[1]) == ["counter_low_offer"]
 
 
+def test_business_case_never_spends_its_one_counter_on_a_holding_reply():
+    """업체 쪽 사정 사건은 반박 한 번 뒤 1372다. "귀책이 없어 위약금을 부담할 수 없다"는 unknown으로 읽히는데,
+    그 한 번이 "확인한 뒤 다시 연락드리겠습니다"이면 입장을 말하지 않고 넘어간다(2026-11-22 사용자가 배포에서 겪음).
+    위약금·책임을 말한 답은 위약금 근거로, 접수 안내처럼 그런 말이 없는 답은 해지 이유와 금액을 다시 밝히는 문안으로 답한다(#166 A 리뷰)."""
+    dispute = "새로운 강사로 변경해 드렸으니 저희 귀책이 없어 위약금을 부담할 수 없습니다."
+    notice = "환불 요청은 접수했습니다. 처리 중입니다."
+    for text in (dispute, notice):
+        assert agent.FAKE.read_reply(text) == ("unknown", None)
+    for case, text, want in ((fault_case("trainer_change"), dispute, "counter_penalty"),
+                             (fault_case("trainer_change"), notice, "counter_refuse"),
+                             (open_case(CONTRACT, D), dispute, "counter_unknown")):
+        case = apply(case, Event(type="notice_sent", channel="sms"), D)
+        case = apply(case, Event(type="reply_received", text=text, reply_type="unknown"), D)
+        drafts = agent.drafts_for(case, next_action(case, D))
+        assert list(drafts) == [want] and agent.validate(drafts[want], case)
+        if case.contract.cancel_reason == "business":
+            assert f"{case.refund.refund:,}원" in drafts[want] and "다시 연락드리겠습니다" not in drafts[want]
+        if want == "counter_refuse":
+            assert "약속한 강사" in drafts[want] and "위약금" not in drafts[want]
+
+
 def test_refusal_counter_mentions_the_reason_only_for_business_cases():
     cases = (open_case(CONTRACT, D), fault_case("trainer_change"))
     texts = []
