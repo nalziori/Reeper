@@ -84,6 +84,8 @@ PowerShell에서 `npm.ps1` 실행이 차단되면 위 명령의 `npm`을 `npm.cm
 | 맑은 고딕 | Microsoft (Windows 기본 글꼴) | 소개서 그래프 그림에만 쓰임 |
 | 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | AI 생성(ChatGPT 웹), A 트랙 | OpenAI 이용약관 |
 | 시연 영상 배경음 「Afterglow Circuit」(시연 영상에만, 저장소 외) | AI 생성(OpenAI gpt-6-astra), C 트랙 | OpenAI 이용약관 |
+| 모의 헬스장 이용계약서 이미지(시연 영상에만, 저장소 외) | 팀이 구한 양식에 가상 값을 넣어 Claude Code로 제작, B 트랙 | 팀 제작 |
+| 시연 영상 효과음 "딱"(저장소 외) | Claude Code로 쓴 코드로 합성, B 트랙 | 팀 제작 |
 
 ### AI 모델·API
 
