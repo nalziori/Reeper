@@ -677,7 +677,7 @@ ANALYZE_SCHEMA = {
 
 
 def _can_take(case: Case, action: Action) -> bool:
-    """하한선보다 적어 경고가 떠도 사용자가 받고 끝낼 수 있는 제시인지. 화면의 받기 버튼(Respond.tsx의 takeDisputed·canAgree, #171)과
+    """하한선보다 적어 경고가 떠도 사용자가 받고 끝낼 수 있는 제시인지. 화면의 받기 버튼(offer.ts의 canTakeDisputed, #171·#179)과
     같은 조건이다. 0원 합의는 서버가 거절하고(engine의 agreement_recorded) 화면도 버튼을 두지 않으므로 0원보다 커야 한다."""
     other = case.refund.disputed_refund
     return bool(action.warn and case.contract.cancel_reason == "business" and other is not None
