@@ -250,7 +250,7 @@ docs/           기획안, 개발 계획, 계약, 환불 규칙, 배포, 브랜�
 | Noto Sans KR | Google Fonts | SIL OFL 1.1 (소개서 PDF 글꼴, 저장소 외) |
 | 맑은 고딕 | Microsoft (Windows 기본 글꼴) | 소개서 그래프 그림에만 쓰임 |
 | 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | AI 생성(ChatGPT 웹), A 트랙 | OpenAI 이용약관 |
-| 시연 영상 배경음 「Afterglow Circuit」(시연 영상에만, 저장소 외) | AI 생성(OpenAI gpt astra), C 트랙 | OpenAI 이용약관 |
+| 시연 영상 배경음 「Afterglow Circuit」(시연 영상에만, 저장소 외) | AI 생성(OpenAI gpt-6-astra), C 트랙 | OpenAI 이용약관 |
 
 ### AI 모델·API
 
