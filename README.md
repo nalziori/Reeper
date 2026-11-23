@@ -245,7 +245,8 @@ docs/           기획안, 개발 계획, 계약, 환불 규칙, 배포, 브랜�
 | 자료 | 제작자·출처 | 라이선스 |
 |---|---|---|
 | Pretendard | github.com/orioncactus/pretendard | SIL OFL 1.1 |
-| 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | [제작자·도구 확인] | [확인] |
+| 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | AI 생성(ChatGPT 웹), A 트랙 | OpenAI 이용약관 |
+| 시연 영상 배경음 「Afterglow Circuit」 | AI 생성(OpenAI gpt astra), C 트랙 | OpenAI 이용약관 |
 
 ### AI 모델·API
 
