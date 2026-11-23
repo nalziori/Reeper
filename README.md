@@ -211,3 +211,46 @@ docs/           기획안, 개발 계획, 계약, 환불 규칙, 배포, 브랜�
 - [평가 결과](docs/평가_결과.md): 보고할 숫자, 읽을 때 주의할 점, 완료 기준 점검.
 - [평가 실행 기록](eval/README.md): 평가셋, 실행 방법, 실제 모델 실행 결과.
 - [에이전트 작업 규칙](AGENTS.md): AI 코딩 에이전트가 지킬 것.
+
+## Credits / Licenses
+
+「AI 해커톤 AI 활용 및 출처 표기 기준」 제5조의 형식을 따른다. AI와 팀의 역할은 [AI 활용내역](docs/제출_AI활용내역.md)에 있다.
+
+### 오픈소스
+
+| 이름 | 라이선스 | 링크 | 용도 |
+|---|---|---|---|
+| React 19 | MIT | github.com/facebook/react | 화면 |
+| Vite | MIT | github.com/vitejs/vite | 화면 빌드 |
+| TypeScript | Apache-2.0 | github.com/microsoft/TypeScript | 화면 |
+| Tailwind CSS 4, tw-animate-css | MIT | github.com/tailwindlabs/tailwindcss | 화면 스타일 |
+| shadcn/ui, Base UI | MIT | github.com/shadcn-ui/ui, github.com/mui/base-ui | 화면 부품 |
+| class-variance-authority | Apache-2.0 | github.com/joe-bell/cva | 화면 부품 변형 |
+| Heroicons | MIT | github.com/tailwindlabs/heroicons | 아이콘 |
+| FastAPI, Pydantic | MIT | github.com/fastapi/fastapi, github.com/pydantic/pydantic | 서버 |
+| Uvicorn, HTTPX, python-dotenv | BSD-3-Clause | github.com/encode/uvicorn, github.com/encode/httpx, github.com/theskumar/python-dotenv | 서버 실행, OpenAI 호출, 환경변수 |
+| pytest, Playwright | MIT, Apache-2.0 | github.com/pytest-dev/pytest, github.com/microsoft/playwright | 테스트, 화면 흐름 점검 |
+
+### 데이터
+
+| 데이터 | 제공기관 | 라이선스·이용 조건 | 기준일 |
+|---|---|---|---|
+| 방문판매 등에 관한 법률, 「계속거래 등의 해지·해제에 따른 위약금 및 대금의 환급에 관한 산정기준」(공정거래위원회 고시) | 국가법령정보센터(law.go.kr) | 법령·고시는 저작권 보호 대상이 아니다(저작권법 제7조) | 2026-11-18 원문 확인 |
+| 헬스·PT·필라테스 분쟁조정·피해구제·상담 사례 | 소비자24(consumer.go.kr), 한국소비자원(kca.go.kr) | 공개 사례를 요약해 쓰고 사례마다 출처 주소를 남겼다(`data/mediation_cases.json`, `eval/case_pool.jsonl`) | 2026-11-21 수집 |
+| 헬스장 피해구제·상담 통계, 체육시설업 현황 | 한국소비자원 보도자료, 문화체육관광부 | 출처 표기(`docs/소개서/출처.md`) | 각 자료의 발표일 |
+| 평가용 계약서·답장·상황 | 팀 제작(가상 데이터) | 저장소와 같음 | - |
+
+### 이미지·음원·폰트
+
+| 자료 | 제작자·출처 | 라이선스 |
+|---|---|---|
+| Pretendard | github.com/orioncactus/pretendard | SIL OFL 1.1 |
+| 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | [제작자·도구 확인] | [확인] |
+
+### AI 모델·API
+
+| 이름 | 제공 | 용도 |
+|---|---|---|
+| gpt-6.1-terra (Chat Completions API) | OpenAI, 이용약관 | 서비스의 답장 읽기·분석, 조언, 말투 다듬기, 계약서 사진 읽기 |
+| Claude Code | Anthropic, 이용약관 | 개발(코드·테스트·문서 작성, 리뷰 초안) |
+| Codex | OpenAI, 이용약관 | 개발(교차 검증) |
