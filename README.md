@@ -224,12 +224,14 @@ docs/           기획안, 개발 계획, 계약, 환불 규칙, 배포, 브랜�
 | Vite | MIT | github.com/vitejs/vite | 화면 빌드 |
 | TypeScript | Apache-2.0 | github.com/microsoft/TypeScript | 화면 |
 | Tailwind CSS 4, tw-animate-css | MIT | github.com/tailwindlabs/tailwindcss | 화면 스타일 |
-| shadcn/ui, Base UI | MIT | github.com/shadcn-ui/ui, github.com/mui/base-ui | 화면 부품 |
+| shadcn/ui | MIT | github.com/shadcn-ui/ui | 화면 부품(코드를 받아 고쳐 씀) |
+| Base UI | MIT | github.com/mui/base-ui | 화면 부품의 바탕 |
 | class-variance-authority | Apache-2.0 | github.com/joe-bell/cva | 화면 부품 변형 |
 | Heroicons | MIT | github.com/tailwindlabs/heroicons | 아이콘 |
 | FastAPI, Pydantic | MIT | github.com/fastapi/fastapi, github.com/pydantic/pydantic | 서버 |
 | Uvicorn, HTTPX, python-dotenv | BSD-3-Clause | github.com/encode/uvicorn, github.com/encode/httpx, github.com/theskumar/python-dotenv | 서버 실행, OpenAI 호출, 환경변수 |
 | pytest, Playwright | MIT, Apache-2.0 | github.com/pytest-dev/pytest, github.com/microsoft/playwright | 테스트, 화면 흐름 점검 |
+| matplotlib | Matplotlib License(PSF 기반) | github.com/matplotlib/matplotlib | 소개서 그래프(`docs/소개서/make_charts.py`) |
 
 ### 데이터
 
@@ -245,8 +247,10 @@ docs/           기획안, 개발 계획, 계약, 환불 규칙, 배포, 브랜�
 | 자료 | 제작자·출처 | 라이선스 |
 |---|---|---|
 | Pretendard | github.com/orioncactus/pretendard | SIL OFL 1.1 |
+| Noto Sans KR | Google Fonts | SIL OFL 1.1 (소개서 PDF 글꼴, 저장소 외) |
+| 맑은 고딕 | Microsoft (Windows 기본 글꼴) | 소개서 그래프 그림에만 쓰임 |
 | 마스코트(딱따구리) 그림 `frontend/src/assets/mascot/` | AI 생성(ChatGPT 웹), A 트랙 | OpenAI 이용약관 |
-| 시연 영상 배경음 「Afterglow Circuit」 | AI 생성(OpenAI gpt astra), C 트랙 | OpenAI 이용약관 |
+| 시연 영상 배경음 「Afterglow Circuit」(시연 영상에만, 저장소 외) | AI 생성(OpenAI gpt astra), C 트랙 | OpenAI 이용약관 |
 
 ### AI 모델·API
 
